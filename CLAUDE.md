@@ -920,8 +920,8 @@ rule of knowledge, before the project (a 422 says nothing about it). The list's 
 `Api::V1::ReadableProject`, shared with knowledge; a reader without the meetings area gets an
 empty list. `Api::V1::ReadableMeeting` answers one 404 in status and body for missing, malformed,
 out of reach, foreign and no area, and turns a policy refusal into that 404 as well: unlike a
-ticket, a meeting never answers 403. An archived project is the web's: closed to a member (scope
-alone would let them in, `show?` keeps them out), open to an account admin. Guard:
+ticket, a meeting never answers 403. An archived project is the web's: closed to a member, open
+to an account admin. Guard:
 `spec/requests/api/v1/meetings_read_spec.rb`.
 
 `GET /api/v1/organisations/:organisation_id/people` and `.../people/:id` (People S3b) read

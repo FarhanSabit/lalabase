@@ -396,14 +396,23 @@ RSpec.describe 'REST meetings', :ci_guard, type: :request do
         expect_not_found(show(held.id, pat: pat))
       end
 
-      it 'for a member of an archived project, whose grant the policy scope still names' do
+      it 'for a member of an archived project' do
         quietly { project.update!(archived_at: Time.current) }
 
         expect_not_found(show(held.id))
       end
 
-      it 'when the policy alone refuses: never a 403, which would tell the meeting exists' do
+      # The scope and show? agree on every grant there is, so no data separates them. Each is
+      # held here on its own, or a slip in the other would stand unseen.
+      it 'when show? alone refuses: never a 403, which would tell the meeting exists' do
         allow_any_instance_of(MeetingPolicy).to receive(:show?).and_return(false)
+
+        expect_not_found(show(held.id))
+      end
+
+      it 'when the policy scope alone refuses' do
+        held
+        allow_any_instance_of(MeetingPolicy::Scope).to receive(:resolve).and_return(Meeting.none)
 
         expect_not_found(show(held.id))
       end
