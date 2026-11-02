@@ -91,10 +91,10 @@ module TimeSessions
       end
     end
 
-    # The tickets of one organisation's rows that the person may read, through
-    # the same call as Lalabase::Tools::Base.readable_tickets and
-    # Api::V1::ReadableTicket. Narrowed to the token's projects by the TICKET's
-    # project: until 2026-09-16 a booking moved to another project kept the
+    # The tickets of one organisation's rows that the person may read: the same
+    # question as Tickets::ReadableForToken, asked here by hand for a reach that
+    # is already at hand, and not held by its guard. Narrowed to the token's
+    # projects by the TICKET's project: until 2026-09-16 a booking moved to another project kept the
     # ticket of its old one. Looked up in the booking's organisation, so a
     # booking that points at a ticket of another one (Codebase imports before
     # 2026-09-16) shows none. Only readable tickets are read from the database

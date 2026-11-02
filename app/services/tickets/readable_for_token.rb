@@ -7,9 +7,9 @@
 # It decides what can be FOUND, never the answer: no authorize, no 404, no wording. Those stay
 # with the caller.
 #
-# token: nil is legitimate. The assistant calls the same tools as MCP and has no token; its reach
-# is the person's own, which is the policy scope alone. nil therefore means "no second limit",
-# and the caller writes token: nil out: the keyword is required, because a caller that forgot it
+# token: nil is legitimate. The web pages and the assistant, which calls the same tools as MCP,
+# have no token; their reach is the person's own, which is the policy scope alone. nil therefore
+# means "no second limit", and the caller writes token: nil out: the keyword is required, because a caller that forgot it
 # would silently widen an account admin to every project. A token's reach of nil means every project of the
 # organisation, [] means none, also for an organisation outside the token.
 #

@@ -13,7 +13,8 @@
 # and save! run in this actor's one transaction, in that order.
 #
 # No rights checks here. The caller makes sure the user may write tickets in the project of
-# `ticket` and may read `other_ticket` (policy_scope(Ticket)); PR 2 does that in the controller.
+# `ticket` and may read `other_ticket`, found through Tickets::RelationAccess#other_ticket with
+# the caller's token.
 # The ticket objects passed in do not learn about the new row (TicketRelation has no inverse on
 # its belongs_to, on purpose): a caller that loaded ticket.outgoing_relations or
 # incoming_relations before reads them fresh afterwards, or renders from a new query.

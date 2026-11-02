@@ -13,8 +13,8 @@ Ausgenommene Subtrees mit eigenem Vertrag: `actors/`, `lalabase/tools/`).
 „Actor-Pattern", Guard: `spec/services/actors/actor_contract_guard_spec.rb`). Triviales
 Einzel-`update!` ohne Side-Effects bleibt im Controller.
 
-* An actor writes and checks no rights.
-* Finding belongs to one object per domain (`Tickets::ReadableForToken`, `Tickets::RelationAccess`, `People::Lookup`); they share the question, not code.
+* An actor writes and checks no rights. Exceptions lock first and authorize again under the lock (`AcceptTicketSuggestion`, `StartTicketSuggestionRun`).
+* Finding belongs to one object per domain (`Tickets::ReadableForToken`, `Tickets::RelationAccess`, `People::Lookup`); they share the question, not code. Where `nil` would drop a limit, the keyword is required.
 * The policy decides yes or no.
 * The caller words the answer (status, text, 404 form).
 * A guard holds where a mistake discloses data (`ticket_token_lookup_guard_spec.rb`, `ticket_relation_actor_callers_guard_spec.rb`).

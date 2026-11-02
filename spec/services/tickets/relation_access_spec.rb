@@ -68,8 +68,13 @@ RSpec.describe Tickets::RelationAccess, :ci_guard do
     end
   end
 
-  def access(user, token: nil)
+  def access(user, token:)
     described_class.new(user: user, organisation: organisation, token: token)
+  end
+
+  it 'requires the token keyword: leaving it out would drop the limit silently' do
+    expect { described_class.new(user: build(:user), organisation: organisation) }
+      .to raise_error(ArgumentError, /token/)
   end
 
   def other_ticket(user, id, token: nil)

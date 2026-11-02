@@ -787,6 +787,13 @@ unreadable tickets, but queries are not: discovering the unknown tenant reads on
 numbers; this deliberately accepts query asymmetry instead of searching every
 organisation the token reaches. It makes no constant-time guarantee.
 
+What a token holder can find is decided by `Tickets::ReadableForToken` alone (REST, MCP tools,
+`Tickets::RelationAccess`), reach before policy scope. `token:` is required on it and on
+`Tickets::RelationAccess`: `nil` means no second limit and is written out by the callers without
+a token. Guards: `spec/architecture/ticket_token_lookup_guard_spec.rb` (also refuses these
+finders and `TicketRelation.visible_to` without a token on the token surfaces) and
+`ticket_relation_actor_callers_guard_spec.rb`.
+
 **`/api/v1` for programs** (REST R0, 2026-10-28; the terminal client moves from MCP to REST
 feature by feature):
 

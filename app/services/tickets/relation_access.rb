@@ -7,11 +7,12 @@
 # foreign, unreadable and out of reach look the same to the caller.
 #
 # It only finds: no rights decision, no wording, no raising. Those stay with the caller. token:
-# means what it means in Tickets::ReadableForToken: nil is no second limit, and a caller that
-# holds a token must pass it.
+# means what it means in Tickets::ReadableForToken: nil is no second limit, so the web controller
+# writes it out, and the keyword is required: a tool that forgot it would find tickets out of its
+# token's reach, and the actors behind it check no rights.
 module Tickets
   class RelationAccess
-    def initialize(user:, organisation:, token: nil)
+    def initialize(user:, organisation:, token:)
       @user = user
       @organisation = organisation
       @token = token
