@@ -111,6 +111,7 @@ module McpContract
       unread_notification: 71, read_notification: 72, archived_notification: 73,
       write_token: 81, read_token: 82, deactivated_token: 83, limited_token: 84, dora_token: 85,
       doris_person: 91, ben_person: 92,
+      kickoff_meeting: 101, review_meeting: 102, hidden_meeting: 103, internal_meeting: 104, foreign_meeting: 105,
       missing: 999
     }.transform_values { |n| format('00000000-0000-4000-8000-%012d', n) }.freeze
 
@@ -619,7 +620,10 @@ module McpContract
         'GET /api/v1/projects/:project_id/knowledge' => rest_knowledge_calls,
         # REST R3b, appended last: it changes the export and the login ticket
         # after every answer above, without advancing the clock.
-        'POST /api/v1/tickets/:id/changes' => rest_ticket_change_calls
+        'POST /api/v1/tickets/:id/changes' => rest_ticket_change_calls,
+        # REST R8, appended last: reads only, over meetings made right before them.
+        'GET /api/v1/projects/:project_id/meetings' => rest_meeting_list_calls,
+        'GET /api/v1/meetings/:id' => rest_meeting_show_calls
       }
     end
 
@@ -659,6 +663,74 @@ module McpContract
         'idempotency_first' => rest_send(:post, :write, export, params: once, key: key),
         'idempotency_replay' => rest_send(:post, :write, export, params: once, key: key),
         'idempotency_mismatch' => rest_send(:post, :write, export, params: { change: { status: statuses.first } }, key: key)
+      }
+    end
+
+    # The meetings the answers read. Made once, right before the first of them, without
+    # `record`: no clock moves for anything recorded later. Anna reads the meetings of the
+    # website and of the internal project (her limited token reaches only the website) and
+    # none of the handbook, where she only reads notes.
+    def meeting_world
+      @meeting_world ||= begin
+        people_world
+        in_org do
+          ProjectPermission.find_by!(user: @anna, project: @website).update!(meetings_access: :read_only)
+          ProjectPermission.find_by!(user: @anna, project: @internal).update!(meetings_access: :read_only)
+          kickoff = create(:meeting, id: id(:kickoff_meeting), project: @website, organisation: @organisation, creator: @anna,
+                                     title: 'Kickoff Relaunch', occurred_at: START - 1.day, duration_minutes: 45,
+                                     notes: 'Termin im März halten.', transcript: 'Anna: Wir starten im März.',
+                                     generated_summary: '**Ergebnis:** Start im März.')
+          create(:meeting_participant, meeting: kickoff, organisation: @organisation, user: @anna, display_name: 'Anna Albers')
+          create(:meeting_participant, meeting: kickoff, organisation: @organisation, display_name: 'Erika Beispiel',
+                                       created_at: Time.current + 1.second)
+          create(:meeting, id: id(:review_meeting), project: @website, organisation: @organisation, creator: @ben,
+                           title: 'Kurze Abstimmung', occurred_at: START - 2.days)
+          create(:meeting, id: id(:hidden_meeting), project: @handbook, organisation: @organisation, creator: @anna,
+                           title: 'Vertrauliches Gespräch', occurred_at: START - 3.days, transcript: 'Nicht für Notiz-Leser.')
+          create(:meeting, id: id(:internal_meeting), project: @internal, organisation: @organisation, creator: @anna,
+                           title: 'Interne Runde', occurred_at: START - 4.days)
+        end
+        ActsAsTenant.with_tenant(@other_organisation) do
+          create(:meeting, id: id(:foreign_meeting), project: @foreign_project, organisation: @other_organisation, creator: @ben,
+                           title: 'Fremdes Gespräch', occurred_at: START - 5.days)
+        end
+        true
+      end
+    end
+
+    def rest_meeting_list_calls
+      meeting_world
+      # Spelled out, not a loop: each request from its own line (Prosopite).
+      path = "/api/v1/projects/#{id(:website)}/meetings"
+      {
+        'ok' => rest_get(:read, path),
+        'ok_search' => rest_get(:read, "#{path}?q=M%C3%A4rz"),
+        'ok_page' => rest_get(:read, "#{path}?page=2&per_page=1"),
+        'empty' => rest_get(:read, "#{path}?q=Gibt%20es%20nicht"),
+        # The reader opens the project but reads no meetings there.
+        'empty_no_area' => rest_get(:read, "/api/v1/projects/#{id(:handbook)}/meetings"),
+        'invalid_input_per_page' => rest_get(:read, "#{path}?per_page=101"),
+        'invalid_input_page' => rest_get(:read, "#{path}?page=0"),
+        'not_found' => rest_get(:read, "/api/v1/projects/#{id(:foreign_project)}/meetings"),
+        'not_found_reach' => rest_get(:limited, "/api/v1/projects/#{id(:internal)}/meetings"),
+        'unauthorized' => rest_get(nil, path)
+      }
+    end
+
+    def rest_meeting_show_calls
+      meeting_world
+      path = ->(meeting) { "/api/v1/meetings/#{id(meeting)}" }
+      {
+        'ok' => rest_get(:read, path.call(:kickoff_meeting)),
+        # No duration, no notes, no transcript, no summary, nobody named.
+        'ok_bare' => rest_get(:read, path.call(:review_meeting)),
+        'not_found' => rest_get(:read, path.call(:missing)),
+        'not_found_malformed' => rest_get(:read, '/api/v1/meetings/not-a-uuid'),
+        # All of these answer exactly like the missing one.
+        'not_found_no_area' => rest_get(:read, path.call(:hidden_meeting)),
+        'not_found_reach' => rest_get(:limited, path.call(:internal_meeting)),
+        'not_found_foreign' => rest_get(:read, path.call(:foreign_meeting)),
+        'unauthorized' => rest_get(nil, path.call(:kickoff_meeting))
       }
     end
 

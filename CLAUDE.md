@@ -907,6 +907,23 @@ reads no rows. The project gate is MCP's (token reach and `ProjectAccessService`
 malformed, beyond the reach, not openable (an archived project for a non-admin included) and foreign answer the same 404.
 Guards: `spec/requests/api/v1/knowledge_spec.rb`, `spec/services/knowledge/lookup_spec.rb`.
 
+`GET /api/v1/projects/:project_id/meetings` and `GET /api/v1/meetings/:id` (REST R8, 2026-11-03,
+API 1.10.0, capabilities `meetings.list`, `meetings.show`; no MCP tool) read a project's meetings
+and one meeting. Fields are `Meetings::Serializer`'s two allowlists: a row has no text of the
+meeting, the whole answer adds `participants` (names only), `generated_summary` (Markdown),
+`notes`, `transcript` (uncut, a leading metadata block left off as on the web), `updated_at`,
+`path`. No analyses, ticket suggestions or linked tickets: each has a visibility rule of its own.
+The list runs `Meetings::ListQuery`, the web list's order (`occurred_at`, then the entry time,
+then `id`, all newest first) and `Meeting.search_by_content`, on `policy_scope(project.meetings)`
+and nowhere else, because the search matches inside transcripts. Paging and `q` by the strict
+rule of knowledge, before the project (a 422 says nothing about it). The list's gate is
+`Api::V1::ReadableProject`, shared with knowledge; a reader without the meetings area gets an
+empty list. `Api::V1::ReadableMeeting` answers one 404 in status and body for missing, malformed,
+out of reach, foreign and no area, and turns a policy refusal into that 404 as well: unlike a
+ticket, a meeting never answers 403. An archived project is the web's: closed to a member (scope
+alone would let them in, `show?` keeps them out), open to an account admin. Guard:
+`spec/requests/api/v1/meetings_read_spec.rb`.
+
 `GET /api/v1/organisations/:organisation_id/people` and `.../people/:id` (People S3b) read
 the people directory through `People::Lookup`, the object the assistant's `find_people` /
 `get_person` and their MCP twins read as well: one rights question (the people right, 403
