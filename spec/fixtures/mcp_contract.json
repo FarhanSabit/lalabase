@@ -1,8 +1,8 @@
 {
   "header": {
     "regenerate": "RAILS_ENV=test bin/rails mcp:contract",
-    "core_commit": "50e15d2bf4807191461eb19812c59d34e706ca3c",
-    "core_dirty": true,
+    "core_commit": "bd5923cc6cf425a305bea2aac10169f9240fe578",
+    "core_dirty": false,
     "contract_sha256": "a17acb948c1b89bfd4932b45c504cc5bd8eab232d32c81e5ab4539f9bc4c5f99"
   },
   "contract": {
