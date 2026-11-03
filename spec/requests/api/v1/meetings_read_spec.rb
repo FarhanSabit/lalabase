@@ -412,7 +412,7 @@ RSpec.describe 'REST meetings', :ci_guard, type: :request do
 
       it 'when the policy scope alone refuses' do
         held
-        allow_any_instance_of(MeetingPolicy::Scope).to receive(:resolve).and_return(Meeting.none)
+        allow_any_instance_of(MeetingPolicy::Scope).to receive(:resolve).and_return(Meeting.unscoped.none)
 
         expect_not_found(show(held.id))
       end
