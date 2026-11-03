@@ -93,13 +93,22 @@ RSpec.describe Lalabase::Tools::Registry do
       expect(described_class.by_name('find_people', set: :assistant)).to eq(t::FindPeople)
     end
 
+    # R9: get_meeting on :mcp is a twin as well, token-scoped and paged; the assistant keeps its
+    # capped read, and the name resolves to the twin on :mcp alone.
+    it 'offers get_meeting on :mcp as a twin, never the assistant\'s class' do
+      expect(described_class.for(:mcp)).not_to include(t::GetMeeting)
+      expect(described_class.by_name('get_meeting', set: :mcp)).to eq(t::McpGetMeeting)
+      expect(described_class.by_name('get_meeting', set: :assistant)).to eq(t::GetMeeting)
+      expect(described_class.for(:assistant)).not_to include(t::McpGetMeeting)
+    end
+
     # Terminal client S6 (the booked time of a ticket), then People S3b, then the two lists an
-    # agent finds its ids with, then create_meeting: each appended LAST, so the pinned wire
-    # order of every tool before them stays intact.
-    it 'offers the time report, the people twins, the two id lists and create_meeting last on :mcp (wire order pinned)' do
-      expect(described_class.for(:mcp).last(6)).to eq(
+    # agent finds its ids with, then create_meeting, then get_meeting (R9): each appended LAST,
+    # so the pinned wire order of every tool before them stays intact.
+    it 'offers the time report, the people twins, the two id lists, create_meeting and get_meeting last on :mcp (wire order pinned)' do
+      expect(described_class.for(:mcp).last(7)).to eq(
         [t::SummarizeTimeSessions, t::McpFindPeople, t::McpGetPerson, t::ListOrganisations, t::ListProjects,
-         t::CreateMeeting]
+         t::CreateMeeting, t::McpGetMeeting]
       )
     end
 
@@ -118,7 +127,8 @@ RSpec.describe Lalabase::Tools::Registry do
         t::GetCapabilityDetails, t::GetSymbolDetails, t::ListTickets,
         t::GetTicket, t::SearchKnowledge, t::CreateTicket, t::PostComment, t::ListNotifications,
         t::CreateTimeSession, t::MarkNotificationRead, t::UpdateTicket, t::SummarizeTimeSessions,
-        t::McpFindPeople, t::McpGetPerson, t::ListOrganisations, t::ListProjects, t::CreateMeeting
+        t::McpFindPeople, t::McpGetPerson, t::ListOrganisations, t::ListProjects, t::CreateMeeting,
+        t::McpGetMeeting
       )
     end
 
@@ -208,7 +218,7 @@ RSpec.describe Lalabase::Tools::Registry do
 
     it ':mcp token-scoped tools require the actor and mark their own authorization (record mode)' do
       token_tools = described_class.for(:mcp).select { |tool| tool.scope_mode == :token }
-      expect(token_tools).to include(t::ListNotifications, t::McpFindPeople, t::McpGetPerson)
+      expect(token_tools).to include(t::ListNotifications, t::McpFindPeople, t::McpGetPerson, t::McpGetMeeting)
       token_tools.each do |tool|
         expect(tool.requires_actor?).to be(true), tool.tool_name
         expect(tool.authorization_mode).to eq(:record), tool.tool_name
@@ -224,7 +234,7 @@ RSpec.describe Lalabase::Tools::Registry do
         get_ticket search_knowledge create_ticket post_comment
         list_notifications create_time_session mark_notification_read
         update_ticket summarize_time_sessions find_people get_person
-        list_organisations list_projects create_meeting
+        list_organisations list_projects create_meeting get_meeting
       ]
     end
 

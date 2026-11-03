@@ -361,7 +361,33 @@ module McpContract
         'list_projects' => list_projects_calls,
         # MCP 0.16, appended last: refusals that write nothing, so every answer
         # above stays as it was.
-        'create_meeting' => create_meeting_calls
+        'create_meeting' => create_meeting_calls,
+        # MCP 0.17 (R9), appended last: reads of the meeting world, which is made here,
+        # earlier than the REST section made it before; that moves the meetings' own
+        # timestamps there, nothing else.
+        'get_meeting' => get_meeting_calls
+      }
+    end
+
+    # Spelled out, not a loop: each request from its own line (Prosopite).
+    def get_meeting_calls
+      meeting_world
+      kickoff = { meeting_id: id(:kickoff_meeting) }
+      {
+        'ok' => tool_call(:read, 'get_meeting', **kickoff),
+        # A page of one part, from an offset: the rest of the transcript.
+        'ok_part' => tool_call(:read, 'get_meeting', **kickoff, part: 'transcript', offset: 6),
+        'ok_past_end' => tool_call(:read, 'get_meeting', **kickoff, part: 'summary', offset: 1_000),
+        # No duration, no notes, no transcript, an empty summary, nobody named.
+        'ok_bare' => tool_call(:read, 'get_meeting', meeting_id: id(:review_meeting)),
+        'empty' => tool_call(:read, 'get_meeting', meeting_id: id(:missing)),
+        # All of these answer exactly like the missing one.
+        'empty_malformed' => tool_call(:read, 'get_meeting', meeting_id: 'not-a-uuid'),
+        'empty_no_area' => tool_call(:read, 'get_meeting', meeting_id: id(:hidden_meeting)),
+        'empty_reach' => tool_call(:limited, 'get_meeting', meeting_id: id(:internal_meeting)),
+        'empty_foreign' => tool_call(:read, 'get_meeting', meeting_id: id(:foreign_meeting)),
+        'invalid_input' => tool_call(:read, 'get_meeting', **kickoff, offset: 3),
+        'invalid_input_part' => tool_call(:read, 'get_meeting', **kickoff, part: 'analysis')
       }
     end
 

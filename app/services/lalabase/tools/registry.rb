@@ -148,7 +148,8 @@ module Lalabase
         ListProjects,
         # A meeting with its transcript, token-scoped because the project may be
         # missing (it then lands in the inbox). Appended for the same reason.
-        CreateMeeting
+        CreateMeeting,
+        McpGetMeeting
       ].freeze
 
       # Sets whose tools reach the LLM tool loop. The guard-spec enforces the
