@@ -93,6 +93,17 @@ RSpec.describe 'REST meetings', :ci_guard, type: :request do
       expect(response.parsed_body['data'].last['duration_minutes']).to eq(45)
     end
 
+    it 'answers a creator whose account is gone with the id and no name' do
+      gone = member(meetings: 'read_write')
+      found = meeting(creator: gone)
+      quietly { gone.soft_delete! }
+
+      expect(list).to have_http_status(:ok)
+      expect(response.parsed_body['data'].first['creator']).to eq('id' => gone.id, 'name' => nil)
+      expect(show(found.id)).to have_http_status(:ok)
+      expect(response.parsed_body.dig('data', 'creator')).to eq('id' => gone.id, 'name' => nil)
+    end
+
     it 'keeps the order over pages when date and entry time are equal, down to the id' do
       at = 2.days.ago.change(usec: 0)
       made = %w[1 3 2 5 4].map do |digit|
@@ -144,6 +155,14 @@ RSpec.describe 'REST meetings', :ci_guard, type: :request do
         list('?q=secret', user: tickets_only)
         expect(ids).to be_empty
         expect(response.parsed_body.dig('meta', 'total')).to eq(0)
+      end
+
+      it 'trims the search term' do
+        found = meeting(title: 'Budget review')
+        meeting(title: 'Something else')
+
+        list('?q=%20budget%20')
+        expect(ids).to eq([found.id])
       end
 
       it 'matches a percent sign as text' do
@@ -215,6 +234,23 @@ RSpec.describe 'REST meetings', :ci_guard, type: :request do
         expect(response.body).to eq(not_found_body)
       end
 
+      # The reader may read both projects: only the project in the path, and the token, keep
+      # the rows of the other one out, in the list, in the search and in the count.
+      it 'never lists a meeting of another project the owner may read, beyond the token or not' do
+        sibling = new_project
+        quietly { create(:project_permission, user: reader, project: sibling, meetings_access: 'read_only') }
+        meeting(in_project: sibling, transcript: 'the secret word')
+        pat = token_for(reader, project_scopes: { organisation => [project] })
+
+        list('?q=secret', pat: pat)
+        expect(ids).to eq([held.id])
+        expect(response.parsed_body.dig('meta', 'total')).to eq(1)
+
+        list('?q=secret')
+        expect(ids).to eq([held.id])
+        expect(response.parsed_body.dig('meta', 'total')).to eq(1)
+      end
+
       it 'answers an empty list to a reader of the project without the meetings area' do
         tickets_only = member(meetings: 'no_access', tickets: 'read_only')
 
@@ -261,6 +297,17 @@ RSpec.describe 'REST meetings', :ci_guard, type: :request do
       expect(queries.grep(/FROM "users" WHERE "users"\."id" IN/).size).to be <= 2
     end
 
+    it 'reads no rows for a page beyond the end' do
+      meeting
+      pat = token_for(reader)
+      queries = []
+      counter = ->(*, payload) { queries << payload[:sql] }
+
+      ActiveSupport::Notifications.subscribed(counter, 'sql.active_record') { list('?page=2', pat: pat) }
+
+      expect(queries.grep(/FROM "meetings"/).grep_v(/COUNT/i)).to be_empty
+    end
+
     it 'scales: more rows do not mean more queries' do
       pat = token_for(reader)
       count = lambda do
@@ -289,10 +336,11 @@ RSpec.describe 'REST meetings', :ci_guard, type: :request do
 
     it 'answers the row, the participants by name, the texts whole, updated_at and the path' do
       quietly do
+        # Row order: not the order of creation here, not the alphabet.
         create(:meeting_participant, meeting: held, organisation: organisation, display_name: 'Anna Albers',
-                                     created_at: 2.minutes.ago)
+                                     created_at: 1.minute.ago)
         create(:meeting_participant, meeting: held, organisation: organisation, display_name: 'Ben Berger',
-                                     user: creator, created_at: 1.minute.ago)
+                                     user: creator, created_at: 2.minutes.ago)
       end
 
       expect(show(held.id)).to have_http_status(:ok)
@@ -300,7 +348,7 @@ RSpec.describe 'REST meetings', :ci_guard, type: :request do
         'id' => held.id, 'project_id' => project.id, 'title' => 'Kickoff',
         'occurred_at' => held.occurred_at.iso8601, 'duration_minutes' => 30,
         'creator' => { 'id' => creator.id, 'name' => 'Clara Creator' },
-        'participants' => [{ 'display_name' => 'Anna Albers' }, { 'display_name' => 'Ben Berger' }],
+        'participants' => [{ 'display_name' => 'Ben Berger' }, { 'display_name' => 'Anna Albers' }],
         'generated_summary' => '**Head:** done', 'notes' => 'Some notes', 'transcript' => 'Anna: hello',
         'updated_at' => held.reload.updated_at.iso8601,
         'path' => "/org/#{organisation.id}/projects/#{project.id}/meetings/#{held.id}"
@@ -430,12 +478,46 @@ RSpec.describe 'REST meetings', :ci_guard, type: :request do
       expect(show(held.id, user: account_admin)).to have_http_status(:ok)
     end
 
-    it 'follows a meeting that moved: the reach of its project now, not of the old one' do
-      target = new_project
-      quietly { held.update!(project: target) }
+    # The reader may read both projects, so the token alone stands between them.
+    describe 'a meeting that moved' do
+      let(:target) { new_project }
+      let(:pat) { token_for(reader, project_scopes: { organisation => [project] }) }
 
-      expect(show(held.id, pat: token_for(reader, project_scopes: { organisation => [project] })))
-        .to have_http_status(:not_found)
+      before { quietly { create(:project_permission, user: reader, project: target, meetings_access: 'read_only') } }
+
+      it 'answers by the reach of its project now, not of the old one' do
+        quietly { held.update!(project: target) }
+
+        expect(show(held.id, pat: pat)).to have_http_status(:not_found)
+        expect(response.body).to eq(not_found_body)
+      end
+
+      it 'is gone from the project whose reach was checked when it moves during the read' do
+        held
+        pat
+        allow_any_instance_of(PersonalAccessToken).to receive(:accessible_project?).and_wrap_original do |original, *args|
+          original.call(*args).tap { held.update_columns(project_id: target.id) }
+        end
+
+        expect(show(held.id, pat: pat)).to have_http_status(:not_found)
+        expect(response.body).to eq(not_found_body)
+      end
+    end
+
+    it 'reads a meeting of a second organisation with a token that reaches every organisation' do
+      second = create(:organisation)
+      place = new_project(second)
+      ActsAsTenant.with_tenant(second) do
+        Prosopite.pause do
+          create(:membership, user: reader, organisation: second, role: create(:role, organisation: second), active: true)
+          create(:project_permission, user: reader, project: place, meetings_access: 'read_only')
+        end
+      end
+      found = meeting(in_project: place)
+      quietly { create(:meeting, project: project, organisation: organisation, creator: creator) }
+
+      expect(show(found.id, pat: token_for(reader, all_organisations: true, organisations: []))).to have_http_status(:ok)
+      expect(response.parsed_body.dig('data', 'id')).to eq(found.id)
     end
   end
 end

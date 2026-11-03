@@ -112,6 +112,7 @@ module McpContract
       write_token: 81, read_token: 82, deactivated_token: 83, limited_token: 84, dora_token: 85,
       doris_person: 91, ben_person: 92,
       kickoff_meeting: 101, review_meeting: 102, hidden_meeting: 103, internal_meeting: 104, foreign_meeting: 105,
+      gone_meeting: 106, gone_user: 107,
       missing: 999
     }.transform_values { |n| format('00000000-0000-4000-8000-%012d', n) }.freeze
 
@@ -690,6 +691,14 @@ module McpContract
           create(:meeting, id: id(:internal_meeting), project: @internal, organisation: @organisation, creator: @anna,
                            title: 'Interne Runde', occurred_at: START - 4.days)
         end
+        in_org do
+          # The creator's account is gone: the id stays, `name` is null.
+          gone = create(:user, id: id(:gone_user), email: 'gone@example.com', first_name: 'Gerd', last_name: 'Gegangen')
+          create(:membership, user: gone, organisation: @organisation, role: Role.find(id(:role)), active: true)
+          create(:meeting, id: id(:gone_meeting), project: @internal, organisation: @organisation, creator: gone,
+                           title: 'Altes Gespräch', occurred_at: START - 6.days)
+          gone.soft_delete!
+        end
         ActsAsTenant.with_tenant(@other_organisation) do
           create(:meeting, id: id(:foreign_meeting), project: @foreign_project, organisation: @other_organisation, creator: @ben,
                            title: 'Fremdes Gespräch', occurred_at: START - 5.days)
@@ -706,6 +715,8 @@ module McpContract
         'ok' => rest_get(:read, path),
         'ok_search' => rest_get(:read, "#{path}?q=M%C3%A4rz"),
         'ok_page' => rest_get(:read, "#{path}?page=2&per_page=1"),
+        # The last row's creator has no account any more.
+        'ok_creator_gone' => rest_get(:read, "/api/v1/projects/#{id(:internal)}/meetings"),
         'empty' => rest_get(:read, "#{path}?q=Gibt%20es%20nicht"),
         # The reader opens the project but reads no meetings there.
         'empty_no_area' => rest_get(:read, "/api/v1/projects/#{id(:handbook)}/meetings"),
@@ -724,6 +735,7 @@ module McpContract
         'ok' => rest_get(:read, path.call(:kickoff_meeting)),
         # No duration, no notes, no transcript, no summary, nobody named.
         'ok_bare' => rest_get(:read, path.call(:review_meeting)),
+        'ok_creator_gone' => rest_get(:read, path.call(:gone_meeting)),
         'not_found' => rest_get(:read, path.call(:missing)),
         'not_found_malformed' => rest_get(:read, '/api/v1/meetings/not-a-uuid'),
         # All of these answer exactly like the missing one.

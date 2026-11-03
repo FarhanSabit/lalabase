@@ -806,7 +806,7 @@ feature by feature):
   body comes from `Api::V1::ErrorBody` through `BaseController#render_error`; guard
   `spec/architecture/api_v1_error_body_guard_spec.rb`. Answers outside the controllers carry
   no `code`: the Rack::Attack 429 (plain text), a 500 from the exceptions app, a 400 for a
-  query string Rack cannot decode (`?x=%`; raised in middleware before any controller), and a
+  query string Rack cannot decode (`?x=%`; raised in middleware before any controller), a query or path parameter of raw bytes that are no valid UTF-8 (`?q=%FF`, an HTML 400 before authentication, the same whatever exists), and a
   400 for a body parameter of raw bytes that are no valid UTF-8, form or JSON (Rails raises
   `ActionController::BadRequest` when it first reads the parameters, in its params wrapper or
   its request log, before any callback or `rescue_from` of `BaseController` runs; a JSON escape
@@ -912,7 +912,7 @@ API 1.10.0, capabilities `meetings.list`, `meetings.show`; no MCP tool) read a p
 and one meeting. Fields are `Meetings::Serializer`'s two allowlists: a row has no text of the
 meeting, the whole answer adds `participants` (names only), `generated_summary` (Markdown),
 `notes`, `transcript` (uncut, a leading metadata block left off as on the web), `updated_at`,
-`path`. No analyses, ticket suggestions or linked tickets: each has a visibility rule of its own.
+`path`. `creator.name` is null when the account is gone, the id stays. No analyses, ticket suggestions or linked tickets: each has a visibility rule of its own.
 The list runs `Meetings::ListQuery`, the web list's order (`occurred_at`, then the entry time,
 then `id`, all newest first) and `Meeting.search_by_content`, on `policy_scope(project.meetings)`
 and nowhere else, because the search matches inside transcripts. Paging and `q` by the strict
