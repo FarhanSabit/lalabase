@@ -943,7 +943,11 @@ Rails.application.routes.draw do
         get :ticket_attribute_definitions, on: :member
         # REST R2: the project's notes and documents by title, read only.
         resources :knowledge, only: %i[index], controller: 'knowledge'
+        # REST R8: the project's meetings, read only.
+        resources :meetings, only: %i[index]
       end
+      # REST R8: one meeting, read only, by its own id like a ticket.
+      resources :meetings, only: %i[show]
       resources :tickets, only: %i[show update] do
         member do
           get :activities

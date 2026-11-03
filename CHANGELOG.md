@@ -18,6 +18,12 @@ starts (`db:prepare lalabase:data_backfills`). Without Docker, run
 
 ## [Unreleased]
 
+### Added
+
+- The REST API reads meetings: `GET /api/v1/projects/:project_id/meetings` with search and
+  pages, and `GET /api/v1/meetings/:id` with participants, summary, notes and transcript.
+  API version 1.10.0.
+
 ### Changed
 
 - Synced documentation pages show their images from your instance. The sync copies them

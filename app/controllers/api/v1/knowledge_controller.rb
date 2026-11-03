@@ -18,6 +18,8 @@ module Api
     #   beyond the reach, one the owner cannot open and one of another organisation answer the
     #   same 404. A reader who may open the project but read no knowledge gets an empty list.
     class KnowledgeController < BaseController
+      include ReadableProject
+
       rescue_from Knowledge::Lookup::InvalidOption, with: :invalid_input
 
       # GET /api/v1/projects/:project_id/knowledge?q=&type=&page=&per_page=
@@ -39,16 +41,6 @@ module Api
       # let a malformed request through as "no filter".
       def lookup_args
         %i[q type page per_page].index_with { |key| params[key] }
-      end
-
-      def readable_project(id)
-        project = ActsAsTenant.without_tenant { Project.find_by(id: id) } if id.present?
-        raise ActiveRecord::RecordNotFound unless project && current_token.accessible_project?(project)
-
-        ActsAsTenant.with_tenant(project.organisation) do
-          raise ActiveRecord::RecordNotFound unless AccessCheck::ProjectAccessService.can_access_project?(current_user, project)
-        end
-        project
       end
 
       def invalid_input(exception)

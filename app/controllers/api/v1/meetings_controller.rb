@@ -7,8 +7,44 @@ module Api
     # Under the organisation, not the project: the project may be missing, the
     # meeting then lands in the inbox. The rule is Meetings::Intake, shared with
     # the MCP tool create_meeting; the write is Actors::SaveMeeting.
+    #
+    # GET /api/v1/projects/:project_id/meetings and GET /api/v1/meetings/:id (REST R8)
+    # read through the web list's Meetings::ListQuery and Api::V1::ReadableMeeting; the
+    # fields are Meetings::Serializer's.
+    #
+    # * Paging and `q` by Knowledge::Lookup's strict rule, one rule for REST lists of a
+    #   project: no whole number from 1 to the maximum (per_page at most 100) and a NUL in
+    #   `q` are a 422, an absent or empty value the default, checked before the project, so
+    #   the 422 does not depend on whether it exists.
+    # * The search matches inside transcripts, so it runs on the policy scope and nowhere
+    #   else. A reader who may open the project but read no meetings gets an empty list.
     class MeetingsController < BaseController
+      include ReadableMeeting
+      include ReadableProject
+
+      rescue_from Knowledge::Lookup::InvalidOption, with: :invalid_input
+
       idempotent :create
+
+      def index
+        # Read raw, not through strong parameters: those would drop a list and let a
+        # malformed request through as "no search".
+        options = Knowledge::Lookup.options(%i[q page per_page].index_with { |key| params[key] }, strict: true)
+        project = readable_project(params[:project_id])
+
+        ActsAsTenant.with_tenant(project.organisation) do
+          rows = Meetings::ListQuery.call(scope: policy_scope(project.meetings), search: options.query)
+          total = rows.count(:all)
+          render json: { data: page_of(rows, options, total).map { |meeting| Meetings::Serializer.summary(meeting) },
+                         meta: { page: options.page, per_page: options.per_page, total: total } }
+        end
+      end
+
+      def show
+        with_readable_meeting(params[:id]) do |meeting|
+          render json: { data: Meetings::Serializer.full(meeting) }
+        end
+      end
 
       def create
         organisation = Organisation.find(params[:organisation_id])
@@ -27,6 +63,19 @@ module Api
       end
 
       private
+
+      # A page beyond the total reads no rows.
+      def page_of(rows, options, total)
+        offset = (options.page - 1) * options.per_page
+        return [] if offset >= total
+
+        rows.limit(options.per_page).offset(offset)
+      end
+
+      def invalid_input(exception)
+        render_error(error: 'invalid_input', code: 'invalid_input', message: exception.message,
+                     status: :unprocessable_content)
+      end
 
       def answer(intake)
         result = intake.save
