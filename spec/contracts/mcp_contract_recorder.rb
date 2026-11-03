@@ -112,7 +112,7 @@ module McpContract
       write_token: 81, read_token: 82, deactivated_token: 83, limited_token: 84, dora_token: 85,
       doris_person: 91, ben_person: 92,
       kickoff_meeting: 101, review_meeting: 102, hidden_meeting: 103, internal_meeting: 104, foreign_meeting: 105,
-      gone_meeting: 106, gone_user: 107,
+      gone_meeting: 106, gone_user: 107, long_meeting: 108,
       missing: 999
     }.transform_values { |n| format('00000000-0000-4000-8000-%012d', n) }.freeze
 
@@ -387,8 +387,27 @@ module McpContract
         'empty_reach' => tool_call(:limited, 'get_meeting', meeting_id: id(:internal_meeting)),
         'empty_foreign' => tool_call(:read, 'get_meeting', meeting_id: id(:foreign_meeting)),
         'invalid_input' => tool_call(:read, 'get_meeting', **kickoff, offset: 3),
-        'invalid_input_part' => tool_call(:read, 'get_meeting', **kickoff, part: 'analysis')
-      }
+        'invalid_input_part' => tool_call(:read, 'get_meeting', **kickoff, part: 'analysis'),
+        'ok_notes' => tool_call(:read, 'get_meeting', **kickoff, part: 'notes')
+      }.merge(long_meeting_calls)
+    end
+
+    # A transcript longer than a page, so a page has a next one (next_offset a number) and the
+    # last page follows it. The meeting is made for these two answers alone and removed after
+    # them: every list and project answer recorded later stays as it was.
+    def long_meeting_calls
+      line = 'Anna: Wir prüfen den Plan für März, Seite für Seite.'
+      transcript = Array.new(Meetings::TextPage::MAX_CHARS / line.length + 20) { |n| "#{line} #{n}" }.join("\n")
+      in_org do
+        create(:meeting, id: id(:long_meeting), project: @website, organisation: @organisation, creator: @anna,
+                         title: 'Langes Gespräch', occurred_at: START - 7.days, transcript: transcript)
+      end
+      page = { meeting_id: id(:long_meeting), part: 'transcript' }
+      first = tool_call(:read, 'get_meeting', **page, offset: 0)
+      next_offset = JSON.parse(first.dig('response', 'body', 'result', 'content', 0, 'text')).dig('parts', 'transcript', 'next_offset')
+      calls = { 'ok_page' => first, 'ok_last_page' => tool_call(:read, 'get_meeting', **page, offset: next_offset) }
+      in_org { Meeting.find(id(:long_meeting)).destroy! }
+      calls
     end
 
     # A comment's file, by the id of its PostDocument: fixed, because the file

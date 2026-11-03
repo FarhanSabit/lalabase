@@ -10,7 +10,8 @@ module Lalabase
     #
     # The gate is Meetings::Readable, the one REST's GET /api/v1/meetings/:id asks: missing,
     # malformed, beyond the token's reach, foreign, unreadable all answer the same empty result,
-    # word for word (the MCP rule for one record, as get_ticket and get_person answer it).
+    # word for word (the MCP rule for one record, as get_ticket and get_person answer it). The
+    # id is read as given, as REST reads it: one with spaces around it is no id.
     #
     # Pages (Meetings::TextPage): Claude Code cuts a tool answer above about 25,000 tokens
     # without saying so, and a transcript runs to about a megabyte. Without `part` the answer
@@ -86,7 +87,7 @@ module Lalabase
 
       def self.read(args, context)
         result = Result.new(content: NOT_FOUND, kind: :empty)
-        Meetings::Readable.call(id: args[:meeting_id].to_s.strip, user: context.actor, token: context.token) do |meeting|
+        Meetings::Readable.call(id: args[:meeting_id].to_s, user: context.actor, token: context.token) do |meeting|
           authorize!(context, meeting, :show?)
           result = json_result(payload(meeting, args[:part], args.fetch(:offset, 0)))
         end

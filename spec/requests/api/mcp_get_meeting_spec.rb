@@ -100,10 +100,11 @@ RSpec.describe 'MCP get_meeting', :ci_guard, type: :request do
   describe 'the answer' do
     it 'gives the head and the first page of each part, the summary too' do
       quietly do
-        create(:meeting_participant, meeting: held, organisation: organisation, display_name: 'Ben Berger',
-                                     created_at: 2.minutes.ago)
+        # Made in the other order than their rows: the head names them by their rows.
         create(:meeting_participant, meeting: held, organisation: organisation, display_name: 'Anna Albers',
                                      created_at: 1.minute.ago)
+        create(:meeting_participant, meeting: held, organisation: organisation, display_name: 'Ben Berger',
+                                     created_at: 2.minutes.ago)
       end
 
       answer = body(call(meeting_id: held.id))
@@ -149,8 +150,9 @@ RSpec.describe 'MCP get_meeting', :ci_guard, type: :request do
       expect(result.dig('content', 0, 'text')).not_to include('boom', 'embedding', '_flag', '_error', 'plain')
     end
 
-    # One request with the scan on: the participants of a meeting are read once, not each.
-    it 'reads the participants in one query, without an N+1' do
+    # One request with the scan on. For a single meeting the participants come in one query
+    # either way; what this holds is that a request with the scan running raises no N+1.
+    it 'answers one request with the N+1 scan running' do
       quietly do
         3.times { |n| create(:meeting_participant, meeting: held, organisation: organisation, display_name: "P #{n}") }
       end
@@ -165,14 +167,21 @@ RSpec.describe 'MCP get_meeting', :ci_guard, type: :request do
       expect(queries.grep(/FROM "meeting_participants"/).size).to eq(1)
     end
 
-    it 'names at most 40 participants and says so' do
+    it 'names at most 40 participants and says so, and caps the head\'s texts' do
       quietly do
         41.times { |n| create(:meeting_participant, meeting: held, organisation: organisation, display_name: "P #{n}") }
+        create(:meeting_participant, meeting: held, organisation: organisation, display_name: 'x' * 300,
+                                     created_at: 1.year.ago)
+        held.update!(title: 't' * 300)
+        project.update!(name: 'p' * 255)
       end
       answer = body(call(meeting_id: held.id))
 
       expect(answer['participants'].size).to eq(40)
       expect(answer['participants_truncated']).to be(true)
+      expect(answer['participants'].first).to start_with('x' * 200).and(end_with(Lalabase::Tools::Base::TRUNCATION_MARKER))
+      expect(answer['title'].length).to be < 300
+      expect(answer.dig('project', 'name').length).to be < 255
     end
   end
 
@@ -194,6 +203,7 @@ RSpec.describe 'MCP get_meeting', :ci_guard, type: :request do
       loop do
         part = body(call({ meeting_id: big.id, part: 'transcript', offset: offset }, pat: pat))['parts']['transcript']
         expect(part['offset']).to eq(offset)
+        expect(part['text_length']).to eq(long.length)
         texts << part['text']
         break if part['next_offset'].nil?
 
@@ -210,10 +220,15 @@ RSpec.describe 'MCP get_meeting', :ci_guard, type: :request do
       overview = call({ meeting_id: big.id }, pat: pat).dig('content', 0, 'text')
       page = call({ meeting_id: big.id, part: 'transcript', offset: 0 }, pat: pat).dig('content', 0, 'text')
 
-      # About four characters a token; Claude Code's default bound is 25,000 tokens.
-      [overview, page].each { |text| expect(text.length / 4).to be < 25_000 }
+      # Claude Code's default bound is 25,000 tokens. German text runs at about three to four
+      # characters a token, so an answer is held to 60,000 characters, the head and its
+      # escaping included; the page sizes are pinned beside it.
+      [overview, page].each { |text| expect(text.length).to be < 60_000 }
+      expect(Meetings::TextPage::MAX_CHARS).to eq(40_000)
+      expect(Lalabase::Tools::McpGetMeeting::OVERVIEW_CHARS).to eq(40_000 / 3)
       parts = JSON.parse(overview)['parts']
       expect(parts.values.pluck('next_offset')).to all(be_a(Integer))
+      expect(parts.values.sum { |part| part['text'].length }).to be <= 40_000
     end
 
     it 'answers an offset at or past the end with an empty last page' do
@@ -250,6 +265,8 @@ RSpec.describe 'MCP get_meeting', :ci_guard, type: :request do
       expect_empty(call(meeting_id: 'not-a-uuid'))
       expect_empty(call(meeting_id: '1'))
       expect_empty(call(meeting_id: ''))
+      # As REST reads it: an id with spaces around it is no id.
+      expect_empty(call(meeting_id: " #{held.id} "))
     end
 
     it 'for a meeting outside the token reach, whatever the owner may read' do

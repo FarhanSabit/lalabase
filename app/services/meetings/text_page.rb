@@ -9,8 +9,9 @@ module Meetings
   # offset, at most `max` characters, ending at the last line break in the page's last
   # `window` characters where there is one, else at the bound. The next page starts where
   # this one ended (`next_offset`, nil at the end), so the pages add up to the text with
-  # nothing lost or read twice. Offsets count characters, as Ruby's String does, never bytes,
-  # so no page ends inside a character.
+  # nothing lost or read twice. Offsets count code points, as Ruby's String does, never bytes,
+  # so no page ends inside a code point; one may end inside a grapheme cluster (an emoji with
+  # a skin tone), which the next page continues.
   #
   # Entry point: call
   class TextPage
@@ -24,7 +25,7 @@ module Meetings
       stop = offset + max
       return { offset: offset, next_offset: nil, text: text[offset..] } if stop >= text.length
 
-      # A line break at the page's first character would end it there and read nothing.
+      # A line break at the page's first character would end a page of that one character.
       cut = text.rindex("\n", stop - 1)
       stop = cut + 1 if cut && cut > offset && cut >= stop - window
       { offset: offset, next_offset: stop, text: text[offset...stop] }
