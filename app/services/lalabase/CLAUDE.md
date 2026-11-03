@@ -39,7 +39,8 @@ Codebase-Verständnis.
   in pages (`Meetings::TextPage`, 40,000 characters, cut at a line break near the end):
   Claude Code cuts a tool answer above about 25,000 tokens without saying so. Without `part`
   each part's first page is a third of a page, so the three stay within one; `part` and
-  `offset` read on, `next_offset` is null at the end. Offsets count characters.
+  `offset` read on, `next_offset` is null at the end. Offsets count code points, as Ruby's
+  String does; a page may end inside a grapheme cluster, which the next one continues.
   On `:mcp` the same two names are twins (`McpFindPeople`, `McpGetPerson`, People S3b, MCP
   0.13.0), own classes because their schema requires `organisation_id` (E3). `scope_mode
   :token`; `PeopleTool.with_token_lookup` is their gate: only an organisation whose every

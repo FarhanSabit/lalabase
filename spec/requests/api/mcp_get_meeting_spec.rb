@@ -100,7 +100,7 @@ RSpec.describe 'MCP get_meeting', :ci_guard, type: :request do
   describe 'the answer' do
     it 'gives the head and the first page of each part, the summary too' do
       quietly do
-        # Made in the other order than their rows: the head names them by their rows.
+        # Made in the other order than their created_at: the head names them by created_at.
         create(:meeting_participant, meeting: held, organisation: organisation, display_name: 'Anna Albers',
                                      created_at: 1.minute.ago)
         create(:meeting_participant, meeting: held, organisation: organisation, display_name: 'Ben Berger',
@@ -179,9 +179,10 @@ RSpec.describe 'MCP get_meeting', :ci_guard, type: :request do
 
       expect(answer['participants'].size).to eq(40)
       expect(answer['participants_truncated']).to be(true)
-      expect(answer['participants'].first).to start_with('x' * 200).and(end_with(Lalabase::Tools::Base::TRUNCATION_MARKER))
-      expect(answer['title'].length).to be < 300
-      expect(answer.dig('project', 'name').length).to be < 255
+      marker = Lalabase::Tools::Base::TRUNCATION_MARKER
+      expect(answer['participants'].first).to eq(('x' * 200) + marker)
+      expect(answer['title']).to eq(('t' * 200) + marker)
+      expect(answer.dig('project', 'name')).to eq(('p' * 200) + marker)
     end
   end
 

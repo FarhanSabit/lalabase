@@ -405,6 +405,9 @@ module McpContract
       page = { meeting_id: id(:long_meeting), part: 'transcript' }
       first = tool_call(:read, 'get_meeting', **page, offset: 0)
       next_offset = JSON.parse(first.dig('response', 'body', 'result', 'content', 0, 'text')).dig('parts', 'transcript', 'next_offset')
+      # A transcript that fits one page would record a refusal as the last page.
+      raise 'the long meeting fits one page: no next_offset to record' unless next_offset.is_a?(Integer)
+
       calls = { 'ok_page' => first, 'ok_last_page' => tool_call(:read, 'get_meeting', **page, offset: next_offset) }
       in_org { Meeting.find(id(:long_meeting)).destroy! }
       calls
