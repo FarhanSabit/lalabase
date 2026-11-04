@@ -29,6 +29,17 @@
                                                            title: t('views.organisations.glossary.index.new_term'), data: add_data) %>
         <% end %>
       <% end %>
+      <%# The way back into the meetings area this page belongs to (no sidebar
+          entry of its own since 04.11.2026), for those who may read meetings. %>
+      <% if AccessCheck::ProjectAccessService.accessible_project_ids(current_user, @current_organisation, action: :read, area: :meetings).any? %>
+        <% box.with_right_content do %>
+          <%= render Neo::Buttons::ButtonComponent.new(variant: :secondary, size: :medium, icon: 'arrow-left',
+                                                       url: organisation_meetings_path(@current_organisation),
+                                                       data: { turbo_frame: '_top', glossary_meetings_link: true }) do %>
+            <%= t('navigation.all_meetings') %>
+          <% end %>
+        <% end %>
+      <% end %>
     <% end %>
   <% end %>
 </div>

@@ -97,6 +97,20 @@ RSpec.describe NavigationHelper, type: :helper do
     end
   end
 
+  describe '#meetings_section_active?' do
+    it 'lights "Alle Meetings" on that page and on the glossary, nowhere else' do
+      %w[meetings_overview glossary].each do |controller|
+        allow(helper).to receive(:controller_name).and_return(controller)
+        expect(helper.meetings_section_active?).to be(true), "expected active on '#{controller}'"
+      end
+
+      %w[meetings people time_sessions projects].each do |controller|
+        allow(helper).to receive(:controller_name).and_return(controller)
+        expect(helper.meetings_section_active?).to be(false), "unexpectedly active on '#{controller}'"
+      end
+    end
+  end
+
   describe 'settings tabs are a fixed contract' do
     # Explicit, DECOUPLED expectation (key => controller_name), in tab-bar order. The subnav renders
     # these and management_section_active? derives its controller list from the SAME source; pinning

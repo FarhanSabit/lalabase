@@ -63,6 +63,12 @@ module NavigationHelper
 
   TIMES_TAB_CONTROLLERS = TIMES_TABS.map { |tab| tab[:controller_name] }.freeze
 
+  # The meetings area of the sidebar: "Alle Meetings" and the glossary. The
+  # glossary has no sidebar entry of its own (user, 04.11.2026: it only serves
+  # the transcription of meetings); it is reached from the head of the
+  # meetings pages, and "Alle Meetings" stays lit while it is open.
+  MEETINGS_SECTION_CONTROLLERS = %w[meetings_overview glossary].freeze
+
   # The AI area (doc/ki_bereich_navigation_plan.md S2): three tabs collapsed into one,
   # with a hub in front of them. The three pages keep their own controllers and routes,
   # so they are NOT in SETTINGS_TABS any more — and that is exactly the trap §7 of the
@@ -123,6 +129,11 @@ module NavigationHelper
   # "Verwaltung": the entry stays lit however deep the reader is.
   def times_section_active?
     TIMES_TAB_CONTROLLERS.include?(controller_name)
+  end
+
+  # True on "Alle Meetings" and on the glossary (MEETINGS_SECTION_CONTROLLERS).
+  def meetings_section_active?
+    MEETINGS_SECTION_CONTROLLERS.include?(controller_name)
   end
 
   # Can the current user reach organisation management? Port of the inline gate the nav
