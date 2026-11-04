@@ -166,6 +166,30 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
       expect(response.body).to include(I18n.t('views.organisations.glossary.show.read_only'))
     end
 
+    it 'opens no form with ?new=term on a full visit' do
+      get organisation_glossary_terms_path(organisation, new: 'term')
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include('Lalabase')
+      expect(response.body).not_to include('id="glossary_term_term"')
+    end
+
+    it 'opens no form with ?new=term in the lane frame' do
+      get organisation_glossary_terms_path(organisation, new: 'term'), headers: frame_headers
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include('glossary-term-placeholder')
+      expect(response.body).not_to include('id="glossary_term_term"')
+    end
+
+    # The write right comes before the heard form is looked up: 403, not 404.
+    it 'is refused deleting a heard form of another term with 403' do
+      delete correction_organisation_glossary_term_path(organisation, proposal, correction_id: open_correction.id)
+
+      expect(response).to have_http_status(:forbidden)
+      expect(TermCorrection.where(id: open_correction.id)).to exist
+    end
+
     it 'shows a term in the lane frame' do
       get organisation_glossary_term_path(organisation, term), headers: frame_headers
 
@@ -267,6 +291,57 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
       page = lane_for(member_with(role_with('view_glossary', 'people:view_people')))
 
       expect(page.css(%(a[href="#{organisation_people_path(organisation, person_id: speaker.id)}"])).text).to eq('Erika Beispiel')
+    end
+
+    # Review round 1 of #113: the link needs view_people, also for a member
+    # speaker (whom MembershipPolicy::Scope shows without it), and only to a
+    # row or member the reader may see on the people page.
+    it 'does not link a member speaker for a reader without view_people' do
+      # The reader would see the speaker on the members page (a shared project),
+      # so only view_people can keep the link away.
+      speaker_member = member_with(role_with)
+      create(:project_permission, user: viewer, project: open_project, tickets_access: :read_only)
+      create(:project_permission, user: speaker_member, project: open_project, tickets_access: :read_only)
+      create(:term_correction, organisation: organisation, glossary_term: term, heard: 'lalabeis', user: speaker_member)
+
+      page = lane_for(viewer)
+
+      expect(page.css('.glossary-heard__speaker').map { |node| node.text.strip }).to include(speaker_member.display_name)
+      expect(page.css(%(a[href*="member_id=#{speaker_member.id}"]))).to be_empty
+    end
+
+    describe 'with view_people but without any project' do
+      let(:reader) { member_with(role_with('view_glossary', 'people:view_people')) }
+      let(:hidden_member) { member_with(role_with) }
+
+      it 'names a member it may not see on the people page, without a link' do
+        create(:term_correction, organisation: organisation, glossary_term: term, heard: 'lalabeis', user: hidden_member)
+
+        page = lane_for(reader)
+
+        expect(page.css('.glossary-heard__speaker').map { |node| node.text.strip }).to include(hidden_member.display_name)
+        expect(page.css(%(a[href*="member_id=#{hidden_member.id}"]))).to be_empty
+      end
+
+      it 'names the row of a member it may not see, without a link' do
+        row = create(:person, organisation: organisation, user: hidden_member, name: 'Paula Platzhalter')
+        create(:term_correction, organisation: organisation, glossary_term: term, heard: 'lalabeis', person: row)
+
+        page = lane_for(reader)
+
+        expect(page.text).to include('Paula Platzhalter')
+        expect(page.css(%(a[href*="person_id=#{row.id}"]))).to be_empty
+      end
+
+      it 'links a member it may see on the people page (a shared project)' do
+        create(:project_permission, user: reader, project: open_project, tickets_access: :read_only)
+        create(:project_permission, user: hidden_member, project: open_project, tickets_access: :read_only)
+        create(:term_correction, organisation: organisation, glossary_term: term, heard: 'lalabeis', user: hidden_member)
+
+        page = lane_for(reader)
+
+        expect(page.css(%(a[href="#{organisation_people_path(organisation, member_id: hidden_member.id)}"]))).to be_present
+      end
     end
 
     it 'names a member speaker through the name display, linked to the member' do
@@ -459,14 +534,16 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
     include_examples 'may keep the glossary'
   end
 
+  # The base controller sends a deactivated member away before any glossary
+  # action runs; that the policy refuses them as well is pinned in
+  # glossary_policy_spec.rb and inactive_membership_scope_guard_spec.rb.
   describe 'a deactivated member who still holds the right' do
-    it 'gets nothing of the glossary' do
+    it 'is sent to the organisation picker before the glossary' do
       sign_in member_with(role_with('manage_glossary'), active: false)
 
       get organisation_glossary_terms_path(organisation)
 
-      expect(response).to have_http_status(:redirect)
-      expect(response.body).not_to include('Lalabase')
+      expect(response).to redirect_to(select_organisation_path)
     end
   end
 
@@ -498,11 +575,27 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
       expect(GlossaryTerm.unscoped.exists?(foreign_term.id)).to be(true)
     end
 
-    it 'answers 404 for confirm, reject and merge of a term of another organisation' do
+    it 'answers 404 for confirm of a term of another organisation' do
+      ActsAsTenant.with_tenant(other_organisation) { foreign_term.update!(status: 'proposed') }
+
+      patch confirm_organisation_glossary_term_path(organisation, foreign_term)
+
+      expect(response).to have_http_status(:not_found)
+      expect(GlossaryTerm.unscoped.find(foreign_term.id).status).to eq('proposed')
+    end
+
+    it 'answers 404 for reject of a term of another organisation' do
       patch reject_organisation_glossary_term_path(organisation, foreign_term)
 
       expect(response).to have_http_status(:not_found)
       expect(GlossaryTerm.unscoped.find(foreign_term.id).status).to eq('confirmed')
+    end
+
+    it 'answers 404 for merging a term of another organisation into this glossary' do
+      post merge_organisation_glossary_term_path(organisation, foreign_term), params: { target_id: term.id }
+
+      expect(response).to have_http_status(:not_found)
+      expect(GlossaryTerm.unscoped.exists?(foreign_term.id)).to be(true)
     end
 
     it 'sends the page of an organisation the user is not in to the organisation picker' do
