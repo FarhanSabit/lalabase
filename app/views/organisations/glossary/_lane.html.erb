@@ -1,0 +1,18 @@
+<%# locals: (state:, term: nil, message: nil) %>
+<%# What the lane frame holds: a term (:detail), the form (:form, new or
+    edit), or nothing yet (:empty). Rendered by the index on a full visit and
+    alone for a frame request. glossary-content marks LOADED content for
+    layout-toggle and index-page; the empty lane must not carry it, or they
+    open an empty column. %>
+<div class="<%= 'glossary-content' unless state == :empty %> people-lane min-w-0 relative">
+  <% if state == :detail %>
+    <%= render 'organisations/glossary/detail', term: term %>
+  <% elsif state == :form %>
+    <%= render 'organisations/glossary/form', term: term, message: message %>
+  <% else %>
+    <div id="glossary-term-placeholder" class="ticket-placeholder px-4 py-10 text-center">
+      <h2 class="text-lg font-semibold text-heading"><%= t('views.organisations.glossary.index.placeholder_title') %></h2>
+      <p class="text-sm text-muted"><%= t('views.organisations.glossary.index.placeholder_body') %></p>
+    </div>
+  <% end %>
+</div>

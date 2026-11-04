@@ -517,3 +517,35 @@
   .people-form__hint { @apply text-xs text-muted; }
   .people-page :is(a, button, input, select, textarea, li[tabindex]):focus-visible { outline: 2px solid rgb(var(--ink)); outline-offset: 2px; }
 }
+
+/* Glossar (organisations/glossary, K4a): the people page's list and lane
+   (people-* above, the wrapper carries people-page too), plus what only a
+   glossary has: the status of a term, its heard forms and the merge form. */
+@layer components {
+  .glossary-tools { @apply gap-3; }
+  .glossary-filters { @apply flex flex-wrap items-center gap-2; }
+  .glossary-filters__select { @apply w-auto py-1.5 text-[13px]; }
+  .glossary-row { @apply items-start; }
+  .glossary-row--rejected .people-row__name { @apply text-muted line-through; }
+  .glossary-row__head { @apply flex min-w-0 flex-wrap items-center gap-1.5; }
+  .glossary-row__origin { @apply text-cream-500; }
+  .glossary-row__count { @apply w-10 flex-none self-center text-end text-xs tabular-nums text-muted; }
+  .glossary-status { @apply shrink-0 rounded-full px-1.5 text-[11px]; }
+  .glossary-status--proposed { border: 1px solid #C08A3E; color: #8A5A1C; }
+  .dark .glossary-status--proposed { color: #E0B26E; }
+  .glossary-status--rejected { @apply border border-cream-300 text-cream-600; }
+  .glossary-status-actions { @apply flex flex-none flex-wrap items-center gap-1.5 self-center; }
+  .glossary-heard { @apply flex flex-col gap-3 border-t border-cream-200 pt-4; }
+  .glossary-heard__groups { @apply flex flex-col gap-3; }
+  .glossary-heard__form { @apply flex items-baseline gap-2 text-sm font-medium text-heading; }
+  .glossary-heard__count { @apply text-xs font-normal text-muted; }
+  .glossary-heard__list { @apply mt-1 flex flex-col; }
+  .glossary-heard__row { @apply flex flex-wrap items-baseline gap-x-3 gap-y-0.5 border-b border-cream-200 py-1.5 text-[13px] text-heading; }
+  .glossary-heard__speaker { @apply min-w-[8rem] font-medium; }
+  .glossary-heard__origin { @apply min-w-0 flex-1 text-cream-600; }
+  .glossary-heard__when { @apply whitespace-nowrap text-xs tabular-nums text-muted; }
+  .glossary-merge { @apply flex flex-col gap-1.5 border-t border-cream-200 pt-4; }
+  .glossary-merge__label { @apply text-sm font-semibold text-heading; }
+  .glossary-merge__row { @apply flex flex-wrap items-center gap-2; }
+  .glossary-merge__row select { @apply w-auto min-w-[12rem] flex-1; }
+}

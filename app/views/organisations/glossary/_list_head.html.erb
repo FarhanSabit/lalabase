@@ -1,0 +1,70 @@
+<%# locals: (status_counts:, origin_projects:) %>
+<%# The head of the list: the title, the "+" for those who may keep the
+    glossary, the status filter as pills with their counts, and project and
+    category as selects (a full visit of the index, auto-submitted). %>
+<% frame_id = Organisations::GlossaryController::DETAIL_FRAME_ID %>
+<% mobile = @viewport_mode == 'mobile' %>
+<% add_url = organisation_glossary_terms_path(@current_organisation, list_state.merge('new' => Organisations::GlossaryController::NEW_STATE)) %>
+<% add_data = {
+     controller: 'lane-link',
+     action: 'click->lane-link#click',
+     lane_link_url_value: new_organisation_glossary_term_path(@current_organisation),
+     lane_link_frame_value: frame_id,
+     lane_link_set_value: { new: Organisations::GlossaryController::NEW_STATE }.to_json,
+     lane_link_remove_value: GlossaryHelper::SELECTION_PARAMS.to_json,
+     lane_link_focus_value: '#glossary_term_term'
+   } %>
+<div class="people-head">
+  <% if mobile %>
+    <% if policy(GlossaryTerm).create? %>
+      <%= render Neo::Buttons::IconButtonComponent.new(variant: :primary, icon: 'plus-lg', size: :large, url: add_url,
+                                                       title: t('views.organisations.glossary.index.new_term'),
+                                                       class: 'people-head__action', data: add_data) %>
+    <% end %>
+  <% else %>
+    <%= render NeoTitleBoxComponent.new(title: t('views.organisations.glossary.index.title'), margin_bottom: nil) do |box| %>
+      <% if policy(GlossaryTerm).create? %>
+        <% box.with_title_action do %>
+          <%= render Neo::Buttons::IconButtonComponent.new(variant: :primary, icon: 'plus-lg', size: :medium, url: add_url,
+                                                           title: t('views.organisations.glossary.index.new_term'), data: add_data) %>
+        <% end %>
+      <% end %>
+    <% end %>
+  <% end %>
+</div>
+
+<div class="people-tools glossary-tools">
+  <nav class="people-filters" aria-label="<%= t('views.organisations.glossary.index.status_filter_label') %>">
+    <% ([nil] + GlossaryTerm::STATUSES).each do |status| %>
+      <% active = list_state['status'] == status %>
+      <% count = status ? status_counts.fetch(status, 0) : status_counts.values.sum %>
+      <%= link_to organisation_glossary_terms_path(@current_organisation, list_state.merge('status' => status).compact),
+                  class: "people-pill #{'people-pill--active' if active}", 'aria-current': (active ? 'true' : nil),
+                  data: { turbo_frame: '_top' } do %>
+        <%= status ? t("views.organisations.glossary.index.status_filter.#{status}") : t('views.organisations.glossary.index.status_filter.all') %>
+        <span class="people-pill__count"><%= count %></span>
+      <% end %>
+    <% end %>
+  </nav>
+
+  <%= form_with url: organisation_glossary_terms_path(@current_organisation), method: :get, class: 'glossary-filters',
+                data: { controller: 'auto-submit', turbo_frame: '_top' } do %>
+    <%= hidden_field_tag :status, list_state['status'], id: nil if list_state['status'] %>
+    <%= hidden_field_tag :viewport, 'mobile', id: nil if list_state['viewport'] %>
+    <label class="glossary-filters__field">
+      <span class="sr-only"><%= t('views.organisations.glossary.index.project_filter_label') %></span>
+      <%= select_tag :project_id, options_for_select(origin_projects.map { |id, name| [name, id] }, list_state['project_id']),
+                     include_blank: t('views.organisations.glossary.index.all_projects'), class: 'people-input glossary-filters__select',
+                     id: 'glossary-project-filter' %>
+    </label>
+    <label class="glossary-filters__field">
+      <span class="sr-only"><%= t('views.organisations.glossary.index.category_filter_label') %></span>
+      <%= select_tag :category, options_for_select(glossary_category_options, list_state['category']),
+                     include_blank: t('views.organisations.glossary.index.all_categories'), class: 'people-input glossary-filters__select',
+                     id: 'glossary-category-filter' %>
+    </label>
+    <noscript>
+      <button type="submit" class="people-secondary-action"><%= t('views.organisations.glossary.index.apply_filters') %></button>
+    </noscript>
+  <% end %>
+</div>

@@ -1,0 +1,91 @@
+<%# locals: (term:) %>
+<%# One term: its spelling with category and status, confirm and reject, the
+    heard forms with speaker, project, meeting and date, merging into another
+    term, and delete. Speakers and projects stand for every reader of the
+    glossary (E3); a meeting's title and link only for a reader of that
+    meeting (glossary_readable_meetings), a speaker's link only with
+    view_people (glossary_speaker_url). The body ends at reading width. %>
+<% can_write = policy(term).update? %>
+<% corrections = term.term_corrections.includes(:project, :person, :user).in_lane_order.to_a %>
+<% meetings = glossary_readable_meetings(corrections) %>
+<% groups = corrections.group_by(&:normalized_heard).values %>
+<div class="people-detail glossary-detail">
+  <%= render 'organisations/glossary/lane_head',
+             edit_url: (edit_organisation_glossary_term_path(@current_organisation, term, list_state) if can_write) %>
+
+  <div class="people-detail__body width-text">
+    <div class="people-identity__text">
+      <h2 class="people-identity__name"><%= term.term %></h2>
+      <p class="people-identity__line">
+        <%= [(glossary_category_name(term.category) if term.category), glossary_status_name(term.status)].compact.join(' · ') %>
+      </p>
+    </div>
+
+    <% if can_write %>
+      <%= render 'organisations/glossary/status_actions', term: term, lane: true %>
+    <% end %>
+
+    <section class="glossary-heard" aria-labelledby="glossary-heard-title">
+      <h3 id="glossary-heard-title" class="people-meetings__title"><%= t('views.organisations.glossary.show.heard_title') %></h3>
+      <% if groups.empty? %>
+        <p class="people-meetings__empty"><%= t('views.organisations.glossary.show.no_heard') %></p>
+      <% else %>
+        <ul class="glossary-heard__groups">
+          <% groups.each do |group| %>
+            <li class="glossary-heard__group">
+              <p class="glossary-heard__form">
+                <%= t('views.organisations.glossary.quoted', text: group.first.heard) %>
+                <span class="glossary-heard__count"><%= t('views.organisations.glossary.show.times', count: group.size) %></span>
+              </p>
+              <ul class="glossary-heard__list">
+                <% group.each do |correction| %>
+                  <%= render 'organisations/glossary/correction', correction: correction, term: term, meetings: meetings,
+                                                                  can_write: can_write %>
+                <% end %>
+              </ul>
+            </li>
+          <% end %>
+        </ul>
+      <% end %>
+    </section>
+
+    <% if can_write %>
+      <% options = glossary_merge_options(term) %>
+      <% if options.any? %>
+        <%= form_with url: merge_organisation_glossary_term_path(@current_organisation, term), method: :post, class: 'glossary-merge',
+                      data: { turbo_frame: '_top', turbo_confirm: t('views.organisations.glossary.show.merge_confirm', term: term.term) } do %>
+          <% list_state.each do |name, value| %>
+            <%= hidden_field_tag name, value, id: nil %>
+          <% end %>
+          <label for="glossary-merge-target" class="glossary-merge__label"><%= t('views.organisations.glossary.show.merge_label') %></label>
+          <p class="people-form__hint"><%= t('views.organisations.glossary.show.merge_hint') %></p>
+          <div class="glossary-merge__row">
+            <%= select_tag :target_id, options_for_select(options), include_blank: t('views.organisations.glossary.show.merge_choose'),
+                           id: 'glossary-merge-target', class: 'people-input', required: true %>
+            <%= render Neo::Buttons::ButtonComponent.new(variant: :secondary, size: :medium, type: 'submit') do %>
+              <%= t('views.organisations.glossary.show.merge_submit') %>
+            <% end %>
+          </div>
+        <% end %>
+      <% end %>
+    <% end %>
+
+    <div class="people-footer">
+      <p class="people-history__line"><%= t('views.organisations.glossary.show.created_at', date: l(term.created_at.to_date, format: :default)) %></p>
+      <% if can_write %>
+        <div>
+          <%= render Neo::Buttons::ButtonComponent.new(
+            variant: :danger, size: :small, icon: 'trash',
+            confirm: t('views.organisations.glossary.show.delete_confirm', term: term.term, count: corrections.size),
+            form: { action: organisation_glossary_term_path(@current_organisation, term), method: :delete,
+                    params: list_state, data: { turbo_frame: '_top' } }
+          ) do %>
+            <%= t('views.organisations.glossary.show.delete') %>
+          <% end %>
+        </div>
+      <% else %>
+        <p class="people-footer__readonly"><%= t('views.organisations.glossary.show.read_only') %></p>
+      <% end %>
+    </div>
+  </div>
+</div>

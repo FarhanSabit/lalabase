@@ -18,6 +18,7 @@ module MobileNavigationHelper
     'billing' => 'settings.billing',
     'changelog' => 'navigation.changelog',
     'codebase_import_files' => 'mobile.page_titles.imports',
+    'glossary' => 'navigation.glossary',
     'help' => 'mobile.help',
     'invitations' => 'mobile.page_titles.invitations',
     'meetings_overview' => 'navigation.all_meetings',

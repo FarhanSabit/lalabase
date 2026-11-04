@@ -348,6 +348,7 @@ jobs:
           spec/models/term_correction_spec.rb
           spec/requests/organisations/roles_glossary_right_spec.rb
           spec/services/actors/merge_glossary_terms_spec.rb
+          spec/requests/organisations/glossary_spec.rb
           spec/requests/organisations/people_spec.rb
           spec/requests/organisations/shown_email_spec.rb
           spec/requests/user_preferences_email_visibility_spec.rb

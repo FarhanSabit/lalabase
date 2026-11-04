@@ -1,0 +1,21 @@
+<%# locals: (list:, lane:, open:) %>
+<%# Mobile: the list, or the term (or the form) full screen with a way back,
+    as on the people page. Same frame id as on the desktop. %>
+<div class="people-mobile-grid list">
+  <%= render NeoMobileTicketViewComponent.new(
+    selected_item: (open || nil),
+    show_detail: open,
+    back_url: organisation_glossary_terms_path(@current_organisation, list_state),
+    back_label: t('views.organisations.glossary.index.back_to_list')
+  ) do |mobile| %>
+    <% mobile.with_list do %>
+      <%= list %>
+    <% end %>
+
+    <% mobile.with_detail do %>
+      <turbo-frame id="<%= Organisations::GlossaryController::DETAIL_FRAME_ID %>">
+        <%= lane %>
+      </turbo-frame>
+    <% end %>
+  <% end %>
+</div>

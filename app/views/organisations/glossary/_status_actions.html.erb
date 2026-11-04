@@ -1,0 +1,25 @@
+<%# locals: (term:, lane:) %>
+<%# Confirm and reject (E5): "Bestätigen" unless confirmed, "Verwerfen"
+    unless rejected. From the lane the term stays open (term_id sent along),
+    from the list the list stays as it was. %>
+<% params_kept = list_state.merge(lane ? { 'term_id' => term.id } : {}) %>
+<div class="glossary-status-actions">
+  <% unless term.confirmed? %>
+    <%= render Neo::Buttons::ButtonComponent.new(
+      variant: :secondary, size: :small, icon: 'check-lg',
+      form: { action: confirm_organisation_glossary_term_path(@current_organisation, term), method: :patch,
+              params: params_kept, data: { turbo_frame: '_top' } }
+    ) do %>
+      <%= t('views.organisations.glossary.show.confirm') %>
+    <% end %>
+  <% end %>
+  <% unless term.rejected? %>
+    <%= render Neo::Buttons::ButtonComponent.new(
+      variant: :secondary, size: :small, icon: 'x-lg',
+      form: { action: reject_organisation_glossary_term_path(@current_organisation, term), method: :patch,
+              params: params_kept, data: { turbo_frame: '_top' } }
+    ) do %>
+      <%= t('views.organisations.glossary.show.reject') %>
+    <% end %>
+  <% end %>
+</div>
