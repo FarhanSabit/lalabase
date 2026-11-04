@@ -10,9 +10,11 @@
 # through the policy scope, never from a raw id.
 #
 # Refused: a term into itself, and two terms of different organisations. Both
-# rows are locked in the order of their ids, so two merges of the same pair
-# at once wait for each other instead of deadlocking; a term deleted in the
-# meantime is refused as gone, and nothing moves.
+# rows are locked in one statement in the order of their ids (the lock order
+# of Glossary::TermLock), so two merges of the same pair at once, or a merge
+# and another write on one of the terms, wait for each other instead of
+# deadlocking; a term deleted in the meantime is refused as gone, and nothing
+# moves.
 module Actors
   class MergeGlossaryTerms < BaseActor
     def initialize(source:, target:, current_user:)

@@ -83,6 +83,19 @@ RSpec.describe Actors::SaveGlossaryTerm, type: :service do
     expect(GlossaryTerm.count).to eq(0)
   end
 
+  # Review round 2 of #113: the update ran on a stale row and reported success.
+  it 'answers a term deleted between lookup and save as gone' do
+    term = create(:glossary_term, organisation: organisation, term: 'Lalabse')
+    actor = described_class.new(organisation: organisation, params: { term: 'Lalabase' }, current_user: writer, id: term.id)
+    GlossaryTerm.where(id: term.id).delete_all
+
+    result = actor.call
+
+    expect(result).not_to be_success
+    expect(result.code).to eq(:not_found)
+    expect(result.errors).to eq([I18n.t('controllers.glossary.not_found')])
+  end
+
   it 'finds no term of another organisation' do
     foreign = ActsAsTenant.with_tenant(other_organisation) { create(:glossary_term, organisation: other_organisation, term: 'Fremd') }
 

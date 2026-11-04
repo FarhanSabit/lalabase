@@ -107,14 +107,15 @@ module Organisations
       land(result, notice: 'controllers.glossary.merge.success', lane: { term_id: target.id }, failure_lane: { term_id: @term.id })
     end
 
-    # One heard form of this term, learnt wrong. The write right first (403
-    # before the heard form is looked up), then only a form of this term.
-    def destroy_correction
+    # One heard form of this term, learnt wrong, with every correction of it,
+    # named by one of those corrections. The write right first (403 before the
+    # correction is looked up), then only a correction of this term.
+    def destroy_heard_form
       authorize @term, :update?
       correction = policy_scope(TermCorrection).where(glossary_term_id: @term.id).find(params[:correction_id])
       authorize correction, :destroy?
-      result = Actors::DestroyTermCorrection.call(correction: correction, current_user: current_user)
-      land(result, notice: 'controllers.glossary.correction.destroy.success', lane: { term_id: @term.id },
+      result = Actors::DestroyHeardForm.call(correction: correction, current_user: current_user)
+      land(result, notice: 'controllers.glossary.heard_form.destroy.success', lane: { term_id: @term.id },
                    failure_lane: { term_id: @term.id })
     end
 

@@ -20,7 +20,8 @@ de:
         same_term: "Ein Begriff lässt sich nicht mit sich selbst zusammenführen."
         other_glossary: "Beide Begriffe müssen im selben Glossar stehen."
         no_target: "Bitte einen Begriff wählen, mit dem zusammengeführt wird."
-      correction:
+      heard_form:
+        not_found: "Diese gehörte Form gibt es nicht mehr."
         destroy:
           success: "Gehörte Form gelöscht."
   views:
@@ -81,7 +82,9 @@ de:
             one: "1-mal ersetzt"
             other: "%{count}-mal ersetzt"
           delete_heard: "Gehörte Form „%{heard}“ löschen"
-          delete_heard_confirm: "Die gehörte Form „%{heard}“ bei „%{term}“ löschen?"
+          delete_heard_confirm:
+            one: "Die gehörte Form „%{heard}“ bei „%{term}“ löschen?"
+            other: "Die gehörte Form „%{heard}“ bei „%{term}“ löschen, mit allen %{count} Korrekturen?"
           merge_label: "Mit anderem Begriff zusammenführen"
           merge_hint: "Die gehörten Formen wandern zu dem gewählten Begriff, dieser Begriff wird gelöscht."
           merge_choose: "Begriff wählen"
@@ -93,7 +96,7 @@ de:
             zero: "„%{term}“ löschen?"
             one: "„%{term}“ und seine gehörte Form löschen?"
             other: "„%{term}“ und seine %{count} gehörten Formen löschen?"
-          read_only: "Nur lesen: Pflegen dürfen Verwalter und wer das Recht „Glossar pflegen“ hat."
+          read_only: "Du kannst das Glossar ansehen, aber nicht pflegen."
         form:
           new_title: "Neuer Begriff"
           edit_title: "„%{term}“ bearbeiten"

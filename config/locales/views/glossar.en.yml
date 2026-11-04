@@ -20,7 +20,8 @@ en:
         same_term: "A term cannot be merged with itself."
         other_glossary: "Both terms must be in the same glossary."
         no_target: "Please choose the term to merge with."
-      correction:
+      heard_form:
+        not_found: "This heard form no longer exists."
         destroy:
           success: "Heard form deleted."
   views:
@@ -81,7 +82,9 @@ en:
             one: "replaced once"
             other: "replaced %{count} times"
           delete_heard: "Delete heard form “%{heard}”"
-          delete_heard_confirm: "Delete the heard form “%{heard}” of “%{term}”?"
+          delete_heard_confirm:
+            one: "Delete the heard form “%{heard}” of “%{term}”?"
+            other: "Delete the heard form “%{heard}” of “%{term}”, with all %{count} corrections?"
           merge_label: "Merge with another term"
           merge_hint: "The heard forms move to the chosen term, and this term is deleted."
           merge_choose: "Choose a term"
@@ -93,7 +96,7 @@ en:
             zero: "Delete “%{term}”?"
             one: "Delete “%{term}” and its heard form?"
             other: "Delete “%{term}” and its %{count} heard forms?"
-          read_only: "Read only: admins and holders of the right “Keep the glossary” can change it."
+          read_only: "You can view the glossary, but not change it."
         form:
           new_title: "New term"
           edit_title: "Edit “%{term}”"

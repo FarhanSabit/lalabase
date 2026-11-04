@@ -1,9 +1,9 @@
-<%# locals: (correction:, term:, meetings:, can_write:) %>
+<%# locals: (correction:, meetings:) %>
 <%# One correction of a heard form: who spoke (a name, a link only with
     view_people), the project it came from (a name for every reader of the
     glossary), the meeting (title and link only when the reader may read it,
-    meetings holds those), the date, how often it was replaced, and delete for
-    those who may keep the glossary. %>
+    meetings holds those), the date and how often it was replaced. Deleting
+    is the whole heard form's (_detail). %>
 <% speaker = glossary_speaker_name(correction) %>
 <% speaker_url = glossary_speaker_url(correction) if speaker %>
 <% meeting_title = meetings[correction.meeting_id] %>
@@ -30,15 +30,4 @@
       · <%= t('views.organisations.glossary.show.replaced', count: correction.replaced_count) %>
     <% end %>
   </span>
-  <% if can_write %>
-    <%= render Neo::Buttons::ButtonComponent.new(
-      variant: :ghost, size: :small, icon: 'trash',
-      title: t('views.organisations.glossary.show.delete_heard', heard: correction.heard),
-      confirm: t('views.organisations.glossary.show.delete_heard_confirm', heard: correction.heard, term: term.term),
-      form: { action: correction_organisation_glossary_term_path(@current_organisation, term, correction_id: correction.id),
-              method: :delete, params: list_state, data: { turbo_frame: '_top' } }
-    ) do %>
-      <span class="sr-only"><%= t('views.organisations.glossary.show.delete_heard', heard: correction.heard) %></span>
-    <% end %>
-  <% end %>
 </li>

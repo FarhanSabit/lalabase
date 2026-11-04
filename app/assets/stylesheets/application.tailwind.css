@@ -539,6 +539,7 @@
   .glossary-heard { @apply flex flex-col gap-3 border-t border-cream-200 pt-4; }
   .glossary-heard__groups { @apply flex flex-col gap-3; }
   .glossary-heard__form { @apply flex items-baseline gap-2 text-sm font-medium text-heading; }
+  .glossary-heard__delete { margin-inline-start: auto; }
   .glossary-heard__count { @apply text-xs font-normal text-muted; }
   .glossary-heard__list { @apply mt-1 flex flex-col; }
   .glossary-heard__row { @apply flex flex-wrap items-baseline gap-x-3 gap-y-0.5 border-b border-cream-200 py-1.5 text-[13px] text-heading; }

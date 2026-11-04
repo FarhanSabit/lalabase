@@ -58,7 +58,7 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
   # Every write of the page, one example each: Prosopite reads requests sent
   # from one line of a loop as an N+1.
   def self.write_names
-    %w[create update destroy confirm reject merge destroy_correction]
+    %w[create update destroy confirm reject merge destroy_heard_form]
   end
 
   # [verb, path, params] of a write, against the given term.
@@ -70,7 +70,7 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
       'confirm' => [:patch, confirm_organisation_glossary_term_path(organisation, target), {}],
       'reject' => [:patch, reject_organisation_glossary_term_path(organisation, target), {}],
       'merge' => [:post, merge_organisation_glossary_term_path(organisation, target), { target_id: proposal.id }],
-      'destroy_correction' => [:delete, correction_organisation_glossary_term_path(organisation, target, correction_id: open_correction.id), {}]
+      'destroy_heard_form' => [:delete, heard_form_organisation_glossary_term_path(organisation, target, correction_id: open_correction.id), {}]
     }.fetch(name)
   end
 
@@ -162,8 +162,12 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
       expect(response.body).not_to include(edit_organisation_glossary_term_path(organisation, term))
       expect(response.body).not_to include(confirm_organisation_glossary_term_path(organisation, proposal))
       expect(response.body).not_to include(merge_organisation_glossary_term_path(organisation, term))
-      expect(response.body).not_to include(correction_organisation_glossary_term_path(organisation, term, correction_id: open_correction.id))
+      expect(response.body).not_to include(heard_form_organisation_glossary_term_path(organisation, term, correction_id: open_correction.id))
       expect(response.body).to include(I18n.t('views.organisations.glossary.show.read_only'))
+      page = Nokogiri::HTML(response.body)
+      expect(page.css('input[name="_method"][value="delete"]')).to be_empty
+      expect(page.text).not_to include(I18n.t('views.organisations.glossary.show.delete'))
+      expect(page.css('.glossary-heard__group')).to be_present
     end
 
     it 'opens no form with ?new=term on a full visit' do
@@ -172,6 +176,13 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
       expect(response).to have_http_status(:ok)
       expect(response.body).to include('Lalabase')
       expect(response.body).not_to include('id="glossary_term_term"')
+    end
+
+    it 'names ?new=term as unresolved when it opens no form' do
+      get organisation_glossary_terms_path(organisation, new: 'term')
+
+      data = Nokogiri::HTML(response.body).at_css('.glossary-page')['data-layout-toggle-unresolved-selection-value']
+      expect(JSON.parse(data)).to eq('new' => 'term')
     end
 
     it 'opens no form with ?new=term in the lane frame' do
@@ -184,7 +195,7 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
 
     # The write right comes before the heard form is looked up: 403, not 404.
     it 'is refused deleting a heard form of another term with 403' do
-      delete correction_organisation_glossary_term_path(organisation, proposal, correction_id: open_correction.id)
+      delete heard_form_organisation_glossary_term_path(organisation, proposal, correction_id: open_correction.id)
 
       expect(response).to have_http_status(:forbidden)
       expect(TermCorrection.where(id: open_correction.id)).to exist
@@ -473,16 +484,46 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
       expect(glossary_state).to eq(before)
     end
 
-    it 'deletes one heard form and keeps the term' do
-      delete correction_organisation_glossary_term_path(organisation, term, correction_id: open_correction.id)
+    # Review round 2 of #113: a heard form learnt wrong goes with every
+    # correction of it at this term, not one correction at a time.
+    it 'deletes one heard form with all its corrections and keeps the term and its other forms' do
+      heard_again = create(:term_correction, organisation: organisation, glossary_term: term, heard: 'Lala Bass')
+
+      delete heard_form_organisation_glossary_term_path(organisation, term, correction_id: open_correction.id)
 
       expect(response).to redirect_to(organisation_glossary_terms_path(organisation, term_id: term.id))
-      expect(TermCorrection.where(id: open_correction.id)).not_to exist
+      expect(flash[:notice]).to eq(I18n.t('controllers.glossary.heard_form.destroy.success'))
+      expect(TermCorrection.where(id: [open_correction.id, heard_again.id])).not_to exist
       expect(TermCorrection.where(id: closed_correction.id)).to exist
+      expect(GlossaryTerm.where(id: term.id)).to exist
+    end
+
+    it 'offers the delete once per heard form, and asks with the number of its corrections' do
+      create(:term_correction, organisation: organisation, glossary_term: term, heard: 'Lala Bass')
+
+      get organisation_glossary_term_path(organisation, term), headers: frame_headers
+
+      page = Nokogiri::HTML(response.body)
+      forms = page.css('.glossary-heard__group form[action*="/heard/"]')
+      expect(forms.size).to eq(2)
+      expect(forms.map { |form| form['data-turbo-confirm'] }).to include(
+        I18n.t('views.organisations.glossary.show.delete_heard_confirm', heard: 'Lala Bass', term: 'Lalabase', count: 2)
+      )
+      expect(page.css('.glossary-heard__row form')).to be_empty
+    end
+
+    it 'counts heard forms, not corrections, when it asks before deleting the term' do
+      create(:term_correction, organisation: organisation, glossary_term: term, heard: 'Lala Bass')
+
+      get organisation_glossary_term_path(organisation, term), headers: frame_headers
+
+      confirm = Nokogiri::HTML(response.body).css("form[action=\"#{organisation_glossary_term_path(organisation, term)}\"]")
+                        .filter_map { |form| form['data-turbo-confirm'] }
+      expect(confirm).to eq([I18n.t('views.organisations.glossary.show.delete_confirm', term: 'Lalabase', count: 2)])
     end
 
     it 'answers 404 for a heard form of another term' do
-      delete correction_organisation_glossary_term_path(organisation, proposal, correction_id: open_correction.id)
+      delete heard_form_organisation_glossary_term_path(organisation, proposal, correction_id: open_correction.id)
 
       expect(response).to have_http_status(:not_found)
       expect(TermCorrection.where(id: open_correction.id)).to exist
@@ -502,7 +543,7 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
       expect(response.body).to include(confirm_organisation_glossary_term_path(organisation, proposal),
                                        reject_organisation_glossary_term_path(organisation, proposal),
                                        merge_organisation_glossary_term_path(organisation, term),
-                                       correction_organisation_glossary_term_path(organisation, term, correction_id: open_correction.id))
+                                       heard_form_organisation_glossary_term_path(organisation, term, correction_id: open_correction.id))
     end
   end
 
@@ -619,6 +660,35 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
       get organisation_glossary_terms_path(organisation, new: 'term')
 
       expect(response.body).to include('id="glossary_term_term"')
+    end
+
+    # The lane parameters the server did not open go to layout-toggle, which
+    # takes them out of the address (review round 2 of #113).
+    it 'names an unknown term_id as unresolved, and none for an opened term' do
+      unknown = SecureRandom.uuid
+      get organisation_glossary_terms_path(organisation, term_id: unknown)
+
+      data = Nokogiri::HTML(response.body).at_css('.glossary-page')['data-layout-toggle-unresolved-selection-value']
+      expect(JSON.parse(data)).to eq('term_id' => unknown)
+
+      get organisation_glossary_terms_path(organisation, term_id: term.id)
+
+      expect(Nokogiri::HTML(response.body).at_css('.glossary-page')['data-layout-toggle-unresolved-selection-value']).to be_nil
+    end
+
+    it 'keeps the phone view through a refused save' do
+      post organisation_glossary_terms_path(organisation), params: { glossary_term: { term: 'LALABASE' }, viewport: 'mobile' }
+
+      expect(response).to have_http_status(:unprocessable_content)
+      page = Nokogiri::HTML(response.body)
+      expect(page.css('.people-mobile-grid')).to be_present
+      expect(page.css('form.people-form input[type="hidden"][name="viewport"][value="mobile"]')).to be_present
+    end
+
+    it 'keeps the phone view through a write' do
+      patch confirm_organisation_glossary_term_path(organisation, proposal), params: { viewport: 'mobile' }
+
+      expect(response).to redirect_to(organisation_glossary_terms_path(organisation, viewport: 'mobile'))
     end
 
     it 'answers a lane request of the index with the lane alone' do

@@ -165,9 +165,12 @@ Verzeichnis-Übersicht (Auswahl):
   Glossar (K4a, 04.11.2026): `save_glossary_term` (anlegen/ändern, von Hand immer
   `confirmed`; eine verlorene Wette auf den Unique-Index ist dieselbe Ablehnung),
   `set_glossary_term_status` (nur bestätigen/verwerfen, nie vorschlagen),
-  `destroy_glossary_term`, `destroy_term_correction`, `merge_glossary_terms` (sperrt beide
-  Zeilen in EINER Abfrage nach ID, die gehörten Formen wandern zum Ziel, das Ziel behält
-  Schreibweise, Kategorie und Status). Das Ziel löst der Aufrufer über den Policy-Scope auf.
+  `destroy_glossary_term`, `destroy_heard_form` (eine gehörte Form mit ALLEN ihren
+  Korrekturen am Begriff), `merge_glossary_terms` (sperrt beide Zeilen in EINER Abfrage nach
+  ID, die gehörten Formen wandern zum Ziel, das Ziel behält Schreibweise, Kategorie und
+  Status). Das Ziel löst der Aufrufer über den Policy-Scope auf. ⚠️ EINE Sperr-Reihenfolge:
+  jeder Glossar-Write sperrt zuerst den Begriff (`glossary/term_lock.rb`, ein weggefallener
+  Begriff ist `not_found`); andersherum blockierten sich Löschen und Zusammenführen.
   Registrierung (Website-Schnitt W2, 15.09.2026): `create_signup` ist die EINE
   Selbst-Registrierung für das Formular und später den Provisioning-Endpunkt. Tier 2: Sprache
   und tenant-freier Rahmen umschließen den ganzen Lauf (die Bestätigungsmail rendert beim

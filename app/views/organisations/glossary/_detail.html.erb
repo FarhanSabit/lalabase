@@ -33,14 +33,28 @@
         <ul class="glossary-heard__groups">
           <% groups.each do |group| %>
             <li class="glossary-heard__group">
-              <p class="glossary-heard__form">
+              <div class="glossary-heard__form">
                 <%= t('views.organisations.glossary.quoted', text: group.first.heard) %>
                 <span class="glossary-heard__count"><%= t('views.organisations.glossary.show.times', count: group.size) %></span>
-              </p>
+                <% if can_write %>
+                  <%# The whole form goes, with every correction of it (plan §6: a form learnt wrong). %>
+                  <span class="glossary-heard__delete">
+                    <%= render Neo::Buttons::ButtonComponent.new(
+                      variant: :ghost, size: :small, icon: 'trash',
+                      title: t('views.organisations.glossary.show.delete_heard', heard: group.first.heard),
+                      confirm: t('views.organisations.glossary.show.delete_heard_confirm', heard: group.first.heard, term: term.term,
+                                                                                           count: group.size),
+                      form: { action: heard_form_organisation_glossary_term_path(@current_organisation, term, correction_id: group.first.id),
+                              method: :delete, params: list_state, data: { turbo_frame: '_top' } }
+                    ) do %>
+                      <span class="sr-only"><%= t('views.organisations.glossary.show.delete_heard', heard: group.first.heard) %></span>
+                    <% end %>
+                  </span>
+                <% end %>
+              </div>
               <ul class="glossary-heard__list">
                 <% group.each do |correction| %>
-                  <%= render 'organisations/glossary/correction', correction: correction, term: term, meetings: meetings,
-                                                                  can_write: can_write %>
+                  <%= render 'organisations/glossary/correction', correction: correction, meetings: meetings %>
                 <% end %>
               </ul>
             </li>
@@ -76,7 +90,7 @@
         <div>
           <%= render Neo::Buttons::ButtonComponent.new(
             variant: :danger, size: :small, icon: 'trash',
-            confirm: t('views.organisations.glossary.show.delete_confirm', term: term.term, count: corrections.size),
+            confirm: t('views.organisations.glossary.show.delete_confirm', term: term.term, count: groups.size),
             form: { action: organisation_glossary_term_path(@current_organisation, term), method: :delete,
                     params: list_state, data: { turbo_frame: '_top' } }
           ) do %>

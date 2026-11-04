@@ -11,7 +11,8 @@
 #   saves of the same spelling at once pass the validation; the unique index
 #   refuses the second, and that is the same refusal, not a crash.
 # * The id is looked up inside the organisation: an id of another one is no
-#   term at all.
+#   term at all. A saved term is locked before it changes (Glossary::TermLock),
+#   so one deleted or merged away in the meantime is refused as gone.
 module Actors
   class SaveGlossaryTerm < BaseActor
     ATTRIBUTES = %i[term category].freeze
@@ -31,6 +32,7 @@ module Actors
     def perform
       raise ActorError.new(I18n.t('controllers.glossary.not_found'), code: :not_found) if @term.nil?
 
+      Glossary::TermLock.call(term: @term) if @term.persisted?
       @term.assign_attributes(@params.slice(*ATTRIBUTES))
       if @term.new_record?
         @term.status = 'confirmed'

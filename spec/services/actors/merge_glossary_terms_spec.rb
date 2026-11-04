@@ -80,4 +80,22 @@ RSpec.describe Actors::MergeGlossaryTerms, :ci_guard, type: :service do
     expect(result.code).to eq(:not_found)
     expect(source.reload.term_corrections.count).to eq(1)
   end
+
+  # The one lock order of the glossary (Glossary::TermLock): rows in the order
+  # of their ids, in one statement, before any heard form moves.
+  it 'locks both terms in one statement ordered by id, before it moves anything' do
+    create(:term_correction, organisation: organisation, glossary_term: source)
+    statements = []
+    callback = ->(*, payload) { statements << payload[:sql] }
+
+    ActiveSupport::Notifications.subscribed(callback, 'sql.active_record') do
+      merge
+    end
+
+    lock = statements.index { |sql| sql.include?('FROM "glossary_terms"') && sql.include?('FOR UPDATE') }
+    move = statements.index { |sql| sql.start_with?('UPDATE "term_corrections"') }
+    expect([lock, move]).to all(be_present)
+    expect(statements[lock]).to include('ORDER BY "glossary_terms"."id"')
+    expect(lock).to be < move
+  end
 end
