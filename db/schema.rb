@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_01_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_04_100200) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -714,6 +714,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_01_120000) do
     t.index ["fragmentable_type", "fragmentable_id"], name: "index_fragments_on_fragmentable"
     t.index ["organisation_id"], name: "index_fragments_on_organisation_id"
     t.index ["version_token"], name: "index_fragments_on_version_token"
+  end
+
+  create_table "glossary_terms", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "organisation_id", null: false
+    t.string "term", null: false
+    t.string "normalized_term", null: false
+    t.string "category"
+    t.string "status", default: "confirmed", null: false
+    t.uuid "created_by_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.integer "lock_version", default: 0, null: false
+    t.index ["created_by_id"], name: "index_glossary_terms_on_created_by_id"
+    t.index ["organisation_id", "normalized_term"], name: "index_glossary_terms_on_organisation_id_and_normalized_term", unique: true
   end
 
   create_table "imported_objects", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1677,6 +1691,32 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_01_120000) do
     t.index ["user_id"], name: "index_tags_on_user_id"
   end
 
+  create_table "term_corrections", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "organisation_id", null: false
+    t.uuid "glossary_term_id", null: false
+    t.uuid "project_id"
+    t.string "heard", null: false
+    t.string "normalized_heard", null: false
+    t.uuid "person_id"
+    t.uuid "user_id"
+    t.uuid "meeting_id"
+    t.integer "line_index"
+    t.integer "char_offset"
+    t.string "transcript_digest"
+    t.integer "replaced_count", default: 1, null: false
+    t.uuid "corrected_by_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["corrected_by_id"], name: "index_term_corrections_on_corrected_by_id"
+    t.index ["glossary_term_id", "normalized_heard"], name: "index_term_corrections_on_term_and_heard"
+    t.index ["meeting_id"], name: "index_term_corrections_on_meeting_id"
+    t.index ["organisation_id"], name: "index_term_corrections_on_organisation_id"
+    t.index ["person_id"], name: "index_term_corrections_on_person_id"
+    t.index ["project_id"], name: "index_term_corrections_on_project_id"
+    t.index ["user_id"], name: "index_term_corrections_on_user_id"
+    t.check_constraint "num_nonnulls(person_id, user_id) <= 1", name: "term_corrections_one_speaker"
+  end
+
   create_table "ticket_assignments", force: :cascade do |t|
     t.uuid "ticket_id", null: false
     t.uuid "user_id", null: false
@@ -2075,6 +2115,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_01_120000) do
   add_foreign_key "embedding_spaces", "organisations", on_delete: :cascade
   add_foreign_key "founder_signups", "accounts"
   add_foreign_key "fragments", "organisations"
+  add_foreign_key "glossary_terms", "organisations", on_delete: :cascade
+  add_foreign_key "glossary_terms", "users", column: "created_by_id", on_delete: :nullify
   add_foreign_key "imported_objects", "organisations"
   add_foreign_key "mcp_idempotency_keys", "personal_access_tokens"
   add_foreign_key "meeting_analyses", "analysis_prompts", on_delete: :nullify
@@ -2182,6 +2224,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_01_120000) do
   add_foreign_key "taggings", "users"
   add_foreign_key "tags", "organisations"
   add_foreign_key "tags", "users"
+  add_foreign_key "term_corrections", "glossary_terms", on_delete: :cascade
+  add_foreign_key "term_corrections", "meetings", on_delete: :nullify
+  add_foreign_key "term_corrections", "organisations", on_delete: :cascade
+  add_foreign_key "term_corrections", "people", on_delete: :nullify
+  add_foreign_key "term_corrections", "projects", on_delete: :nullify
+  add_foreign_key "term_corrections", "users", column: "corrected_by_id", on_delete: :nullify
+  add_foreign_key "term_corrections", "users", on_delete: :nullify
   add_foreign_key "ticket_attribute_definitions", "projects"
   add_foreign_key "ticket_bulk_runs", "organisations"
   add_foreign_key "ticket_bulk_runs", "projects"

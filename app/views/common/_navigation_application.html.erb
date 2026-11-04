@@ -132,8 +132,9 @@
       gate that actually belongs to it. That predicate is exactly the old block
       condition, so nothing changes for anybody who had the block before.
       The people directory is a right of its own (PersonPolicy) and opens the
-      block too: a customer role may hold it without any project. %>
-  <% if user_signed_in? && (policy(Project).index? || policy(TimeSession).index? || assistant_available? || policy(Person).index?) %>
+      block too: a customer role may hold it without any project. So does the
+      glossary (GlossaryPolicy). %>
+  <% if user_signed_in? && (policy(Project).index? || policy(TimeSession).index? || assistant_available? || policy(Person).index? || policy(GlossaryTerm).index?) %>
     <div class="w-full px-4 pt-3">
       <div class="mb-2">
         <% can_view_times = TimeSessionNavigationService.new(current_user, current_organisation).can_show_all_time_sessions_menu? %>
@@ -188,6 +189,10 @@
           <% end %>
           <% if can_view_meetings %>
             <%= render 'common/navigation_item', name: t('navigation.all_meetings'), path: organisation_meetings_path(organisation_id: current_organisation.id), icon: 'bi bi-chat-quote', active: controller_name == 'meetings_overview' %>
+          <% end %>
+          <%# The glossary: a right of its own (GlossaryPolicy, K4a). %>
+          <% if policy(GlossaryTerm).index? %>
+            <%= render 'common/navigation_item', name: t('navigation.glossary'), path: organisation_glossary_terms_path(organisation_id: current_organisation.id), icon: 'bi bi-book', active: controller_name == 'glossary' %>
           <% end %>
           <%# The people directory: a right of its own (PersonPolicy). %>
           <% if policy(Person).index? %>

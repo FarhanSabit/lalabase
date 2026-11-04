@@ -2,6 +2,17 @@
 en:
   activerecord:
     attributes:
+      glossary_term:
+        term: "Term"
+        category: "Category"
+        status: "Status"
+      term_correction:
+        heard: "Heard form"
+        user: "Speaker"
+        person: "Speaker"
+        project: "Project"
+        meeting: "Meeting"
+        glossary_term: "Term"
       organisation:
         meeting_inbox_project_id: "Inbox project"
       person:
@@ -80,6 +91,12 @@ en:
         file: "PDF"
     errors:
       models:
+        glossary_term:
+          attributes:
+            term:
+              taken: "is already in the glossary"
+        term_correction:
+          one_speaker: "A speaker is either a member or a contact, never both."
         person:
           attributes:
             additional_details:

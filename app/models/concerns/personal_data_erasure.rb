@@ -3,7 +3,7 @@
 # Erases the personal records an account owns BEYOND the users row itself, for
 # the account-erasure path: GDPR export archives, private meeting analyses,
 # private ticket posts, personal tasks, linked people directory rows, the
-# account's own chat threads (via
+# speaker link of glossary heard forms, the account's own chat threads (via
 # PersonalChatErasure, which is included here so that both entry points get it
 # through this ONE include) and, as access revocation, its personal access
 # tokens.
@@ -39,6 +39,7 @@ module PersonalDataErasure
     erase_personal_tasks!
     erase_personal_chats!
     erase_person_links!
+    erase_term_correction_speakers!
     revoke_personal_access_tokens!
   end
 
@@ -117,6 +118,21 @@ module PersonalDataErasure
   def erase_person_links!
     ActsAsTenant.without_tenant do
       Person.where(user_id: id).destroy_all
+    end
+  end
+
+  # The glossary heard forms this account spoke (term_corrections.user_id), in
+  # every organisation. A heard form is knowledge of the organisation and stays,
+  # as when a person of the directory is deleted (plan §3.3, K4a); only the link
+  # to the erased account goes. A soft delete never fires the FK's
+  # on_delete: :nullify, so the step is explicit. update_all: no callbacks, and
+  # the one-speaker check holds (person_id stays as it is, empty). A form
+  # spoken as the account's own directory row (exported with these) loses
+  # that link with the row: erase_person_links! deletes it, and the foreign
+  # key (on_delete: :nullify) clears person_id.
+  def erase_term_correction_speakers!
+    ActsAsTenant.without_tenant do
+      TermCorrection.where(user_id: id).update_all(user_id: nil, updated_at: Time.current)
     end
   end
 

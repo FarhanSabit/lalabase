@@ -1,0 +1,26 @@
+<%# locals: (entries:, status_counts:, selected: nil) %>
+<%# The terms of the glossary, open proposals first (GlossaryTerm.ordered):
+    the spelling with category and status, the heard forms below, then who
+    spoke and in which projects. Every row opens the term in the lane. %>
+<turbo-frame id="<%= Organisations::GlossaryController::LIST_FRAME_ID %>">
+  <% if entries.any? %>
+    <ul class="people-list glossary-list">
+      <% entries.each do |term| %>
+        <%= render 'organisations/glossary/row', term: term, selected: selected %>
+      <% end %>
+    </ul>
+  <% elsif status_counts.values.sum.zero? %>
+    <div class="people-empty">
+      <i class="bi bi-book people-empty__icon" aria-hidden="true"></i>
+      <p class="people-empty__title"><%= t('views.organisations.glossary.index.empty_title') %></p>
+      <p class="people-empty__text width-text"><%= t('views.organisations.glossary.index.empty_description') %></p>
+    </div>
+  <% else %>
+    <div class="people-empty">
+      <p class="people-empty__text"><%= t('views.organisations.glossary.index.empty_no_results') %></p>
+      <%= link_to t('views.organisations.glossary.index.clear_filters'),
+                  organisation_glossary_terms_path(@current_organisation, list_state.slice('viewport')),
+                  class: 'people-text-action', data: { turbo_frame: '_top' } %>
+    </div>
+  <% end %>
+</turbo-frame>

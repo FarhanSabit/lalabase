@@ -195,6 +195,9 @@ en:
           people:
             view_people: View people
             manage_people: Edit people (including delete)
+          glossary:
+            view_glossary: View the glossary, with the heard forms, speakers and projects of every meeting of the organisation
+            manage_glossary: Keep the glossary (create, change, confirm, reject, merge and delete terms)
           none_available: No description available
         categories:
           assistant: Assistant
@@ -204,6 +207,7 @@ en:
           meetings: Meetings
           users: Users
           people: People
+          glossary: Glossary
     layouts:
       docs:
         title_with_page: "%{page} · Lalabase Docs"

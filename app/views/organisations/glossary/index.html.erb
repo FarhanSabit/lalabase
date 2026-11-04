@@ -1,0 +1,28 @@
+<%# The glossary of the organisation (Organisations::GlossaryController, K4a):
+    the terms on the left, a term or the form in the lane on the right, the
+    shape of the people directory. layout-toggle and index-page own the
+    address (?term_id=, ?new=term); a write leaves the lane and lands here
+    again. %>
+<% content_for :head do %>
+  <meta name="turbo-cache-control" content="no-cache">
+<% end %>
+
+<% lane_state = if @form_term then :form elsif @lane_term then :detail end %>
+<% lane_term = @form_term || @lane_term %>
+
+<div class="labor-layout-view people-page glossary-page <%= 'show-content' if lane_state %> hide-panel"
+     <%= tag.attributes(data: glossary_page_data(viewport_mode: @viewport_mode, selected: @lane_term, form_open: @form_term.present?)) %>>
+  <% list = capture do %>
+    <%= render 'organisations/glossary/list_head', status_counts: @status_counts, origin_projects: @origin_projects %>
+    <%= render 'organisations/glossary/results', entries: @entries, status_counts: @status_counts, selected: @lane_term %>
+  <% end %>
+  <% lane = capture do %>
+    <%= render 'organisations/glossary/lane', state: lane_state || :empty, term: lane_term, message: @form_message %>
+  <% end %>
+
+  <% if @viewport_mode == 'mobile' %>
+    <%= render 'organisations/glossary/index_mobile', list: list, lane: lane, open: lane_state.present? %>
+  <% else %>
+    <%= render 'organisations/glossary/index_desktop', list: list, lane: lane, open: lane_state.present? %>
+  <% end %>
+</div>

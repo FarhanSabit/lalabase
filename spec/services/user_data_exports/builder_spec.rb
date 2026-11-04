@@ -107,6 +107,24 @@ RSpec.describe UserDataExports::Builder,
     expect(org_folders.join).not_to include('fremd')
   end
 
+  # Review round 4 of #113: a heard form spoken as the account's own row of
+  # the people directory is data about the account as well.
+  it 'exports the heard forms the account spoke, as member and as its own directory row' do
+    ActsAsTenant.with_tenant(org_a) do
+      term = create(:glossary_term, organisation: org_a, term: 'Lalabase')
+      own_row = create(:person, organisation: org_a, user: user, name: 'Eigene Zeile')
+      other_row = create(:person, organisation: org_a, name: 'Fremde Zeile')
+      create(:term_correction, organisation: org_a, glossary_term: term, heard: 'als mitglied', user: user)
+      create(:term_correction, organisation: org_a, glossary_term: term, heard: 'als eigene zeile', person: own_row)
+      create(:term_correction, organisation: org_a, glossary_term: term, heard: 'als fremde zeile', person: other_row)
+      create(:term_correction, organisation: org_a, glossary_term: term, heard: 'als anderes mitglied', user: other_user)
+    end
+
+    rows = JSON.parse(files["organisations/#{expected_folder(org_a)}/term_corrections.json"])
+    expect(rows.map { |row| row['heard'] }).to contain_exactly('als mitglied', 'als eigene zeile')
+    expect(rows.map { |row| row['term'] }.uniq).to eq(['Lalabase'])
+  end
+
   it 'writes empty sources as [] — deterministic structure' do
     folder = org_folders.first
     expect(files["organisations/#{folder}/posts.json"].strip).to eq('[]')

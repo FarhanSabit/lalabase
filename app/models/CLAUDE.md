@@ -1,4 +1,4 @@
-# Karte: app/models (Stand: 2026-10-31)
+# Karte: app/models (Stand: 2026-11-04)
 
 ~80 Modelle liegen flach in diesem Verzeichnis; Namespaces existieren nur für `admin/`,
 `knowledge/`, `overview/`, `smart_folders/`, `time_sessions/`, `user/`. Die Domänen-Zugehörigkeit ist am
@@ -102,6 +102,21 @@ Verzeichnis-Layout nicht ablesbar — diese Karte gruppiert sie:
   schickt immer `person[additional_details][sent]` mit (`FORM_MARKER`): ohne ihn ließe das
   Entfernen der letzten Angabe die Liste stehen. Fehlt der Key ganz, bleibt die Liste
   unberührt. Check-Constraint `people_additional_details_shape` hält Liste und Grenze.
+* **Glossar** (K4a, 04.11.2026): `glossary_term` (ein Begriff je Organisation, nicht je Projekt;
+  eindeutig nach `normalized_term`, Status `proposed`/`confirmed`/`rejected`), `term_correction`
+  (eine gehörte Form je Korrektur: Sprecher als Person ODER Mitglied, Check
+  `term_corrections_one_speaker`; Projekt als Herkunft; Stelle im Transkript), `glossary_text`
+  (der EINE Normalisierer: unsichtbare Zeichen raus, NFC, Leerraum, klein, bewusst OHNE die
+  Umlaut-Umschrift von `PersonName`). `glossary_term` hat `lock_version` wie `person`: ein
+  Formular über eine fremde Änderung hinweg wird abgelehnt (`:stale_object`). Verweise auf Zeilen
+  einer Organisation stehen VOR `acts_as_tenant` und werden zusätzlich ohne Mandanten-Scope
+  geprüft (`same_organisation_references`). Eigenes Recht
+  (`Permission::CATEGORIES[:glossary]`, `view_glossary`/`manage_glossary`, gastrollen-tauglich),
+  Kontoadmins ohne Zeile; `GlossaryPolicy` für beide Modelle (`policy_class`). Schreiben nur über
+  die Glossar-Actors. ⚠️ Ein gelöschtes Meeting lässt seine gehörten Formen samt Stelle stehen, nur
+  `meeting_id` wird leer (FK `on_delete: :nullify`, Ausnahme E4, Kommentar an
+  `Meeting#purge_fragment_content_embeddings`); nie auf `cascade` stellen. Die Kontolöschung leert
+  nur den Sprecher (`erase_term_correction_speakers!`).
 * **Activity/Notifications**: `activity`, `user_activity`, `outbox_event`, `notification`,
   `notification_preference`, `notification_subscription`, `email_log` — Services dazu unter
   `app/services/notifications/` (eigene Karte dort)

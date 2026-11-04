@@ -1,0 +1,110 @@
+---
+en:
+  controllers:
+    glossary:
+      not_found: "This term no longer exists."
+      create:
+        success: "Term created."
+      update:
+        success: "Term saved."
+        stale: "Someone else changed this term in the meantime. The current details are shown below, please make your change again."
+      destroy:
+        success: "Term deleted."
+      confirm:
+        success: "Term confirmed."
+      reject:
+        success: "Term rejected."
+      status:
+        not_allowed: "This status cannot be set here."
+      merge:
+        success: "Terms merged."
+        same_term: "A term cannot be merged with itself."
+        other_glossary: "Both terms must be in the same glossary."
+        no_target: "Please choose the term to merge with."
+      heard_form:
+        not_found: "This heard form no longer exists."
+        destroy:
+          success: "Heard form deleted."
+  views:
+    organisations:
+      glossary:
+        quoted: "“%{text}”"
+        # A speaker the reader may not see (GlossaryHelper#glossary_speaker_name).
+        speaker_hidden: "Name not visible"
+        categories:
+          person: "Person"
+          company: "Company"
+          product: "Product"
+          place: "Place"
+          domain: "Technical term"
+          foreign: "Foreign word"
+        statuses:
+          proposed: "Proposal"
+          confirmed: "Confirmed"
+          rejected: "Rejected"
+        index:
+          title: "Glossary"
+          new_term: "Add term"
+          status_filter_label: "Status"
+          status_filter:
+            all: "All"
+            proposed: "Proposals"
+            confirmed: "Confirmed"
+            rejected: "Rejected"
+          project_filter_label: "Project"
+          category_filter_label: "Category"
+          all_projects: "All projects"
+          all_categories: "All categories"
+          apply_filters: "Apply"
+          placeholder_title: "No term selected"
+          placeholder_body: "Pick a term on the left."
+          back_to_list: "Glossary"
+          empty_title: "No terms yet"
+          empty_description: "This is where technical terms, names and products are spelled right, with the forms in which meetings heard them wrong. The glossary holds for the whole organisation."
+          empty_no_results: "No term in this selection."
+          clear_filters: "Reset filters"
+          heard_as: "heard as %{forms}"
+          form_count: "%{form} (%{count}×)"
+          more_forms: "and %{count} more"
+          corrections_count:
+            one: "1 correction"
+            other: "%{count} corrections"
+        show:
+          edit: "Edit"
+          close: "Close"
+          confirm: "Confirm"
+          reject: "Reject"
+          heard_title: "Heard forms"
+          no_heard: "No heard forms yet."
+          times:
+            one: "once"
+            other: "%{count} times"
+          no_speaker: "Speaker unknown"
+          no_project: "No project"
+          replaced:
+            one: "replaced once"
+            other: "replaced %{count} times"
+          delete_heard: "Delete heard form “%{heard}”"
+          delete_heard_confirm:
+            one: "Delete the heard form “%{heard}” of “%{term}”?"
+            other: "Delete the heard form “%{heard}” of “%{term}”, with all %{count} corrections?"
+          merge_label: "Merge with another term"
+          merge_hint: "The heard forms move to the chosen term, and this term is deleted."
+          merge_choose: "Choose a term"
+          merge_submit: "Merge"
+          merge_confirm: "Move “%{term}” into the chosen term? This term is deleted afterwards."
+          created_at: "Created on %{date}"
+          delete: "Delete term"
+          delete_confirm:
+            zero: "Delete “%{term}”?"
+            one: "Delete “%{term}” and its heard form?"
+            other: "Delete “%{term}” and its %{count} heard forms?"
+          read_only: "You can view the glossary, but not change it."
+        form:
+          new_title: "New term"
+          edit_title: "Edit “%{term}”"
+          term_placeholder: "Right spelling"
+          term_hint: "This is how the term is spelled. Case does not count twice: every term stands once in the glossary."
+          no_category: "No category"
+          save: "Save"
+          cancel: "Cancel"

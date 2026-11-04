@@ -249,6 +249,42 @@ RSpec.describe 'Account erasure path parity', type: :model do
       end
     end
 
+    # K4a: the heard form stays as knowledge of the organisation, only the
+    # speaker link to the erased account goes (plan §3.3, like a deleted person).
+    describe 'glossary heard forms the account spoke' do
+      it 'clears the speaker in every organisation and keeps the heard forms' do
+        create(:membership, user: user, organisation: other_organisation)
+        term = create(:glossary_term, organisation: organisation)
+        spoken = create(:term_correction, organisation: organisation, glossary_term: term, user: user)
+        spoken_elsewhere = ActsAsTenant.with_tenant(other_organisation) do
+          create(:term_correction, organisation: other_organisation, user: user)
+        end
+        by_colleague = create(:term_correction, organisation: organisation, glossary_term: term, user: colleague)
+
+        record.soft_delete_and_anonymize!
+
+        ActsAsTenant.without_tenant do
+          expect(TermCorrection.where(id: [spoken.id, spoken_elsewhere.id]).pluck(:user_id)).to eq([nil, nil])
+          expect(TermCorrection.find(by_colleague.id).user_id).to eq(colleague.id)
+        end
+      end
+
+      # Review round 4 of #113: the export counts a form spoken as the
+      # account's own directory row as the account's. Erasure deletes that row
+      # (erase_person_links!), and the foreign key clears the link.
+      it "clears the speaker of a heard form spoken as the account's own directory row" do
+        term = create(:glossary_term, organisation: organisation)
+        own_row = create(:person, organisation: organisation, user: user)
+        spoken = create(:term_correction, organisation: organisation, glossary_term: term, person: own_row)
+
+        record.soft_delete_and_anonymize!
+
+        ActsAsTenant.without_tenant do
+          expect(TermCorrection.where(id: spoken.id).pluck(:person_id, :user_id)).to eq([[nil, nil]])
+        end
+      end
+    end
+
     describe 'personal access tokens (access revocation)' do
       it 'revokes the tokens so they stop authenticating' do
         raw = create(:personal_access_token, user: user, organisations: [organisation]).token

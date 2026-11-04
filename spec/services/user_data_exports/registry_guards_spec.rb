@@ -120,6 +120,33 @@ RSpec.describe UserDataExports::Registry do
     end
   end
 
+  # K4a: the heard forms a member spoke are data about the account; who
+  # corrected them and the glossary itself are org knowledge (EXCLUDED).
+  describe 'term_corrections (the heard forms the account spoke)' do
+    it 'exports the spoken forms only, with term and project, never who corrected them' do
+      source = described_class::SOURCES.find { |s| s.key == :term_corrections }
+      speaker = create(:user)
+      corrector = create(:user)
+      organisation = create(:organisation)
+
+      ActsAsTenant.with_tenant(organisation) do
+        create(:membership, user: speaker, organisation: organisation)
+        create(:membership, user: corrector, organisation: organisation)
+        project = create(:project, organisation: organisation, name: 'Beispielprojekt')
+        term = create(:glossary_term, organisation: organisation, term: 'Lalabase')
+        spoken = create(:term_correction, organisation: organisation, glossary_term: term, project: project,
+                                          heard: 'lala bass', user: speaker, corrected_by: corrector)
+        create(:term_correction, organisation: organisation, glossary_term: term, user: corrector)
+
+        expect(source.scope.call(speaker).to_a).to eq([spoken])
+        expect(source.computed[:term].call(spoken)).to eq('Lalabase')
+        expect(source.computed[:project_name].call(spoken)).to eq('Beispielprojekt')
+      end
+      expect(source.exported_keys).not_to include('corrected_by_id', 'user_id', 'person_id')
+      expect(described_class::EXCLUDED).to have_key('glossary_terms')
+    end
+  end
+
   describe 'completeness guard' do
     def user_referencing_tables
       connection = ActiveRecord::Base.connection

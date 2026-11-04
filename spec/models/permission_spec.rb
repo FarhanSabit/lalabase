@@ -448,4 +448,33 @@ RSpec.describe Permission, type: :model do
       end
     end
   end
+
+  # The glossary (K4a): its own category for the same reason as :people. No
+  # role gets it by itself; whether a guest role may hold it is the admin's
+  # choice, so it stays off the guest ceiling list.
+  describe 'glossary category' do
+    it 'knows view_glossary and manage_glossary' do
+      expect(Permission::CATEGORIES[:glossary]).to eq(%w[view_glossary manage_glossary])
+    end
+
+    it 'is not on the guest ceiling list' do
+      expect(Role::FORBIDDEN_BILLABLE_FALSE_CATEGORIES).not_to include('glossary')
+    end
+
+    it 'lets manage_glossary grant view_glossary, and not the other way round' do
+      expect(Permission.granting_actions('glossary', 'view_glossary')).to eq(%w[view_glossary manage_glossary])
+      expect(Permission.granting_actions('glossary', 'manage_glossary')).to eq(%w[manage_glossary])
+    end
+
+    %w[view_glossary manage_glossary].each do |action|
+      it "stays grantable to a billable: false role (#{action})" do
+        ActsAsTenant.with_tenant(organisation) do
+          guest_role = create(:role, billable: false)
+          permission = build(:permission, role: guest_role, category: 'glossary', action: action, allowed: true)
+
+          expect(permission).to be_valid
+        end
+      end
+    end
+  end
 end

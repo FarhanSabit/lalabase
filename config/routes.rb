@@ -335,6 +335,20 @@ Rails.application.routes.draw do
       get 'members/:user_id', on: :collection, action: :member, as: :member
     end
 
+    # The glossary of the organisation (K4a): one page with a lane, the shape
+    # of the people directory. The terms on the left, a term or the form in the
+    # lane; show, new and edit answer the lane frame, a full visit lands on the
+    # index with ?term_id= or ?new=term. Confirm, reject, merge and deleting one
+    # heard form (named by one of its corrections) are writes on a term.
+    resources :glossary_terms, path: 'glossary', controller: 'glossary' do
+      member do
+        patch :confirm
+        patch :reject
+        post :merge
+        delete 'heard/:correction_id', action: :destroy_heard_form, as: :heard_form
+      end
+    end
+
     # The column picker of "Alle Meetings" saves the overview's base view here:
     # the controller of the project route (view_configuration under a project),
     # without a project. The path default pins the list type; a view_type in the

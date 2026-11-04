@@ -1,0 +1,110 @@
+---
+de:
+  controllers:
+    glossary:
+      not_found: "Diesen Begriff gibt es nicht mehr."
+      create:
+        success: "Begriff angelegt."
+      update:
+        success: "Begriff gespeichert."
+        stale: "Jemand anderes hat diesen Begriff inzwischen geändert. Unten stehen die aktuellen Angaben, bitte noch einmal ändern."
+      destroy:
+        success: "Begriff gelöscht."
+      confirm:
+        success: "Begriff bestätigt."
+      reject:
+        success: "Begriff verworfen."
+      status:
+        not_allowed: "Diesen Status kann man hier nicht setzen."
+      merge:
+        success: "Begriffe zusammengeführt."
+        same_term: "Ein Begriff lässt sich nicht mit sich selbst zusammenführen."
+        other_glossary: "Beide Begriffe müssen im selben Glossar stehen."
+        no_target: "Bitte einen Begriff wählen, mit dem zusammengeführt wird."
+      heard_form:
+        not_found: "Diese gehörte Form gibt es nicht mehr."
+        destroy:
+          success: "Gehörte Form gelöscht."
+  views:
+    organisations:
+      glossary:
+        quoted: "„%{text}“"
+        # A speaker the reader may not see (GlossaryHelper#glossary_speaker_name).
+        speaker_hidden: "Name nicht sichtbar"
+        categories:
+          person: "Person"
+          company: "Firma"
+          product: "Produkt"
+          place: "Ort"
+          domain: "Fachbegriff"
+          foreign: "Fremdwort"
+        statuses:
+          proposed: "Vorschlag"
+          confirmed: "Bestätigt"
+          rejected: "Verworfen"
+        index:
+          title: "Glossar"
+          new_term: "Begriff anlegen"
+          status_filter_label: "Status"
+          status_filter:
+            all: "Alle"
+            proposed: "Vorschläge"
+            confirmed: "Bestätigt"
+            rejected: "Verworfen"
+          project_filter_label: "Projekt"
+          category_filter_label: "Kategorie"
+          all_projects: "Alle Projekte"
+          all_categories: "Alle Kategorien"
+          apply_filters: "Anwenden"
+          placeholder_title: "Kein Begriff gewählt"
+          placeholder_body: "Wähle links einen Begriff aus."
+          back_to_list: "Glossar"
+          empty_title: "Noch keine Begriffe"
+          empty_description: "Hier steht, wie Fachbegriffe, Namen und Produkte richtig geschrieben werden, und in welchen Formen sie in Meetings falsch gehört wurden. Das Glossar gilt für die ganze Organisation."
+          empty_no_results: "Kein Begriff in dieser Auswahl."
+          clear_filters: "Filter zurücksetzen"
+          heard_as: "gehört als %{forms}"
+          form_count: "%{form} (%{count}×)"
+          more_forms: "und %{count} weitere"
+          corrections_count:
+            one: "1 Korrektur"
+            other: "%{count} Korrekturen"
+        show:
+          edit: "Bearbeiten"
+          close: "Schließen"
+          confirm: "Bestätigen"
+          reject: "Verwerfen"
+          heard_title: "Gehörte Formen"
+          no_heard: "Noch keine gehörten Formen."
+          times:
+            one: "1-mal"
+            other: "%{count}-mal"
+          no_speaker: "Sprecher unbekannt"
+          no_project: "Ohne Projekt"
+          replaced:
+            one: "1-mal ersetzt"
+            other: "%{count}-mal ersetzt"
+          delete_heard: "Gehörte Form „%{heard}“ löschen"
+          delete_heard_confirm:
+            one: "Die gehörte Form „%{heard}“ bei „%{term}“ löschen?"
+            other: "Die gehörte Form „%{heard}“ bei „%{term}“ löschen, mit allen %{count} Korrekturen?"
+          merge_label: "Mit anderem Begriff zusammenführen"
+          merge_hint: "Die gehörten Formen wandern zu dem gewählten Begriff, dieser Begriff wird gelöscht."
+          merge_choose: "Begriff wählen"
+          merge_submit: "Zusammenführen"
+          merge_confirm: "„%{term}“ in den gewählten Begriff überführen? Dieser Begriff wird danach gelöscht."
+          created_at: "Angelegt am %{date}"
+          delete: "Begriff löschen"
+          delete_confirm:
+            zero: "„%{term}“ löschen?"
+            one: "„%{term}“ und seine gehörte Form löschen?"
+            other: "„%{term}“ und seine %{count} gehörten Formen löschen?"
+          read_only: "Du kannst das Glossar ansehen, aber nicht pflegen."
+        form:
+          new_title: "Neuer Begriff"
+          edit_title: "„%{term}“ bearbeiten"
+          term_placeholder: "Richtige Schreibweise"
+          term_hint: "So wird der Begriff geschrieben. Groß- und Kleinschreibung zählt nicht doppelt: jeder Begriff steht einmal im Glossar."
+          no_category: "Keine Kategorie"
+          save: "Speichern"
+          cancel: "Abbrechen"

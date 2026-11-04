@@ -1,4 +1,4 @@
-# Karte: app/controllers/concerns (Stand: 2026-10-26)
+# Karte: app/controllers/concerns (Stand: 2026-11-04)
 
 > Für die Ticket-**Domäne** (Attributsystem, Kanban, Actors, Fallen) gilt zusätzlich
 > `docs/architektur/tickets_lesepfad.md`. Diese Karte hier beschreibt nur den **Stack**.
@@ -94,6 +94,13 @@ Stimulus-Controller (`layout-toggle`, `index-page`, `list-row`, `lane-link`); Sp
 Löschen verlassen die Bahn (`_top`) und landen mit `?person_id=` wieder auf der Liste. Zwei
 Auswahlparameter schließen sich aus: `person_id` (eine Zeile) und `member_id` (ein Mitglied ohne
 eigene Zeile, `PeopleController#member`); `user_id` gehört zur Formular-Gruppe.
+Das Glossar (`Organisations::GlossaryController`, K4a, 04.11.2026) ist die siebte Bahn, gebaut
+wie die Personenliste (dieselben Stimulus-Controller und `people-*`-Klassen), mit `term_id` als
+einziger Auswahl und den Filtern `project_id`, `category`, `status` (`LIST_PARAMS`, unbekannte
+Werte fallen weg). Meeting-Titel nur über `policy_scope(Meeting)`, nie vorgeladen. Ein Sprecher
+hat einen Namen nur, wenn der Leser ihn auf der Mitglieder- oder Personenseite sehen darf
+(`MembershipPolicy::Scope`, `PersonPolicy::Scope`), sonst steht ein neutrales Wort; verlinkt nur
+mit `view_people` und nur auf aktive Mitglieder (die Personenseite listet nur sie).
 Der Entscheid für EINE kanonische Listen-Architektur steht aus; bis dahin gilt für neue
 Listen-Features: am ähnlichsten Bestands-Feature orientieren und die Wahl im PR begründen.
 Seit 10.09.2026 teilen Tickets und Knowledge immerhin die OBERFLÄCHE der Liste-mit-Bahn
