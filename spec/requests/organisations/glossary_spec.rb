@@ -239,13 +239,81 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
       end
     end
 
-    it 'shows the menu entry in the sidebar and on the mobile "more" page' do
+    # The glossary has no menu entry (user, 04.11.2026): it is reached from
+    # the head of the meetings pages, see 'the way in from the meetings pages'.
+    it 'shows no menu entry in the sidebar and on the mobile "more" page' do
       get organisation_root_path(organisation)
       follow_redirect! while response.redirect?
-      expect(response.body).to include(%(href="#{organisation_glossary_terms_path(organisation)}"), I18n.t('navigation.glossary'))
+      expect(response.body).to include(I18n.t('navigation.all_organisations'))
+      expect(response.body).not_to include(organisation_glossary_terms_path(organisation))
 
       get organisation_mobile_more_path(organisation)
-      expect(response.body).to include(%(href="#{organisation_glossary_terms_path(organisation)}"))
+      expect(response.body).to include(I18n.t('mobile.more'))
+      expect(response.body).not_to include(organisation_glossary_terms_path(organisation))
+    end
+
+    it 'offers no way back to the meetings without read access to any meeting' do
+      get organisation_glossary_terms_path(organisation)
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include(I18n.t('views.organisations.glossary.index.title'))
+      expect(response.body).not_to include('data-glossary-meetings-link')
+    end
+  end
+
+  # The glossary belongs to the meetings area (user, 04.11.2026): the head of
+  # "Alle Meetings" and of a project's meetings page carries the link, for
+  # those with the glossary right only; the glossary page leads back to
+  # "Alle Meetings" and keeps that sidebar entry lit.
+  describe 'the way in from the meetings pages' do
+    def meetings_reader(*rights)
+      member_with(role_with(*rights)).tap do |user|
+        create(:project_permission, user: user, project: open_project, meetings_access: 'read_only')
+      end
+    end
+
+    def glossary_link
+      %(href="#{organisation_glossary_terms_path(organisation)}")
+    end
+
+    def meetings_pages
+      [organisation_meetings_path(organisation), organisation_project_meetings_path(organisation, open_project)]
+    end
+
+    it 'shows the link on both meetings pages with the glossary right' do
+      sign_in meetings_reader('view_glossary')
+
+      meetings_pages.each do |path|
+        get path
+        expect(response).to have_http_status(:ok)
+        expect(response.body).to include('data-meetings-glossary-link', glossary_link), "no glossary link on #{path}"
+        expect(response.body).to include(I18n.t('navigation.glossary'))
+      end
+    end
+
+    it 'shows no link on either meetings page without the glossary right' do
+      sign_in meetings_reader
+
+      meetings_pages.each do |path|
+        get path
+        expect(response).to have_http_status(:ok)
+        expect(response.body).not_to include('data-meetings-glossary-link')
+        expect(response.body).not_to include(glossary_link)
+      end
+    end
+
+    it 'leads back to "Alle Meetings" from the glossary and keeps that entry lit' do
+      sign_in meetings_reader('view_glossary')
+
+      get organisation_glossary_terms_path(organisation)
+
+      page = Nokogiri::HTML(response.body)
+      back = page.at_css('a[data-glossary-meetings-link]')
+      expect(back).to be_present
+      expect(back['href']).to eq(organisation_meetings_path(organisation))
+      sidebar_entry = page.css('a').find { |link| link['href'] == organisation_meetings_path(organisation) && link != back }
+      expect(sidebar_entry).to be_present
+      expect(sidebar_entry['class']).to include('sidebar-row--active')
     end
   end
 
