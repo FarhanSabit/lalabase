@@ -1,0 +1,25 @@
+---
+en:
+  controllers:
+    glossary:
+      not_found: "This term no longer exists."
+      create:
+        success: "Term created."
+      update:
+        success: "Term saved."
+      destroy:
+        success: "Term deleted."
+      confirm:
+        success: "Term confirmed."
+      reject:
+        success: "Term rejected."
+      status:
+        not_allowed: "This status cannot be set here."
+      merge:
+        success: "Terms merged."
+        same_term: "A term cannot be merged with itself."
+        other_glossary: "Both terms must be in the same glossary."
+        no_target: "Please choose the term to merge with."
+      correction:
+        destroy:
+          success: "Heard form deleted."

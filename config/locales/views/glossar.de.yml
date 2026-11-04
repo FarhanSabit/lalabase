@@ -1,0 +1,25 @@
+---
+de:
+  controllers:
+    glossary:
+      not_found: "Diesen Begriff gibt es nicht mehr."
+      create:
+        success: "Begriff angelegt."
+      update:
+        success: "Begriff gespeichert."
+      destroy:
+        success: "Begriff gelöscht."
+      confirm:
+        success: "Begriff bestätigt."
+      reject:
+        success: "Begriff verworfen."
+      status:
+        not_allowed: "Diesen Status kann man hier nicht setzen."
+      merge:
+        success: "Begriffe zusammengeführt."
+        same_term: "Ein Begriff lässt sich nicht mit sich selbst zusammenführen."
+        other_glossary: "Beide Begriffe müssen im selben Glossar stehen."
+        no_target: "Bitte einen Begriff wählen, mit dem zusammengeführt wird."
+      correction:
+        destroy:
+          success: "Gehörte Form gelöscht."

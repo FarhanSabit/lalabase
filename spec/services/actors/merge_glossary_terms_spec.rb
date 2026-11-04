@@ -1,0 +1,83 @@
+# frozen_string_literal: true
+
+require 'rails_helper'
+
+# Merging two terms of the glossary (K4a, plan §6): the heard forms move to
+# the target, the source goes; never a term into itself, never across
+# organisations. Invented words and names only.
+RSpec.describe Actors::MergeGlossaryTerms, :ci_guard, type: :service do
+  let(:organisation) { create(:organisation) }
+  let(:other_organisation) { create(:organisation) }
+  let(:writer) { create(:user) }
+
+  before { ActsAsTenant.current_tenant = organisation }
+  after { ActsAsTenant.current_tenant = nil }
+
+  let(:project) { create(:project, organisation: organisation) }
+  let(:person) { create(:person, organisation: organisation) }
+  let(:source) { create(:glossary_term, organisation: organisation, term: 'Lala Base', category: 'domain') }
+  let(:target) { create(:glossary_term, :proposed, organisation: organisation, term: 'Lalabase', category: 'product') }
+
+  def merge(from = source, into = target)
+    described_class.call(source: from, target: into, current_user: writer)
+  end
+
+  it 'moves every heard form of the source to the target, with speaker, project and place' do
+    moved = create(:term_correction, organisation: organisation, glossary_term: source, heard: 'lala bass', project: project,
+                                     person: person, line_index: 2, char_offset: 5)
+    second = create(:term_correction, organisation: organisation, glossary_term: source, heard: 'la la base')
+    own = create(:term_correction, organisation: organisation, glossary_term: target, heard: 'lalabas')
+
+    result = merge
+
+    expect(result).to be_success
+    expect(result.resource).to eq(target)
+    expect(target.term_corrections.reload).to contain_exactly(moved, second, own)
+    moved.reload
+    expect([moved.heard, moved.project_id, moved.person_id, moved.line_index, moved.char_offset])
+      .to eq(['lala bass', project.id, person.id, 2, 5])
+  end
+
+  it 'deletes the source and keeps spelling, category and status of the target' do
+    merge
+
+    expect(GlossaryTerm.where(id: source.id)).not_to exist
+    target.reload
+    expect([target.term, target.category, target.status]).to eq(%w[Lalabase product proposed])
+  end
+
+  it 'refuses a term into itself and changes nothing' do
+    create(:term_correction, organisation: organisation, glossary_term: source)
+
+    result = merge(source, source)
+
+    expect(result).not_to be_success
+    expect(result.code).to eq(:same_term)
+    expect(result.errors.join).to eq(I18n.t('controllers.glossary.merge.same_term'))
+    expect(source.reload.term_corrections.count).to eq(1)
+  end
+
+  it 'refuses a term of another organisation and changes nothing' do
+    create(:term_correction, organisation: organisation, glossary_term: source)
+    foreign = ActsAsTenant.with_tenant(other_organisation) { create(:glossary_term, organisation: other_organisation) }
+
+    result = merge(source, foreign)
+
+    expect(result).not_to be_success
+    expect(result.code).to eq(:other_glossary)
+    expect(GlossaryTerm.where(id: source.id)).to exist
+    expect(TermCorrection.unscoped.where(glossary_term_id: foreign.id)).not_to exist
+  end
+
+  it 'refuses a target deleted in the meantime' do
+    create(:term_correction, organisation: organisation, glossary_term: source)
+    gone = target
+    GlossaryTerm.where(id: gone.id).delete_all
+
+    result = merge(source, gone)
+
+    expect(result).not_to be_success
+    expect(result.code).to eq(:not_found)
+    expect(source.reload.term_corrections.count).to eq(1)
+  end
+end
