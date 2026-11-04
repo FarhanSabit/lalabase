@@ -524,7 +524,7 @@
 @layer components {
   .glossary-tools { @apply gap-3; }
   .glossary-filters { @apply flex flex-wrap items-center gap-2; }
-  .glossary-filters__select { @apply w-auto py-1.5 text-[13px]; }
+  .glossary-filters__select { @apply w-auto py-1.5 pr-8 text-[13px]; }
   .glossary-row { @apply items-start; }
   .glossary-row--rejected .people-row__name { @apply text-muted line-through; }
   .glossary-row__head { @apply flex min-w-0 flex-wrap items-center gap-1.5; }
@@ -534,7 +534,8 @@
   .glossary-status--proposed { border: 1px solid #C08A3E; color: #8A5A1C; }
   .dark .glossary-status--proposed { color: #E0B26E; }
   .glossary-status--rejected { @apply border border-cream-300 text-cream-600; }
-  .glossary-status-actions { @apply flex flex-none flex-wrap items-center gap-1.5 self-center; }
+  .glossary-status-actions { @apply mt-1 flex flex-wrap items-center gap-1.5; }
+  .glossary-status-actions--lane { @apply mt-0 self-start; }
   .glossary-heard { @apply flex flex-col gap-3 border-t border-cream-200 pt-4; }
   .glossary-heard__groups { @apply flex flex-col gap-3; }
   .glossary-heard__form { @apply flex items-baseline gap-2 text-sm font-medium text-heading; }

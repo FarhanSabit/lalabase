@@ -30,10 +30,10 @@
         <span class="people-row__sub glossary-row__origin"><%= origin %></span>
       <% end %>
     <% end %>
+    <% if term.proposed? && policy(term).confirm? %>
+      <%= render 'organisations/glossary/status_actions', term: term, lane: false %>
+    <% end %>
   </span>
-  <% if term.proposed? && policy(term).confirm? %>
-    <%= render 'organisations/glossary/status_actions', term: term, lane: false %>
-  <% end %>
   <span class="glossary-row__count" title="<%= t('views.organisations.glossary.index.corrections_count', count: count) %>">
     <%= count %><span class="sr-only"> <%= t('views.organisations.glossary.index.corrections_count', count: count) %></span>
   </span>

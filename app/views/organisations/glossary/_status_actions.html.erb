@@ -3,7 +3,8 @@
     unless rejected. From the lane the term stays open (term_id sent along),
     from the list the list stays as it was. %>
 <% params_kept = list_state.merge(lane ? { 'term_id' => term.id } : {}) %>
-<div class="glossary-status-actions">
+<%# Class names written out: Tailwind keeps only component classes it finds whole in a template. %>
+<div class="<%= lane ? 'glossary-status-actions glossary-status-actions--lane' : 'glossary-status-actions' %>">
   <% unless term.confirmed? %>
     <%= render Neo::Buttons::ButtonComponent.new(
       variant: :secondary, size: :small, icon: 'check-lg',
