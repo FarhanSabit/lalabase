@@ -116,6 +116,25 @@ RSpec.describe 'Policy scopes and a deactivated membership', :ci_guard, type: :p
     end
   end
 
+  # The glossary (K4a) has no project either: GlossaryPolicy::Scope asks the
+  # membership itself (GlossaryPolicy.view_allowed?), for terms and heard forms.
+  describe 'GlossaryPolicy::Scope' do
+    let!(:term) { create(:glossary_term, organisation: organisation) }
+    let!(:correction) { create(:term_correction, organisation: organisation, glossary_term: term, project: project) }
+
+    it 'drops the terms and heard forms once the membership is deactivated' do
+      create(:permission, role: role, category: 'glossary', action: 'view_glossary', allowed: true)
+
+      expect(rows(GlossaryPolicy::Scope, GlossaryTerm)).to include(term)
+      expect(rows(GlossaryPolicy::Scope, TermCorrection)).to include(correction)
+
+      membership.update!(active: false)
+
+      expect(rows(GlossaryPolicy::Scope, GlossaryTerm)).to be_empty
+      expect(rows(GlossaryPolicy::Scope, TermCorrection)).to be_empty
+    end
+  end
+
   describe 'ChatPolicy::Scope' do
     let!(:org_thread) { create(:chat, user: user, organisation: organisation) }
 

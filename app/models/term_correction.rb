@@ -38,6 +38,12 @@ class TermCorrection < ApplicationRecord
 
   DIGEST_FORMAT = /\A\h{64}\z/
 
+  # Terms and heard forms share one right (GlossaryPolicy), for authorize,
+  # policy and policy_scope alike.
+  def self.policy_class
+    GlossaryPolicy
+  end
+
   before_validation :normalize_heard
 
   validates :heard, presence: true, length: { maximum: GlossaryTerm::MAX_LENGTH }

@@ -101,15 +101,26 @@ class Permission < ApplicationRecord
     people: %w[
       view_people
       manage_people
+    ],
+    # The glossary of the organisation (GlossaryTerm, K4a). Its own category
+    # for the same reason as :people: an action under :projects would join the
+    # guest ceiling's forbidden list, and whether a billable: false role may
+    # read or keep the glossary is the admin's choice. manage_glossary (create,
+    # change, confirm, reject, merge, delete) implies view_glossary
+    # (IMPLIED_BY). No role gets either automatically; account admins need none.
+    glossary: %w[
+      view_glossary
+      manage_glossary
     ]
   }.freeze
 
   # A right that another right includes: [category, action] => the actions of
-  # the same category that grant it too. Asked by PersonPolicy (who may view)
-  # and RolePolicy#change_permission? (who may grant it), so the two cannot
-  # disagree.
+  # the same category that grant it too. Asked by PersonPolicy and
+  # GlossaryPolicy (who may view) and RolePolicy#change_permission? (who may
+  # grant it), so the two cannot disagree.
   IMPLIED_BY = {
-    %w[people view_people] => %w[manage_people]
+    %w[people view_people] => %w[manage_people],
+    %w[glossary view_glossary] => %w[manage_glossary]
   }.freeze
 
   # The actions of a category that grant [category, action]: itself and every

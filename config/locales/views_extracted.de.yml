@@ -201,6 +201,9 @@ de:
           people:
             view_people: Personen ansehen
             manage_people: Personen bearbeiten (inkl. Löschen)
+          glossary:
+            view_glossary: Glossar ansehen, mit den gehörten Formen, Sprechern und Projekten aller Meetings der Organisation
+            manage_glossary: Glossar pflegen (Begriffe anlegen, ändern, bestätigen, verwerfen, zusammenführen und löschen)
           none_available: Keine Beschreibung verfügbar
         categories:
           assistant: Assistent
@@ -210,6 +213,7 @@ de:
           meetings: Meetings
           users: Benutzer
           people: Personen
+          glossary: Glossar
     layouts:
       docs:
         title_with_page: "%{page} · Lalabase Docs"

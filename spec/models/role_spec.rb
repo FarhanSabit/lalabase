@@ -124,6 +124,16 @@ RSpec.describe Role, type: :model do
       expect(role).to be_valid
     end
 
+    it 'allows billable: false with glossary-category permissions (the admin decides for guest roles)' do
+      role = create(:role, billable: true)
+      create(:permission, role: role, category: 'glossary', action: 'view_glossary', allowed: true)
+      create(:permission, role: role, category: 'glossary', action: 'manage_glossary', allowed: true)
+
+      role.billable = false
+
+      expect(role).to be_valid
+    end
+
     it 'does not block a non-billable role with no forbidden permissions' do
       role = build(:role, billable: false)
 

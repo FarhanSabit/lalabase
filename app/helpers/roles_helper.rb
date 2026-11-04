@@ -48,6 +48,10 @@ module RolesHelper
       'people' => {
         'view_people' => I18n.t('views.helpers.roles.descriptions.people.view_people'),
         'manage_people' => I18n.t('views.helpers.roles.descriptions.people.manage_people')
+      },
+      'glossary' => {
+        'view_glossary' => I18n.t('views.helpers.roles.descriptions.glossary.view_glossary'),
+        'manage_glossary' => I18n.t('views.helpers.roles.descriptions.glossary.manage_glossary')
       }
     }
 
@@ -63,7 +67,8 @@ module RolesHelper
       'meetings' => I18n.t('views.helpers.roles.categories.meetings'),
       'users' => I18n.t('views.helpers.roles.categories.users'),
       'assistant' => I18n.t('views.helpers.roles.categories.assistant'),
-      'people' => I18n.t('views.helpers.roles.categories.people')
+      'people' => I18n.t('views.helpers.roles.categories.people'),
+      'glossary' => I18n.t('views.helpers.roles.categories.glossary')
     }
 
     names[category] || category.humanize

@@ -26,6 +26,12 @@ class GlossaryTerm < ApplicationRecord
 
   enum :status, STATUSES.index_by(&:itself), validate: true
 
+  # Terms and heard forms share one right (GlossaryPolicy), for authorize,
+  # policy and policy_scope alike.
+  def self.policy_class
+    GlossaryPolicy
+  end
+
   before_validation :normalize_term
 
   validates :term, presence: true, length: { maximum: MAX_LENGTH }

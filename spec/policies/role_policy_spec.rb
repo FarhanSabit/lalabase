@@ -336,5 +336,20 @@ RSpec.describe RolePolicy, :ci_guard, type: :policy do
       expect(may_change?(editor, 'people', 'view_people')).to be(true)
       expect(may_change?(editor, 'people', 'manage_people')).to be(false)
     end
+
+    # The glossary (K4a) follows the same rule through the same table.
+    it 'lets an editor with manage_glossary change view_glossary too' do
+      editor = editor_with(%w[glossary manage_glossary])
+
+      expect(may_change?(editor, 'glossary', 'view_glossary')).to be(true)
+      expect(may_change?(editor, 'glossary', 'manage_glossary')).to be(true)
+    end
+
+    it 'does not turn view_glossary into manage_glossary' do
+      editor = editor_with(%w[glossary view_glossary])
+
+      expect(may_change?(editor, 'glossary', 'view_glossary')).to be(true)
+      expect(may_change?(editor, 'glossary', 'manage_glossary')).to be(false)
+    end
   end
 end
