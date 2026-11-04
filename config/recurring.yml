@@ -15,6 +15,13 @@ production:
   clear_solid_queue_finished_jobs:
     command: "SolidQueue::Job.clear_finished_in_batches(sleep_between_batches: 0.3)"
     schedule: every hour at minute 12
+  # The file store deletes no expired entry on its own (CacheCleanupJob says
+  # why that matters). Hourly: a rate limit counter lives a minute, and nothing
+  # should outlive its expiry by much more than an hour.
+  cache_cleanup:
+    class: CacheCleanupJob
+    queue: default
+    schedule: every hour at minute 25
   # GDPR: runs scheduled account deletions (scheduled_deletion_at exceeded)
   # automatically — previously NEVER ran automatically (only manually via rails runner).
   scheduled_account_deletions:
@@ -191,6 +198,11 @@ staging:
   clear_solid_queue_finished_jobs:
     command: "SolidQueue::Job.clear_finished_in_batches(sleep_between_batches: 0.3)"
     schedule: every hour at minute 12
+  # A no-op on Redis, here so the schedule is the same as on production.
+  cache_cleanup:
+    class: CacheCleanupJob
+    queue: default
+    schedule: every hour at minute 25
   scheduled_account_deletions:
     class: ScheduledDeletionJob
     queue: default

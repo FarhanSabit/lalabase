@@ -29,6 +29,14 @@ RSpec.describe 'config/recurring.yml' do
         end
       end
 
+      # Without a sweep the file store keeps every expired entry for good.
+      it 'contains the hourly cache cleanup' do
+        entry = schedule.fetch(env)['cache_cleanup']
+        expect(entry).to be_present
+        expect(entry['class']).to eq('CacheCleanupJob')
+        expect(Fugit.parse(entry['schedule'])).to be_present
+      end
+
       it 'contains the documentation polling sync (Slice-2 auto-sync contract)' do
         entry = schedule.fetch(env)['documentation_polling_sync']
         expect(entry).to be_present
