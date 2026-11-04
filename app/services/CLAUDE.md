@@ -1,4 +1,4 @@
-# Karte: app/services (Stand: 2026-11-01)
+# Karte: app/services (Stand: 2026-11-04)
 
 **Entry-Point-Konvention für NEUE Services: `Klass.call(**kwargs)`** (Klassenmethode; eine
 Instanz-`#call`-Implementierung dahinter ist erlaubt). Pflicht: mindestens 1 Kommentarzeile
@@ -162,6 +162,12 @@ Verzeichnis-Übersicht (Auswahl):
   er nur Komfort; der Schutz ist `Lalabase::Llm::PublicEndpointAdapter`, der bei jeder
   Verbindung neu prüft und den Socket an die geprüfte Adresse bindet. Vertraut wird nur dem
   Endpunkt, den eine `AiCredential` nennt (`Factory#operator_endpoint?`).
+  Glossar (K4a, 04.11.2026): `save_glossary_term` (anlegen/ändern, von Hand immer
+  `confirmed`; eine verlorene Wette auf den Unique-Index ist dieselbe Ablehnung),
+  `set_glossary_term_status` (nur bestätigen/verwerfen, nie vorschlagen),
+  `destroy_glossary_term`, `destroy_term_correction`, `merge_glossary_terms` (sperrt beide
+  Zeilen in EINER Abfrage nach ID, die gehörten Formen wandern zum Ziel, das Ziel behält
+  Schreibweise, Kategorie und Status). Das Ziel löst der Aufrufer über den Policy-Scope auf.
   Registrierung (Website-Schnitt W2, 15.09.2026): `create_signup` ist die EINE
   Selbst-Registrierung für das Formular und später den Provisioning-Endpunkt. Tier 2: Sprache
   und tenant-freier Rahmen umschließen den ganzen Lauf (die Bestätigungsmail rendert beim

@@ -1167,7 +1167,7 @@ ends that, and a `bundle update` can bring one without anybody noticing.
 ### Locale-Struktur
 * **Dateien**: View-Strings liegen pro Bereich in `config/locales/views/<bereich>.{de,en}.yml`
   (tickets, ansichten, zeiterfassung, meetings, inbox, wissen, dokumente, hilfe, organisation,
-  personen);
+  personen, glossar);
   Rest (common/shared/layouts/devise/admin/components) in `views.{de,en}.yml`. Unterordner werden
   von Rails automatisch geladen. Cross-File-Duplikate mit abweichenden Werten bricht der Guard
   (`spec/locales/no_duplicate_keys_guard_spec.rb`) — jeder Key hat genau EINEN Besitzer.
