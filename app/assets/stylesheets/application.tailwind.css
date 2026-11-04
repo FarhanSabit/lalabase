@@ -528,7 +528,7 @@
   .glossary-row { @apply items-start; }
   .glossary-row--rejected .people-row__name { @apply text-muted line-through; }
   .glossary-row__head { @apply flex min-w-0 flex-wrap items-center gap-1.5; }
-  .glossary-row__origin { @apply text-cream-500; }
+  .glossary-row__origin { @apply text-muted; }
   .glossary-row__count { @apply w-10 flex-none self-center text-end text-xs tabular-nums text-muted; }
   .glossary-status { @apply shrink-0 rounded-full px-1.5 text-[11px]; }
   .glossary-status--proposed { border: 1px solid #C08A3E; color: #8A5A1C; }

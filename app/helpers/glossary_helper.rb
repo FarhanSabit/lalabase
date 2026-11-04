@@ -3,11 +3,12 @@
 # The glossary page (Organisations::GlossaryController): the wiring of its list
 # and lane, the words of a term, and what the page shows of a heard form.
 #
-# What a reader with view_glossary sees (E3): every term with its heard forms,
-# speakers and projects, also from projects they cannot read. Two things need
+# What a reader with view_glossary sees (E3): every term with its heard forms
+# and their projects, also from projects they cannot read. Three things need
 # more: the title and the link of a meeting (read access to that meeting,
-# glossary_readable_meetings) and the link to a person (view_people and a row
-# the reader may see, glossary_speaker_url).
+# glossary_readable_meetings), the name of a speaker (someone the reader may
+# see on the members or the people page, glossary_speaker_visible?) and the
+# link to a speaker (view_people as well, glossary_speaker_url).
 module GlossaryHelper
   # The one thing a row opens in the lane.
   SELECTION_PARAMS = %w[term_id].freeze
@@ -94,34 +95,51 @@ module GlossaryHelper
   end
 
   # The second line of a row: who spoke and in which projects, distinct, as
-  # names only (links live in the lane).
+  # names only (links live in the lane). The speakers the reader may not see
+  # stand last, as one neutral word however many they are.
   def glossary_row_origin(term)
     corrections = term.term_corrections
-    speakers = corrections.filter_map { |correction| glossary_speaker_name(correction) }.uniq
+    shown, hidden = corrections.select(&:speaker?).partition { |correction| glossary_speaker_visible?(correction) }
+    speakers = shown.map { |correction| glossary_speaker_name(correction) }.uniq
+    speakers << t('views.organisations.glossary.speaker_hidden') if hidden.any?
     projects = corrections.filter_map { |correction| correction.project&.name }.uniq
-    [speakers.to_sentence.presence, projects.join(', ').presence].compact.join(' · ')
+    [speakers.join(', ').presence, projects.join(', ').presence].compact.join(' · ')
   end
 
-  # The speaker of a heard form as a name: a member through the reader's name
-  # display setting, a person of the directory as written there; nil without
-  # a speaker (none linked, or deleted).
-  def glossary_speaker_name(correction)
-    if correction.user then viewer_display_name(correction.user)
-    elsif correction.person then correction.person.name
+  # Whether the reader may see who spoke a heard form, the rule of the
+  # members and the people page: a member they may see on the members page
+  # (MembershipPolicy::Scope, deactivated ones too; a guest of one project
+  # sees no members of other projects), a row of the directory they may see
+  # on the people page (PersonPolicy::Scope, so only with view_people).
+  def glossary_speaker_visible?(correction)
+    if correction.user_id then glossary_visible_members.key?(correction.user_id)
+    elsif correction.person_id then glossary_visible_person_ids.include?(correction.person_id)
+    else false
     end
   end
 
-  # Where the name of a speaker links to on the people page, or nil: only
-  # with view_people, and only for a row or a member the reader may see
-  # there (PersonPolicy::Scope, MembershipPolicy::Scope), so the link never
-  # opens an empty lane.
-  def glossary_speaker_url(correction)
-    return unless glossary_people_linkable?
+  # The speaker of a heard form as the reader may see them: a member through
+  # the reader's name display setting, a row of the directory as written
+  # there, any other speaker as a neutral word (speaker_hidden); nil without
+  # a speaker (none linked, or deleted).
+  def glossary_speaker_name(correction)
+    return unless correction.speaker?
+    return t('views.organisations.glossary.speaker_hidden') unless glossary_speaker_visible?(correction)
 
-    if correction.person_id && glossary_visible_person_ids.include?(correction.person_id)
+    correction.user ? viewer_display_name(correction.user) : correction.person.name
+  end
+
+  # Where the name of a speaker links to on the people page, or nil: only
+  # with view_people, and only for someone that page lists to the reader (a
+  # visible row, a visible ACTIVE member), so the link never opens an empty
+  # lane.
+  def glossary_speaker_url(correction)
+    return unless glossary_people_linkable? && glossary_speaker_visible?(correction)
+
+    if correction.user_id
+      organisation_people_path(current_organisation, member_id: correction.user_id) if glossary_visible_members[correction.user_id]
+    else
       organisation_people_path(current_organisation, person_id: correction.person_id)
-    elsif correction.user_id && glossary_visible_member_ids.include?(correction.user_id)
-      organisation_people_path(current_organisation, member_id: correction.user_id)
     end
   end
 

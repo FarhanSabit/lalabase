@@ -81,6 +81,19 @@ RSpec.describe Actors::MergeGlossaryTerms, :ci_guard, type: :service do
     expect(source.reload.term_corrections.count).to eq(1)
   end
 
+  # Review round 4 of #113 (optional): the other half of lock_both's check.
+  it 'refuses a source deleted in the meantime, and the target keeps its heard forms' do
+    kept = create(:term_correction, organisation: organisation, glossary_term: target)
+    gone = source
+    GlossaryTerm.where(id: gone.id).delete_all
+
+    result = merge(gone, target)
+
+    expect(result).not_to be_success
+    expect(result.code).to eq(:not_found)
+    expect(target.reload.term_corrections).to contain_exactly(kept)
+  end
+
   # The one lock order of the glossary (Glossary::TermLock): rows in the order
   # of their ids, in one statement, before any heard form moves.
   it 'locks both terms in one statement ordered by id, before it moves anything' do

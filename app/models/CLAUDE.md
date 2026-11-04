@@ -106,9 +106,11 @@ Verzeichnis-Layout nicht ablesbar — diese Karte gruppiert sie:
   eindeutig nach `normalized_term`, Status `proposed`/`confirmed`/`rejected`), `term_correction`
   (eine gehörte Form je Korrektur: Sprecher als Person ODER Mitglied, Check
   `term_corrections_one_speaker`; Projekt als Herkunft; Stelle im Transkript), `glossary_text`
-  (der EINE Normalisierer: NFC, Leerraum, klein, bewusst OHNE die Umlaut-Umschrift von
-  `PersonName`). Verweise auf Zeilen einer Organisation stehen VOR `acts_as_tenant` und werden
-  zusätzlich ohne Mandanten-Scope geprüft (`same_organisation_references`). Eigenes Recht
+  (der EINE Normalisierer: unsichtbare Zeichen raus, NFC, Leerraum, klein, bewusst OHNE die
+  Umlaut-Umschrift von `PersonName`). `glossary_term` hat `lock_version` wie `person`: ein
+  Formular über eine fremde Änderung hinweg wird abgelehnt (`:stale_object`). Verweise auf Zeilen
+  einer Organisation stehen VOR `acts_as_tenant` und werden zusätzlich ohne Mandanten-Scope
+  geprüft (`same_organisation_references`). Eigenes Recht
   (`Permission::CATEGORIES[:glossary]`, `view_glossary`/`manage_glossary`, gastrollen-tauglich),
   Kontoadmins ohne Zeile; `GlossaryPolicy` für beide Modelle (`policy_class`). Schreiben nur über
   die Glossar-Actors. ⚠️ Ein gelöschtes Meeting lässt seine gehörten Formen samt Stelle stehen, nur

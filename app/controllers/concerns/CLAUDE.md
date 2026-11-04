@@ -97,7 +97,10 @@ eigene Zeile, `PeopleController#member`); `user_id` gehört zur Formular-Gruppe.
 Das Glossar (`Organisations::GlossaryController`, K4a, 04.11.2026) ist die siebte Bahn, gebaut
 wie die Personenliste (dieselben Stimulus-Controller und `people-*`-Klassen), mit `term_id` als
 einziger Auswahl und den Filtern `project_id`, `category`, `status` (`LIST_PARAMS`, unbekannte
-Werte fallen weg). Meeting-Titel nur über `policy_scope(Meeting)`, nie vorgeladen.
+Werte fallen weg). Meeting-Titel nur über `policy_scope(Meeting)`, nie vorgeladen. Ein Sprecher
+hat einen Namen nur, wenn der Leser ihn auf der Mitglieder- oder Personenseite sehen darf
+(`MembershipPolicy::Scope`, `PersonPolicy::Scope`), sonst steht ein neutrales Wort; verlinkt nur
+mit `view_people` und nur auf aktive Mitglieder (die Personenseite listet nur sie).
 Der Entscheid für EINE kanonische Listen-Architektur steht aus; bis dahin gilt für neue
 Listen-Features: am ähnlichsten Bestands-Feature orientieren und die Wahl im PR begründen.
 Seit 10.09.2026 teilen Tickets und Knowledge immerhin die OBERFLÄCHE der Liste-mit-Bahn

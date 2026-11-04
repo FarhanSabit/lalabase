@@ -13,9 +13,17 @@
 # * The id is looked up inside the organisation: an id of another one is no
 #   term at all. A saved term is locked before it changes (Glossary::TermLock),
 #   so one deleted or merged away in the meantime is refused as gone.
+# * A stale save (lock_version, as Actors::SavePerson): the form sends the
+#   lock_version it was opened with. The lock reloads the row, so without it
+#   the form's old values would write over a change made in the meantime.
+#   Assigned to the row, it makes the save raise StaleObjectError, which
+#   BaseActor maps to code :stale_object; the controller shows the form again
+#   with the current values. A request without the key is not checked.
 module Actors
   class SaveGlossaryTerm < BaseActor
-    ATTRIBUTES = %i[term category].freeze
+    ATTRIBUTES = %i[term category lock_version].freeze
+    # lock_version is an integer column (4 bytes).
+    LOCK_VERSION_RANGE = (0..((2**31) - 1))
 
     def initialize(organisation:, params:, current_user:, id: nil)
       super()
@@ -32,8 +40,11 @@ module Actors
     def perform
       raise ActorError.new(I18n.t('controllers.glossary.not_found'), code: :not_found) if @term.nil?
 
+      check_lock_version
       Glossary::TermLock.call(term: @term) if @term.persisted?
-      @term.assign_attributes(@params.slice(*ATTRIBUTES))
+      attributes = @params.slice(*ATTRIBUTES)
+      attributes.delete(:lock_version) if @term.new_record?
+      @term.assign_attributes(attributes)
       if @term.new_record?
         @term.status = 'confirmed'
         @term.created_by = @current_user
@@ -44,6 +55,16 @@ module Actors
     private
 
     attr_reader :current_user
+
+    # On an update, a lock_version that is not a number the column can hold (a
+    # hand-made request) cannot say what the writer saw; Rails would raise on
+    # it. Treated as stale. A new term has none to compare.
+    def check_lock_version
+      return if @term.new_record? || !@params.key?(:lock_version)
+      return if LOCK_VERSION_RANGE.cover?(Integer(@params[:lock_version].to_s, exception: false))
+
+      raise ActorError.new(I18n.t('controllers.glossary.update.stale'), code: :stale_object)
+    end
 
     def save_term
       @term.save!

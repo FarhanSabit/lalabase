@@ -126,7 +126,10 @@ module PersonalDataErasure
   # as when a person of the directory is deleted (plan §3.3, K4a); only the link
   # to the erased account goes. A soft delete never fires the FK's
   # on_delete: :nullify, so the step is explicit. update_all: no callbacks, and
-  # the one-speaker check holds (person_id stays as it is, empty).
+  # the one-speaker check holds (person_id stays as it is, empty). A form
+  # spoken as the account's own directory row (exported with these) loses
+  # that link with the row: erase_person_links! deletes it, and the foreign
+  # key (on_delete: :nullify) clears person_id.
   def erase_term_correction_speakers!
     ActsAsTenant.without_tenant do
       TermCorrection.where(user_id: id).update_all(user_id: nil, updated_at: Time.current)

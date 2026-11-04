@@ -125,7 +125,7 @@ module Actors
       # Optimistic locking (lock_version): another write landed between read and
       # save. Return a specific, usable message instead of a generic crash/500
       # (mirrors the RecordInvalid path). Only models with a lock_version column
-      # raise this; today that is Note (wiki versioning), other actors are unaffected.
+      # raise this; actors of other models are unaffected.
       failure([I18n.t('services.actors.stale_object')], code: :stale_object)
     rescue StandardError => e
       handle_unexpected_error(e, reraise: raise_unexpected?)

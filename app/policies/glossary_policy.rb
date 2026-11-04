@@ -7,11 +7,15 @@
 # confirm, reject, merge, delete) implies view_glossary
 # (Permission::IMPLIED_BY). Grantable to billable: false roles.
 #
-# view_glossary shows the WHOLE glossary with its heard forms, speakers and
-# projects, also from projects the reader may not read (E3). The title and the
-# link of a meeting are not part of that: they need read access to the
-# meeting (MeetingPolicy), and the link to a person needs view_people
-# (PersonPolicy). Both are asked where they are shown.
+# view_glossary shows the WHOLE glossary with its heard forms and their
+# projects, also from projects the reader may not read (E3). Three things are
+# not part of that and are asked where they are shown (GlossaryHelper): the
+# title and the link of a meeting (read access to the meeting,
+# MeetingPolicy); the name of a speaker (only someone the reader may see on
+# the members page, MembershipPolicy::Scope, or on the people page,
+# PersonPolicy::Scope, so a guest of one project sees no names from other
+# projects; anyone else shows as a neutral word); and the link to a speaker
+# (view_people as well, PersonPolicy).
 #
 # Every predicate asks for an ACTIVE membership itself:
 # User#has_permission_in_organisation? reads the role and does not look at

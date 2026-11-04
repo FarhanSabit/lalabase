@@ -7,6 +7,7 @@ en:
         success: "Term created."
       update:
         success: "Term saved."
+        stale: "Someone else changed this term in the meantime. The current details are shown below, please make your change again."
       destroy:
         success: "Term deleted."
       confirm:
@@ -28,6 +29,8 @@ en:
     organisations:
       glossary:
         quoted: "“%{text}”"
+        # A speaker the reader may not see (GlossaryHelper#glossary_speaker_name).
+        speaker_hidden: "Name not visible"
         categories:
           person: "Person"
           company: "Company"

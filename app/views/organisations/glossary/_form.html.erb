@@ -2,7 +2,9 @@
 <%# The form in the lane, new and edit: the spelling and the category. It
     leaves the frame (_top): a save lands on the list with the term open, a
     refused save (a spelling already in the glossary) renders the page again
-    with this form and its reason. The filters ride in hidden fields. %>
+    with this form and its reason. lock_version travels along, so a save over
+    someone else's change is refused instead of writing the old values back.
+    The filters ride in hidden fields. %>
 <% url = term.persisted? ? organisation_glossary_term_path(@current_organisation, term) : organisation_glossary_terms_path(@current_organisation) %>
 <% title = term.persisted? ? t('views.organisations.glossary.form.edit_title', term: term.term_in_database) : t('views.organisations.glossary.form.new_title') %>
 <% cancel_url = term.persisted? ? organisation_glossary_term_path(@current_organisation, term, list_state) : organisation_glossary_terms_path(@current_organisation, list_state) %>
@@ -22,6 +24,9 @@
   <%= form_with model: term, url: url, scope: :glossary_term, class: 'people-form', data: { turbo_frame: '_top' } do |f| %>
     <% list_state.each do |name, value| %>
       <%= hidden_field_tag name, value, id: nil %>
+    <% end %>
+    <% if term.persisted? %>
+      <%= f.hidden_field :lock_version %>
     <% end %>
 
     <div class="people-form__field">

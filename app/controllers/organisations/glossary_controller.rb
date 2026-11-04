@@ -19,8 +19,9 @@
 # its frame have nothing to show, and a redirect inside the lane frame loops.
 # A term of another organisation is no term at all (404). The glossary shows
 # heard forms from every project (E3), but the title and the link of a meeting
-# only to a reader of that meeting, and the link to a person only with
-# view_people (GlossaryHelper).
+# only to a reader of that meeting, a speaker's name only to a reader who may
+# see that speaker on the members or the people page, and the link to a
+# speaker only with view_people as well (GlossaryHelper).
 module Organisations
   class GlossaryController < Organisations::BaseController
     include ViewportSwitchable
@@ -135,15 +136,19 @@ module Organisations
       if result.success?
         redirect_to index_path(term_id: result.resource.id), status: :see_other, notice: t(flash_key)
       else
-        render_refused_save(result)
+        render_refused_save(result, id)
       end
     end
 
     # The index again, with the form open in the lane and the reason above it.
-    def render_refused_save(result)
+    # A stale save shows the CURRENT values (and their lock_version): the
+    # other side's change stays, and the writer sees what they would
+    # overwrite, as on the people page.
+    def render_refused_save(result, id)
       @terms = policy_scope(GlossaryTerm)
-      @form_term = result.resource || new_term
-      @form_message = result.errors.to_sentence
+      stale = result.code == :stale_object
+      @form_term = stale ? @terms.find(id) : (result.resource || new_term)
+      @form_message = stale ? t('controllers.glossary.update.stale') : result.errors.to_sentence
       load_list
       render :index, status: :unprocessable_content
     end
@@ -164,8 +169,10 @@ module Organisations
       end
     end
 
+    # expect, not require.permit: a glossary_term that is no hash (a hand-made
+    # request) answers 400 instead of crashing.
     def term_params
-      params.require(:glossary_term).permit(*Actors::SaveGlossaryTerm::ATTRIBUTES)
+      params.expect(glossary_term: Actors::SaveGlossaryTerm::ATTRIBUTES)
     end
 
     def refuse_merge_without_target
@@ -283,17 +290,25 @@ module Organisations
     end
     helper_method :glossary_people_linkable?
 
-    # The rows and members the reader may see on the people page
-    # (PersonPolicy::Scope, MembershipPolicy::Scope), once per request: a
-    # speaker links only to one of them, so the link never opens an empty lane.
+    # The rows of the people directory the reader may see there
+    # (PersonPolicy::Scope), once per request: a speaker who is one of them
+    # shows its name and links to it. None without view_people, which the
+    # people page needs (no query then).
     def glossary_visible_person_ids
       @glossary_visible_person_ids ||= policy_scope(Person).pluck(:id).to_set
     end
     helper_method :glossary_visible_person_ids
 
-    def glossary_visible_member_ids
-      @glossary_visible_member_ids ||= policy_scope(Membership).where(organisation: current_organisation).pluck(:user_id).to_set
+    # The members the reader may see on the members page
+    # (MembershipPolicy::Scope, deactivated ones too), as user_id => active,
+    # once per request and also without view_people: a speaker who is one of
+    # them shows their name. Only an active one links to the people page,
+    # which lists active members only (People::Directory#member_entries), so
+    # the link never opens an empty lane.
+    def glossary_visible_members
+      @glossary_visible_members ||= policy_scope(Membership).where(organisation: current_organisation)
+                                                            .pluck(:user_id, :active).to_h
     end
-    helper_method :glossary_visible_member_ids
+    helper_method :glossary_visible_members
   end
 end

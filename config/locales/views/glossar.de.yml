@@ -7,6 +7,7 @@ de:
         success: "Begriff angelegt."
       update:
         success: "Begriff gespeichert."
+        stale: "Jemand anderes hat diesen Begriff inzwischen geändert. Unten stehen die aktuellen Angaben, bitte noch einmal ändern."
       destroy:
         success: "Begriff gelöscht."
       confirm:
@@ -28,6 +29,8 @@ de:
     organisations:
       glossary:
         quoted: "„%{text}“"
+        # A speaker the reader may not see (GlossaryHelper#glossary_speaker_name).
+        speaker_hidden: "Name nicht sichtbar"
         categories:
           person: "Person"
           company: "Firma"

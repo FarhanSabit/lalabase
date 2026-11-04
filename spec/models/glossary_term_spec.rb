@@ -55,6 +55,61 @@ RSpec.describe GlossaryTerm, :ci_guard, type: :model do
       expect(build(:glossary_term, organisation: organisation, term: 'Mueller')).to be_valid
       expect(described_class.last.normalized_term).to eq('maße')
     end
+
+    it 'compares an umlaut by its case only: "MÜLLER" is "Müller", "Mueller" is another term' do
+      create(:glossary_term, organisation: organisation, term: 'Müller')
+      upper = build(:glossary_term, organisation: organisation, term: 'MÜLLER')
+
+      expect(upper).not_to be_valid
+      expect(upper.errors.details[:term]).to include(error: :taken)
+      expect(build(:glossary_term, organisation: organisation, term: 'Mueller')).to be_valid
+    end
+
+    # Review round 4 of #113: a character that shows nothing made a term of
+    # nothing, or a second term that looks like the first.
+    describe 'characters that show nothing' do
+      it 'refuses a term of nothing else' do
+        term = build(:glossary_term, organisation: organisation, term: "\u{200B}\u{00AD} \u{2060}\u{FEFF}\u{3164}")
+
+        expect(term).not_to be_valid
+        expect(term.errors.details[:term]).to include(error: :blank)
+      end
+
+      {
+        'a zero-width space' => "Lala\u{200B}base",
+        'a soft hyphen' => "Lala\u{00AD}base",
+        'bidi controls' => "\u{202E}Lala\u{200F}base\u{202C}",
+        'a Hangul filler (shows as a blank)' => "Lala\u{3164}base",
+        'a control character' => "Lala\u{0007}base"
+      }.each do |what, spelling|
+        it "drops #{what}, so the term collides with the plain spelling" do
+          create(:glossary_term, organisation: organisation, term: 'Lalabase')
+          twin = build(:glossary_term, organisation: organisation, term: spelling)
+
+          expect(twin).not_to be_valid
+          expect(twin.errors.details[:term]).to include(error: :taken)
+          expect([twin.term, twin.normalized_term]).to eq(%w[Lalabase lalabase])
+        end
+      end
+
+      it 'stores a term with a null character without it (the database refuses one)' do
+        term = create(:glossary_term, organisation: organisation, term: "Lala\u{0000}base")
+
+        expect(term.reload.term).to eq('Lalabase')
+      end
+
+      it 'keeps a tab or a line break as a space' do
+        expect(create(:glossary_term, organisation: organisation, term: "Lala\tBase\r\nWerk").term).to eq('Lala Base Werk')
+      end
+
+      it 'composes an umlaut across a dropped character' do
+        create(:glossary_term, organisation: organisation, term: "M\u{00FC}hlstein")
+        twin = build(:glossary_term, organisation: organisation, term: "Mu\u{200B}\u{0308}hlstein")
+
+        expect(twin).not_to be_valid
+        expect(twin.normalized_term).to eq("m\u{00FC}hlstein")
+      end
+    end
   end
 
   describe 'one spelling per organisation' do

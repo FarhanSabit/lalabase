@@ -58,6 +58,11 @@ class TermCorrection < ApplicationRecord
   # Newest first within a heard form: the order of the lane.
   scope :in_lane_order, -> { order(:normalized_heard, created_at: :desc, id: :asc) }
 
+  # Whether a speaker is linked at all (a member or a row of the directory).
+  def speaker?
+    user_id.present? || person_id.present?
+  end
+
   private
 
   def normalize_heard

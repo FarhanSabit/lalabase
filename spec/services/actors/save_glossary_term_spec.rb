@@ -3,7 +3,7 @@
 require 'rails_helper'
 
 # Creating and changing a glossary term by hand (K4a). Invented words only.
-RSpec.describe Actors::SaveGlossaryTerm, type: :service do
+RSpec.describe Actors::SaveGlossaryTerm, :ci_guard, type: :service do
   let(:organisation) { create(:organisation) }
   let(:other_organisation) { create(:organisation) }
   let(:writer) { create(:user) }
@@ -94,6 +94,44 @@ RSpec.describe Actors::SaveGlossaryTerm, type: :service do
     expect(result).not_to be_success
     expect(result.code).to eq(:not_found)
     expect(result.errors).to eq([I18n.t('controllers.glossary.not_found')])
+  end
+
+  # Review round 4 of #113: the lock reloaded the row and the form's old values
+  # wrote over the newer change.
+  describe 'a stale save (lock_version)' do
+    let!(:term) { create(:glossary_term, organisation: organisation, term: 'Lalabse', category: 'product') }
+
+    it 'refuses a save from a form opened before another change, and keeps that change' do
+      opened_with = term.lock_version
+      save({ term: 'Lalabase', lock_version: opened_with }, id: term.id)
+
+      result = save({ term: 'Lalabse', category: 'company', lock_version: opened_with }, id: term.id)
+
+      expect(result).not_to be_success
+      expect(result.code).to eq(:stale_object)
+      expect(term.reload.slice(:term, :category)).to eq('term' => 'Lalabase', 'category' => 'product')
+    end
+
+    it 'saves with the lock_version the term has now, and counts it up' do
+      result = save({ category: 'company', lock_version: term.lock_version }, id: term.id)
+
+      expect(result).to be_success
+      expect(term.reload.lock_version).to eq(1)
+    end
+
+    ['', 'drei', '-1', (2**31).to_s].each do |sent|
+      it "answers the lock_version #{sent.inspect} as stale, a number the column cannot hold" do
+        expect(save({ term: 'Neu', lock_version: sent }, id: term.id).code).to eq(:stale_object)
+        expect(term.reload.term).to eq('Lalabse')
+      end
+    end
+
+    it 'takes no lock_version for a new term' do
+      result = save({ term: 'Wortmarke', lock_version: '7' })
+
+      expect(result).to be_success
+      expect(result.resource.reload.lock_version).to eq(0)
+    end
   end
 
   it 'finds no term of another organisation' do

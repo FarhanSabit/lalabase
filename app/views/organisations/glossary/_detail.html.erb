@@ -1,10 +1,12 @@
 <%# locals: (term:) %>
 <%# One term: its spelling with category and status, confirm and reject, the
     heard forms with speaker, project, meeting and date, merging into another
-    term, and delete. Speakers and projects stand for every reader of the
-    glossary (E3); a meeting's title and link only for a reader of that
-    meeting (glossary_readable_meetings), a speaker's link only with
-    view_people (glossary_speaker_url). The body ends at reading width. %>
+    term, and delete. Projects stand for every reader of the glossary (E3);
+    a meeting's title and link only for a reader of that meeting
+    (glossary_readable_meetings), a speaker's name only for a reader who may
+    see the speaker (glossary_speaker_visible?), its link only with
+    view_people as well (glossary_speaker_url). The body ends at reading
+    width. %>
 <% can_write = policy(term).update? %>
 <% corrections = term.term_corrections.includes(:project, :person, :user).in_lane_order.to_a %>
 <% meetings = glossary_readable_meetings(corrections) %>

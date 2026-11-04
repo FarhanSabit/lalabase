@@ -268,6 +268,21 @@ RSpec.describe 'Account erasure path parity', type: :model do
           expect(TermCorrection.find(by_colleague.id).user_id).to eq(colleague.id)
         end
       end
+
+      # Review round 4 of #113: the export counts a form spoken as the
+      # account's own directory row as the account's. Erasure deletes that row
+      # (erase_person_links!), and the foreign key clears the link.
+      it "clears the speaker of a heard form spoken as the account's own directory row" do
+        term = create(:glossary_term, organisation: organisation)
+        own_row = create(:person, organisation: organisation, user: user)
+        spoken = create(:term_correction, organisation: organisation, glossary_term: term, person: own_row)
+
+        record.soft_delete_and_anonymize!
+
+        ActsAsTenant.without_tenant do
+          expect(TermCorrection.where(id: spoken.id).pluck(:person_id, :user_id)).to eq([[nil, nil]])
+        end
+      end
     end
 
     describe 'personal access tokens (access revocation)' do

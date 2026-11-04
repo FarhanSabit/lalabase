@@ -6,9 +6,10 @@ require 'rails_helper'
 # (GlossaryPolicy, E2): 403 without it, view_glossary reads but never writes,
 # manage_glossary writes (a guest role too), an account admin needs no row,
 # and a term of another organisation answers 404. What a reader sees (E3):
-# heard forms with speaker and project from every project, but a meeting's
-# title only with read access to that meeting, and a link to a person only
-# with view_people. Invented words and names only.
+# heard forms with their project from every project, but a meeting's title
+# only with read access to that meeting, a speaker's name only when the
+# reader may see that speaker on the members or the people page, and a link
+# to a speaker only with view_people as well. Invented words and names only.
 RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
   let(:organisation) { create(:organisation) }
   let(:other_organisation) { create(:organisation) }
@@ -147,7 +148,11 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
       expect(response).to have_http_status(:ok)
       body = response.body
       expect(body).to include('Lalabase', I18n.t('views.organisations.glossary.categories.product'))
-      expect(body).to include('lala bass', 'la la base', 'Erika Beispiel')
+      expect(body).to include('lala bass', 'la la base')
+      # A row of the people directory is a name only with view_people (review
+      # round 4 of #113).
+      expect(body).to include(I18n.t('views.organisations.glossary.speaker_hidden'))
+      expect(body).not_to include('Erika Beispiel')
       # E3: the project's name also where the reader cannot read the project.
       expect(body).to include('Projekt Ahorn', 'Projekt Birke')
       expect(body.index('Zirbelholz')).to be < body.index('Lalabase')
@@ -291,10 +296,20 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
       Nokogiri::HTML(response.body)
     end
 
-    it 'names the speaker without a link for a reader without view_people' do
+    def speakers(page)
+      page.css('.glossary-heard__speaker').map { |node| node.text.strip }
+    end
+
+    let(:hidden) { I18n.t('views.organisations.glossary.speaker_hidden') }
+
+    # Review round 4 of #113 (decided): a speaker's name follows what the
+    # reader may see on the people page; without view_people that page shows
+    # no row of the directory.
+    it 'shows a row of the directory as a neutral word to a reader without view_people' do
       page = lane_for(viewer)
 
-      expect(page.text).to include('Erika Beispiel')
+      expect(speakers(page)).to include(hidden)
+      expect(page.text).not_to include('Erika Beispiel')
       expect(page.css(%(a[href*="person_id=#{speaker.id}"]))).to be_empty
     end
 
@@ -317,30 +332,68 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
 
       page = lane_for(viewer)
 
-      expect(page.css('.glossary-heard__speaker').map { |node| node.text.strip }).to include(speaker_member.display_name)
+      expect(speakers(page)).to include(speaker_member.display_name)
       expect(page.css(%(a[href*="member_id=#{speaker_member.id}"]))).to be_empty
+    end
+
+    # Review round 4 of #113 (decided): MembershipPolicy::Scope keeps the
+    # names of other projects' members from a guest of one project, so the
+    # glossary does too, in the lane and in the list.
+    describe 'a guest of one project (billable: false) with view_glossary' do
+      let(:guest) { member_with(role_with('view_glossary', billable: false)) }
+      let(:colleague) { member_with(role_with) }
+      let(:stranger) { member_with(role_with) }
+
+      before do
+        create(:project_permission, user: guest, project: open_project, tickets_access: :read_only)
+        create(:project_permission, user: colleague, project: open_project, tickets_access: :read_only)
+        create(:project_permission, user: stranger, project: closed_project, tickets_access: :read_only)
+        create(:term_correction, organisation: organisation, glossary_term: term, heard: 'lalabeis', user: colleague,
+                                 project: open_project)
+        create(:term_correction, organisation: organisation, glossary_term: term, heard: 'lalabais', user: stranger,
+                                 project: closed_project)
+      end
+
+      it 'sees the name of a member of its project, not of a member of another project' do
+        page = lane_for(guest)
+
+        expect(speakers(page)).to include(colleague.display_name, hidden)
+        expect(page.text).not_to include(stranger.display_name)
+        expect(page.css('.glossary-heard__speaker a')).to be_empty
+      end
+
+      it 'sees the same names in the list' do
+        sign_in guest
+        get organisation_glossary_terms_path(organisation)
+
+        origin = Nokogiri::HTML(response.body).css('.glossary-row__origin').map(&:text).join
+        expect(origin).to include(colleague.display_name, hidden, 'Projekt Birke')
+        expect(origin).not_to include(stranger.display_name)
+      end
     end
 
     describe 'with view_people but without any project' do
       let(:reader) { member_with(role_with('view_glossary', 'people:view_people')) }
       let(:hidden_member) { member_with(role_with) }
 
-      it 'names a member it may not see on the people page, without a link' do
+      it 'shows a member it may not see on the members page as a neutral word, without a link' do
         create(:term_correction, organisation: organisation, glossary_term: term, heard: 'lalabeis', user: hidden_member)
 
         page = lane_for(reader)
 
-        expect(page.css('.glossary-heard__speaker').map { |node| node.text.strip }).to include(hidden_member.display_name)
+        expect(speakers(page)).to include(hidden)
+        expect(page.text).not_to include(hidden_member.display_name)
         expect(page.css(%(a[href*="member_id=#{hidden_member.id}"]))).to be_empty
       end
 
-      it 'names the row of a member it may not see, without a link' do
+      it 'shows the row of a member it may not see as a neutral word, without a link' do
         row = create(:person, organisation: organisation, user: hidden_member, name: 'Paula Platzhalter')
         create(:term_correction, organisation: organisation, glossary_term: term, heard: 'lalabeis', person: row)
 
         page = lane_for(reader)
 
-        expect(page.text).to include('Paula Platzhalter')
+        expect(speakers(page)).to include(hidden)
+        expect(page.text).not_to include('Paula Platzhalter')
         expect(page.css(%(a[href*="person_id=#{row.id}"]))).to be_empty
       end
 
@@ -362,6 +415,19 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
       page = lane_for(admin)
 
       expect(page.css(%(a[href="#{organisation_people_path(organisation, member_id: member.id)}"]))).to be_present
+    end
+
+    # Review round 4 of #113: the people page lists active members only, so a
+    # link to a deactivated one opened an empty lane. The members page still
+    # lists them, so the name stays.
+    it 'names a deactivated member without a link' do
+      member = member_with(role_with, active: false)
+      create(:term_correction, organisation: organisation, glossary_term: term, heard: 'lalabeis', user: member)
+
+      page = lane_for(admin)
+
+      expect(speakers(page)).to include(member.display_name)
+      expect(page.css(%(a[href*="member_id=#{member.id}"]))).to be_empty
     end
   end
 
@@ -545,6 +611,19 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
                                        merge_organisation_glossary_term_path(organisation, term),
                                        heard_form_organisation_glossary_term_path(organisation, term, correction_id: open_correction.id))
     end
+
+    # Review round 4 of #113 (optional): a screen reader heard "Bestätigen"
+    # once per proposal without its term, and the row held a div in a span.
+    it 'names the term in the buttons of a proposal row, inside valid markup' do
+      get organisation_glossary_terms_path(organisation)
+
+      page = Nokogiri::HTML(response.body)
+      row = page.css('[data-glossary-row]').find { |node| node.text.include?('Zirbelholz') }
+      expect(row.css('button').map { |button| button.text.squish })
+        .to eq([I18n.t('views.organisations.glossary.show.confirm'), I18n.t('views.organisations.glossary.show.reject')]
+                 .map { |word| "#{word} #{I18n.t('views.organisations.glossary.quoted', text: 'Zirbelholz')}" })
+      expect(page.css('[data-glossary-row] span div, [data-glossary-row] span form')).to be_empty
+    end
   end
 
   describe 'with manage_glossary' do
@@ -553,6 +632,40 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
     before { sign_in writer }
 
     include_examples 'may keep the glossary'
+
+    # Review round 4 of #113: a form opened before another change wrote the
+    # old spelling back.
+    it 'shows the current values and the stale message when someone else saved first' do
+      opened_with = term.lock_version
+      term.update!(term: 'Lala Base')
+
+      patch organisation_glossary_term_path(organisation, term),
+            params: { glossary_term: { term: 'Lalabase', category: 'company', lock_version: opened_with } }
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.body).to include(CGI.escapeHTML(I18n.t('controllers.glossary.update.stale')))
+      form = Nokogiri::HTML(response.body)
+      expect(form.css('#glossary_term_term').first['value']).to eq('Lala Base')
+      expect(form.css('input[name="glossary_term[lock_version]"]').first['value']).to eq(term.reload.lock_version.to_s)
+      expect([term.term, term.category]).to eq(['Lala Base', 'product'])
+    end
+
+    it 'sends the lock_version along with the form of a saved term, none with a new one' do
+      get edit_organisation_glossary_term_path(organisation, term), headers: frame_headers
+      expect(Nokogiri::HTML(response.body).css('input[name="glossary_term[lock_version]"]').map { |input| input['value'] })
+        .to eq([term.lock_version.to_s])
+
+      get new_organisation_glossary_term_path(organisation), headers: frame_headers
+      expect(response.body).not_to include('glossary_term[lock_version]')
+    end
+
+    # Review round 4 of #113 (optional): require.permit crashed on a string.
+    it 'answers a form that is no form with 400, not an error' do
+      patch organisation_glossary_term_path(organisation, term), params: { glossary_term: 'Lalabase' }
+
+      expect(response).to have_http_status(:bad_request)
+      expect(term.reload.term).to eq('Lalabase')
+    end
   end
 
   describe 'with manage_glossary on a guest role (billable: false)' do

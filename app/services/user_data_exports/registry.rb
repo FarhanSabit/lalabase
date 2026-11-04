@@ -225,17 +225,23 @@ module UserDataExports
              attributes: %w[name salutation function department company email phone additional_details notes
                             created_at updated_at],
              scope: ->(user) { Person.where(user_id: user.id) }),
-      # The heard forms of the glossary this account SPOKE (term_corrections.
-      # user_id, the speaker as a member, K4a): what speech recognition heard
-      # from the person, for which term, in which project and when. Data about
-      # the account, so it is exported. The table's two other person
-      # references are not: corrected_by_id is authoring metadata on org
-      # knowledge (as analysis_prompts), and person_id is a row of the people
-      # directory, exported through :people when it is the account's own.
+      # The heard forms of the glossary this account SPOKE (K4a): what speech
+      # recognition heard from the person, for which term, in which project
+      # and when. Data about the account, so it is exported. The speaker is
+      # the account in two ways: as a member (user_id), or as the account's
+      # own row of the people directory (person_id of a Person with this
+      # user_id; :people exports that row, not the forms spoken as it). The
+      # third reference is not exported: corrected_by_id is authoring metadata
+      # on org knowledge (as analysis_prompts). A person_id of any other row is
+      # a third party's, whose requests go through the organisation.
       source(key: :term_corrections, model: 'TermCorrection', tenant_scoped: true,
              attributes: %w[heard replaced_count created_at],
              computed: { term: ->(r) { r.glossary_term&.term }, project_name: ->(r) { r.project&.name } },
-             scope: ->(user) { TermCorrection.where(user_id: user.id).includes(:glossary_term, :project) }),
+             scope: lambda { |user|
+               TermCorrection.where(user_id: user.id)
+                             .or(TermCorrection.where(person_id: Person.where(user_id: user.id).select(:id)))
+                             .includes(:glossary_term, :project)
+             }),
       source(key: :notification_subscriptions, model: 'NotificationSubscription', tenant_scoped: true,
              attributes: %w[subscribable_type source created_at],
              scope: ->(user) { NotificationSubscription.where(user: user) }),

@@ -43,6 +43,17 @@ RSpec.describe TermCorrection, :ci_guard, type: :model do
     expect(correction.errors[:heard]).to be_present
   end
 
+  # Review round 4 of #113: the heard form goes through the same normalizer as
+  # the term (GlossaryText), characters that show nothing included.
+  it 'drops characters that show nothing from a heard form, and refuses one of nothing else' do
+    correction = create(:term_correction, organisation: organisation, glossary_term: term, heard: "Lala\u{200B}\u{00AD}Bass")
+    blank = build(:term_correction, organisation: organisation, glossary_term: term, heard: "\u{200B}\u{202E}")
+
+    expect([correction.heard, correction.normalized_heard]).to eq(%w[LalaBass lalabass])
+    expect(blank).not_to be_valid
+    expect(blank.errors.details[:heard]).to include(error: :blank)
+  end
+
   it 'checks the place and the count' do
     expect(build(:term_correction, organisation: organisation, glossary_term: term, replaced_count: 0)).not_to be_valid
     expect(build(:term_correction, organisation: organisation, glossary_term: term, line_index: -1)).not_to be_valid

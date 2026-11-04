@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
 # The glossary of an organisation (K4a): one row per term in its right
-# spelling. normalized_term (lower case, NFC, whitespace collapsed,
-# GlossaryText) is unique per organisation, so one spelling cannot stand
-# twice. status: proposed, confirmed, rejected; a rejected term stays, so it
-# is not proposed again.
+# spelling. normalized_term (characters that show nothing dropped, NFC,
+# whitespace collapsed, lower case: GlossaryText) is unique per organisation,
+# so one spelling cannot stand twice. status: proposed, confirmed, rejected; a
+# rejected term stays, so it is not proposed again.
 class CreateGlossaryTerms < ActiveRecord::Migration[8.1]
   def change
     create_table :glossary_terms, id: :uuid do |t|
