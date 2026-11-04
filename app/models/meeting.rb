@@ -266,6 +266,13 @@ class Meeting < ApplicationRecord
   # See the before_destroy declaration: subselect the fragment ids (they still
   # exist because this runs BEFORE the dependent delete_all) and drop their sidecar
   # rows synchronously — a de-indexed/deleted transcript leaves no retrievable trace.
+  #
+  # One deliberate exception (glossary K4a, E4, decided 2026-11-04): the heard
+  # forms of the glossary (term_corrections) STAY, with their place in the
+  # transcript (line_index, char_offset, transcript_digest); only meeting_id is
+  # cleared, by the foreign key (on_delete: :nullify), nothing here. A correction
+  # is knowledge of the organisation that a person confirmed, not content of the
+  # conversation. Do not purge them here, and do not turn that key into a cascade.
   def purge_fragment_content_embeddings
     ContentEmbedding.purge_for(embeddable_type: 'Fragment', embeddable_ids: fragments.select(:id))
   end

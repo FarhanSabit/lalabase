@@ -225,6 +225,17 @@ module UserDataExports
              attributes: %w[name salutation function department company email phone additional_details notes
                             created_at updated_at],
              scope: ->(user) { Person.where(user_id: user.id) }),
+      # The heard forms of the glossary this account SPOKE (term_corrections.
+      # user_id, the speaker as a member, K4a): what speech recognition heard
+      # from the person, for which term, in which project and when. Data about
+      # the account, so it is exported. The table's two other person
+      # references are not: corrected_by_id is authoring metadata on org
+      # knowledge (as analysis_prompts), and person_id is a row of the people
+      # directory, exported through :people when it is the account's own.
+      source(key: :term_corrections, model: 'TermCorrection', tenant_scoped: true,
+             attributes: %w[heard replaced_count created_at],
+             computed: { term: ->(r) { r.glossary_term&.term }, project_name: ->(r) { r.project&.name } },
+             scope: ->(user) { TermCorrection.where(user_id: user.id).includes(:glossary_term, :project) }),
       source(key: :notification_subscriptions, model: 'NotificationSubscription', tenant_scoped: true,
              attributes: %w[subscribable_type source created_at],
              scope: ->(user) { NotificationSubscription.where(user: user) }),
@@ -269,6 +280,9 @@ module UserDataExports
                                                 'recreatable UX state — no exportable content',
       'analysis_prompts' => 'Org-wide prompt library asset (Gespräche Slice 7a); creator_id is ' \
                             'authoring metadata on shared org infrastructure (role model, org export)',
+      'glossary_terms' => 'Org-wide glossary (K4a, role model); created_by_id is authoring metadata on ' \
+                          'shared org knowledge, like analysis_prompts. The heard forms a person spoke are ' \
+                          'exported as term_corrections.json',
       'user_deletions' => 'Deletion audit log, metadata only by design; core state is in account.json',
       'user_data_exports' => 'The export mechanism itself; state is visible on the export page',
       'attachment_deletion_records' => 'Deletion proof owed to the CONTROLLER, not to the user ' \
