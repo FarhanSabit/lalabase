@@ -30,18 +30,27 @@ class GlossaryPolicy < ApplicationPolicy
   def self.view_allowed?(user, organisation)
     return false unless user.active_member_of_organisation?(organisation)
 
-    user.account_admin_in?(organisation) ||
-      Permission.granting_actions('glossary', 'view_glossary').any? do |action|
-        user.has_permission_in_organisation?(organisation, 'glossary', action)
-      end
+    user.account_admin_in?(organisation) || granted?(user, organisation, 'view_glossary')
   end
 
   def self.manage_allowed?(user, organisation)
     return false unless user.active_member_of_organisation?(organisation)
 
-    user.account_admin_in?(organisation) ||
-      user.has_permission_in_organisation?(organisation, 'glossary', 'manage_glossary')
+    user.account_admin_in?(organisation) || granted?(user, organisation, 'manage_glossary')
   end
+
+  # A permission ROW of the member's role grants the action, or an action
+  # that includes it (Permission::IMPLIED_BY). Read through
+  # Role#permission_row_allows?, not has_permission?, which answers yes for an
+  # account admin by itself: the admin answer above is the only door for an
+  # admin, so "admins need no row" (E2) is this policy's own rule.
+  def self.granted?(user, organisation, action)
+    role = user.role_in_organisation(organisation)
+    return false unless role
+
+    Permission.granting_actions('glossary', action).any? { |granting| role.permission_row_allows?('glossary', granting) }
+  end
+  private_class_method :granted?
 
   def index?
     can_view?

@@ -213,6 +213,26 @@ RSpec.describe Role, type: :model do
         expect(admin_role.has_permission?('any_category', 'any_action')).to be true
       end
     end
+
+    # The rows alone, without the account admin's implicit yes (GlossaryPolicy
+    # names the admin rule itself).
+    describe '#permission_row_allows?' do
+      let(:role) { create(:role, organisation: organisation) }
+      let(:admin_role) { create(:admin_role, organisation: organisation) }
+
+      it 'answers from an allowed row' do
+        create(:permission, role: role, category: 'glossary', action: 'view_glossary', allowed: true)
+        create(:permission, role: role, category: 'glossary', action: 'manage_glossary', allowed: false)
+
+        expect(role.permission_row_allows?('glossary', 'view_glossary')).to be true
+        expect(role.permission_row_allows?('glossary', 'manage_glossary')).to be false
+      end
+
+      it 'says no for an account admin without a row, where has_permission? says yes' do
+        expect(admin_role.permission_row_allows?('glossary', 'view_glossary')).to be false
+        expect(admin_role.has_permission?('glossary', 'view_glossary')).to be true
+      end
+    end
   end
 
   describe 'class methods' do

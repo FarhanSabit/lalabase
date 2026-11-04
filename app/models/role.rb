@@ -76,6 +76,14 @@ class Role < ApplicationRecord
   def has_permission?(category, action)
     return true if account_admin?
 
+    permission_row_allows?(category, action)
+  end
+
+  # Whether a stored permission row of this role allows the action. Unlike
+  # has_permission?, an account admin's implicit yes is left out: a policy that
+  # names the admin rule itself (GlossaryPolicy) asks this, so its own admin
+  # answer is the only door for an admin.
+  def permission_row_allows?(category, action)
     permissions.load unless permissions.loaded?
     permissions.any? { |p| p.category == category.to_s && p.action == action.to_s && p.allowed }
   end
