@@ -458,6 +458,7 @@ jobs:
           spec/requests/organisations/smart_folders_tenant_boundary_spec.rb
           spec/services/tickets/subtask_counts_cache_spec.rb
           spec/requests/organisations/smart_folders_visibility_spec.rb
+          spec/requests/organisations/smart_folders_item_preview_spec.rb
           spec/requests/organisations/view_configurations_apply_columns_spec.rb
           spec/requests/organisations/knowledge_spec.rb
           spec/requests/organisations/knowledge_lane_spec.rb

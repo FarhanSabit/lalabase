@@ -99,7 +99,8 @@
                   <% if item.respond_to?(:description) && item.description.present? %>
                     <%= truncate(item.description, length: 150) %>
                   <% elsif item.respond_to?(:content) && item.content.present? %>
-                    <%= truncate(strip_tags(item.content.to_s), length: 150) %>
+                    <%# As text: truncate escapes what it returns, and an entity would show as "&quot;". %>
+                    <%= truncate(text_from_html(item.content), length: 150) %>
                   <% end %>
                 </div>
 
