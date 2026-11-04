@@ -117,7 +117,7 @@ RSpec.describe 'MCP people tools', :ci_guard, type: :request do
                                           get_ticket search_knowledge create_ticket post_comment
                                           list_notifications create_time_session mark_notification_read
                                           update_ticket summarize_time_sessions find_people get_person
-                                          list_organisations list_projects create_meeting
+                                          list_organisations list_projects create_meeting get_meeting
                                         ])
     end
 

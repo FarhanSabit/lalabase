@@ -57,7 +57,9 @@ module Mcp
     # from the same reader as GET /api/v1/organisations and /projects.
     # 0.16 = create_meeting, by the rule of POST /api/v1/organisations/:id/meetings,
     # and meeting_inbox on the rows of list_projects.
-    SERVER_VERSION = '0.16.0'
+    # 0.17 = get_meeting: one meeting whole behind the token, its summary, notes and
+    # transcript in pages, by the gate of GET /api/v1/meetings/:id (Meetings::Readable).
+    SERVER_VERSION = '0.17.0'
 
     # MCP surface — sourced from the single tool registry (D6): the :mcp set is the
     # ONE definition of this surface, so a registry refactor can't drift it (R3);

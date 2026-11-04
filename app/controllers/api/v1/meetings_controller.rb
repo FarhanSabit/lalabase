@@ -9,7 +9,8 @@ module Api
     # the MCP tool create_meeting; the write is Actors::SaveMeeting.
     #
     # GET /api/v1/projects/:project_id/meetings and GET /api/v1/meetings/:id (REST R8)
-    # read through the web list's Meetings::ListQuery and Api::V1::ReadableMeeting; the
+    # read through the web list's Meetings::ListQuery and Meetings::Readable (the gate shared
+    # with the MCP tool get_meeting); the
     # fields are Meetings::Serializer's.
     #
     # * Paging and `q` by Knowledge::Lookup's strict rule, one rule for REST lists of a
@@ -19,7 +20,6 @@ module Api
     # * The search matches inside transcripts, so it runs on the policy scope and nowhere
     #   else. A reader who may open the project but read no meetings gets an empty list.
     class MeetingsController < BaseController
-      include ReadableMeeting
       include ReadableProject
 
       rescue_from Knowledge::Lookup::InvalidOption, with: :invalid_input
@@ -41,9 +41,11 @@ module Api
       end
 
       def show
-        with_readable_meeting(params[:id]) do |meeting|
+        shown = Meetings::Readable.call(id: params[:id], user: current_user, token: current_token) do |meeting|
+          authorize meeting, :show?
           render json: { data: Meetings::Serializer.full(meeting) }
         end
+        raise ActiveRecord::RecordNotFound unless shown
       end
 
       def create

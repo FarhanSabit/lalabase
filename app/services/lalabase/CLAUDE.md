@@ -1,4 +1,4 @@
-# Karte: app/services/lalabase (Stand: 2026-11-01)
+# Karte: app/services/lalabase (Stand: 2026-11-03)
 
 AI/RAG-Domäne (Produktname „Lalabase"): alles rund um LLM-Aufrufe, Embeddings und
 Codebase-Verständnis.
@@ -30,6 +30,17 @@ Codebase-Verständnis.
   type): a contact by its row, a member by the account (`member_id`, the page sends it on to
   the row). `find_people` cites its first five rows, or an answer drawn on the list alone
   would carry no area and stay unredacted for others.
+  `get_meeting` on `:mcp` is a twin as well (`McpGetMeeting`, R9, MCP 0.17.0), for a program
+  behind a token such as Claude Code beside a meeting in the terminal client. Its gate is
+  `Meetings::Readable`, the one `GET /api/v1/meetings/:id` asks (moved there from the REST
+  controller when this second door came): missing, malformed, beyond the token, foreign or
+  unreadable all answer `kind: empty` with one text, word for word. Unlike the assistant's
+  capped read it carries the generated summary and gives summary, notes and transcript whole,
+  in pages (`Meetings::TextPage`, 40,000 characters, cut at a line break near the end):
+  Claude Code cuts a tool answer above about 25,000 tokens without saying so. Without `part`
+  each part's first page is a third of a page, so the three stay within one; `part` and
+  `offset` read on, `next_offset` is null at the end. Offsets count code points, as Ruby's
+  String does; a page may end inside a grapheme cluster, which the next one continues.
   On `:mcp` the same two names are twins (`McpFindPeople`, `McpGetPerson`, People S3b, MCP
   0.13.0), own classes because their schema requires `organisation_id` (E3). `scope_mode
   :token`; `PeopleTool.with_token_lookup` is their gate: only an organisation whose every
@@ -46,8 +57,8 @@ Codebase-Verständnis.
   `project_id` als Pflicht, ToolCall gated das Projekt) oder `:token` (Inbox-Arbeitsfluss:
   kein Projekt-Gate, `Context#reach` = `PersonalAccessToken::Reach`, läuft OHNE Tenant, nur
   im `:mcp`-Set, record-mode; `list_notifications`, `mark_notification_read`,
-  `list_organisations`, `list_projects` und die Personen-Zwillinge, die sich den Tenant ihrer
-  Organisation selbst setzen). Die Inbox-
+  `list_organisations`, `list_projects`, die Personen-Zwillinge und `get_meeting`, die sich den
+  Tenant ihrer Organisation selbst setzen). Die Inbox-
   Zeilen kommen aus `Notifications::InboxQuery` + `Serializer`, geteilt mit der HTTP-API.
   Schreibende Werkzeuge gibt es nur im `:mcp`-Set: `create_ticket`, `post_comment`,
   `create_time_session`, `mark_notification_read`, `update_ticket`, `create_meeting`

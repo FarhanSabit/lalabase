@@ -112,7 +112,7 @@ module McpContract
       write_token: 81, read_token: 82, deactivated_token: 83, limited_token: 84, dora_token: 85,
       doris_person: 91, ben_person: 92,
       kickoff_meeting: 101, review_meeting: 102, hidden_meeting: 103, internal_meeting: 104, foreign_meeting: 105,
-      gone_meeting: 106, gone_user: 107,
+      gone_meeting: 106, gone_user: 107, long_meeting: 108,
       missing: 999
     }.transform_values { |n| format('00000000-0000-4000-8000-%012d', n) }.freeze
 
@@ -361,8 +361,56 @@ module McpContract
         'list_projects' => list_projects_calls,
         # MCP 0.16, appended last: refusals that write nothing, so every answer
         # above stays as it was.
-        'create_meeting' => create_meeting_calls
+        'create_meeting' => create_meeting_calls,
+        # MCP 0.17 (R9), appended last: reads of the meeting world, which is made here,
+        # earlier than the REST section made it before; that moves the meetings' own
+        # timestamps there, nothing else.
+        'get_meeting' => get_meeting_calls
       }
+    end
+
+    # Spelled out, not a loop: each request from its own line (Prosopite).
+    def get_meeting_calls
+      meeting_world
+      kickoff = { meeting_id: id(:kickoff_meeting) }
+      {
+        'ok' => tool_call(:read, 'get_meeting', **kickoff),
+        # A page of one part, from an offset: the rest of the transcript.
+        'ok_part' => tool_call(:read, 'get_meeting', **kickoff, part: 'transcript', offset: 6),
+        'ok_past_end' => tool_call(:read, 'get_meeting', **kickoff, part: 'summary', offset: 1_000),
+        # No duration, no notes, no transcript, an empty summary, nobody named.
+        'ok_bare' => tool_call(:read, 'get_meeting', meeting_id: id(:review_meeting)),
+        'empty' => tool_call(:read, 'get_meeting', meeting_id: id(:missing)),
+        # All of these answer exactly like the missing one.
+        'empty_malformed' => tool_call(:read, 'get_meeting', meeting_id: 'not-a-uuid'),
+        'empty_no_area' => tool_call(:read, 'get_meeting', meeting_id: id(:hidden_meeting)),
+        'empty_reach' => tool_call(:limited, 'get_meeting', meeting_id: id(:internal_meeting)),
+        'empty_foreign' => tool_call(:read, 'get_meeting', meeting_id: id(:foreign_meeting)),
+        'invalid_input' => tool_call(:read, 'get_meeting', **kickoff, offset: 3),
+        'invalid_input_part' => tool_call(:read, 'get_meeting', **kickoff, part: 'analysis'),
+        'ok_notes' => tool_call(:read, 'get_meeting', **kickoff, part: 'notes')
+      }.merge(long_meeting_calls)
+    end
+
+    # A transcript longer than a page, so a page has a next one (next_offset a number) and the
+    # last page follows it. The meeting is made for these two answers alone and removed after
+    # them: every list and project answer recorded later stays as it was.
+    def long_meeting_calls
+      line = 'Anna: Wir prüfen den Plan für März, Seite für Seite.'
+      transcript = Array.new(Meetings::TextPage::MAX_CHARS / line.length + 20) { |n| "#{line} #{n}" }.join("\n")
+      in_org do
+        create(:meeting, id: id(:long_meeting), project: @website, organisation: @organisation, creator: @anna,
+                         title: 'Langes Gespräch', occurred_at: START - 7.days, transcript: transcript)
+      end
+      page = { meeting_id: id(:long_meeting), part: 'transcript' }
+      first = tool_call(:read, 'get_meeting', **page, offset: 0)
+      next_offset = JSON.parse(first.dig('response', 'body', 'result', 'content', 0, 'text')).dig('parts', 'transcript', 'next_offset')
+      # A transcript that fits one page would record a refusal as the last page.
+      raise 'the long meeting fits one page: no next_offset to record' unless next_offset.is_a?(Integer)
+
+      calls = { 'ok_page' => first, 'ok_last_page' => tool_call(:read, 'get_meeting', **page, offset: next_offset) }
+      in_org { Meeting.find(id(:long_meeting)).destroy! }
+      calls
     end
 
     # A comment's file, by the id of its PostDocument: fixed, because the file
