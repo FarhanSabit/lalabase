@@ -88,16 +88,24 @@ module Lalabase
         )
       # AiDisabledError and MissingCredentialError must be rescued BEFORE
       # Provider::Error: both inherit from it, so swapping the order would mask
-      # them. The AI-disabled case returns a FIXED message (no e.message): it is
-      # a policy state, not a failure, and raw internal exception text must not
-      # cross the MCP boundary to external clients.
+      # them. Every case returns a FIXED message (no e.message): raw internal
+      # exception text must not cross the MCP boundary to external clients. A
+      # missing credential names credential and space ids or a package, a provider
+      # error wraps the HTTP client's message with its endpoint. They go to the log.
       rescue Lalabase::Llm::AiDisabledError
         Result.refused('AI features are disabled for this organisation.', reason: :ai_disabled)
       rescue Lalabase::Llm::Factory::MissingCredentialError => e
-        Result.refused("embedding unavailable: #{e.message}", reason: :ai_unavailable)
+        log_embedding_error(e)
+        Result.refused('embedding unavailable: no usable embedding credential is configured', reason: :ai_unavailable)
       rescue Lalabase::Llm::Provider::Error => e
-        Result.refused("embedding failed: #{e.message}", reason: :ai_unavailable)
+        log_embedding_error(e)
+        Result.refused('embedding failed: the embedding provider did not answer', reason: :ai_unavailable)
       end
+
+      def self.log_embedding_error(error)
+        Rails.logger.warn("[#{name}] #{error.class}: #{error.message}")
+      end
+      private_class_method :log_embedding_error
 
       def self.resolve_limit(raw)
         return DEFAULT_LIMIT if raw.blank?
@@ -113,8 +121,12 @@ module Lalabase
 
       def self.format_symbols(symbols)
         symbols.map do |s|
+          # Name and path come from the repository as well: the result is
+          # fence_guarded, so nothing after this point rewrites a fence in them.
           sig = Lalabase::FenceGuard.sanitize(s.signature.to_s[0, MAX_SIGNATURE_IN_RESULT])
-          "- #{s.qualified_name} (#{s.file_path}:#{s.start_line}-#{s.end_line})\n" \
+          name = Lalabase::FenceGuard.sanitize(s.qualified_name)
+          path = Lalabase::FenceGuard.sanitize(s.file_path)
+          "- #{name} (#{path}:#{s.start_line}-#{s.end_line})\n" \
             "  ```\n  #{sig}\n  ```"
         end.join("\n")
       end

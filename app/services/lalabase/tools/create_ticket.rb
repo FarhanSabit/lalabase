@@ -66,7 +66,7 @@ module Lalabase
           params: build_params(args, title),
           current_user: context.actor
         )
-        return Result.new(error: "create failed: #{Array(result.errors).join(', ')}") unless result.success?
+        return Result.new(error: create_failure(result)) unless result.success?
 
         serializer = Tickets::Serializer.new(current_user: context.actor)
         json_result(serializer.summary(result.resource))
@@ -83,6 +83,16 @@ module Lalabase
         params
       end
       private_class_method :build_params
+
+      # An unexpected failure (BaseActor's :internal_error where it does not
+      # re-raise, i.e. in production) gets a fixed text: its message may name the
+      # database. A refused save keeps its messages, as post_comment does.
+      def self.create_failure(result)
+        return 'create failed: unexpected error' if result.code == :internal_error
+
+        "create failed: #{Array(result.errors).join(', ')}"
+      end
+      private_class_method :create_failure
     end
   end
 end

@@ -45,6 +45,26 @@ RSpec.describe Lalabase::Tools::ListTickets do
     end
   end
 
+  # The assistant hands the model's arguments in unchecked; over MCP the SDK
+  # checks the type, not the size. Both used to raise past the tool.
+  describe 'a page no list has' do
+    before { grant_tickets(:read_only) }
+
+    [ListPaging::MAX_PAGE + 1, ['1'], { 'x' => 1 }].each do |value|
+      it "answers page #{value.inspect} as invalid input" do
+        result = described_class.execute(args: { page: value }, context: context)
+        expect(result.success?).to be false
+        expect(result.code).to eq(:invalid_input)
+        expect(result.error).to match(/invalid page/)
+      end
+    end
+
+    it 'answers per_page that is a list as invalid input' do
+      result = described_class.execute(args: { per_page: [5] }, context: context)
+      expect(result.code).to eq(:invalid_input)
+    end
+  end
+
   describe 'rights of the asking user' do
     let!(:own_ticket) { create(:ticket, project: project, organisation: organisation, creator: actor) }
 

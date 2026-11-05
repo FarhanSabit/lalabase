@@ -83,9 +83,14 @@ module Lalabase
 
       def self.format_symbols(symbols)
         symbols.map do |s|
+          # Name and path come from the repository as well (language and type are
+          # validated against fixed lists): the result is fence_guarded, so nothing
+          # after this point rewrites a fence in them.
           sig = Lalabase::FenceGuard.sanitize(s.signature.to_s[0, MAX_SIG_LEN])
-          "## #{s.qualified_name}\n" \
-            "_#{s.file_path}:#{s.start_line}-#{s.end_line} • #{s.language} • #{s.symbol_type}_\n\n" \
+          name = Lalabase::FenceGuard.sanitize(s.qualified_name)
+          path = Lalabase::FenceGuard.sanitize(s.file_path)
+          "## #{name}\n" \
+            "_#{path}:#{s.start_line}-#{s.end_line} • #{s.language} • #{s.symbol_type}_\n\n" \
             "```\n#{sig}\n```"
         end.join("\n\n")
       end

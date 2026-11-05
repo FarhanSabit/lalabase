@@ -72,6 +72,9 @@ module Lalabase
         return chosen if chosen.is_a?(Result)
 
         filter = Tickets::Filter.new(args, current_user: context.actor)
+        paging = paging_refusal(filter)
+        return paging if paging
+
         base = Pundit.policy_scope!(context.actor, ticket_base(context, only_project_id: chosen&.id))
         scope = filter.ordered(filter.filtered(base)).includes(:creator, :assignees)
         # The org rows name their project (§14 origin), so preload it there.
@@ -154,6 +157,18 @@ module Lalabase
       # The requested page, clamped into the range that actually has rows. An empty result
       # set keeps the requested page (there is no last page to fall back to, and total 0
       # carries nothing to leak).
+      # A page no list has, or a page or per_page that is a list or a hash: the
+      # assistant passes the model's arguments in unchecked, and the MCP SDK checks
+      # the type but not the size. Asked once here, before any query.
+      def self.paging_refusal(filter)
+        filter.page
+        filter.per_page
+        nil
+      rescue ListPaging::InvalidArgument => e
+        Result.invalid_input(e.message)
+      end
+      private_class_method :paging_refusal
+
       def self.clamped_page(filter, scope)
         total = filter.total(scope)
         return filter.page if total.zero?

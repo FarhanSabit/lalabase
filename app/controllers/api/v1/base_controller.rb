@@ -30,6 +30,9 @@ module Api
       # A body that is not the JSON it claims to be. Without a key Rails parses it
       # lazily and some actions never ask; with one the fingerprint reads it first.
       rescue_from ActionDispatch::Http::Parameters::ParseError, with: :bad_request
+      # A page no list has (its offset leaves PostgreSQL's bigint) or a paging value
+      # that is a list or a hash. Both raised into a 500 before (ListPaging).
+      rescue_from ListPaging::InvalidArgument, with: :bad_request
 
       # Pundit tripwire (pattern: Organisations::BaseController): Every action must
       # authorize explicitly — authorize or policy_scope in index. A new

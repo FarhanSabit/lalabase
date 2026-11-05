@@ -302,6 +302,7 @@ jobs:
           spec/requests/api/v1/idempotency_spec.rb
           spec/requests/api/v1/capabilities_spec.rb
           spec/requests/api/v1/time_session_booking_spec.rb
+          spec/requests/api/v1/malformed_list_params_spec.rb
           spec/requests/api/v1/ticket_view_spec.rb
           spec/requests/api/v1/comment_files_spec.rb
           spec/requests/api/v1/people_spec.rb

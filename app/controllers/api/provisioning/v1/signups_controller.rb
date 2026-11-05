@@ -19,8 +19,11 @@ module Api
         # ours, and it would hand out the exception message while doing it.
         INTERNAL_CODES = %i[internal_error].freeze
 
+        # ParseError: a body that is not the JSON it claims to be. Without it the
+        # exceptions app answered 400 with a body of its own, outside the envelope.
         rescue_from ActionController::ParameterMissing,
-                    ActionController::BadRequest, with: :render_bad_request
+                    ActionController::BadRequest,
+                    ActionDispatch::Http::Parameters::ParseError, with: :render_bad_request
 
         def create
           signup = Actors::CreateSignup.new(**signup_arguments)
