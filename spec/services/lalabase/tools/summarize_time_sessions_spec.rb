@@ -401,16 +401,39 @@ RSpec.describe Lalabase::Tools::SummarizeTimeSessions do
                             occurred_on: Time.zone.parse('2026-08-10 10:00'))
     end
 
+    # Not paused for Prosopite: the org path reads every tier from one
+    # ViewingScope.for_organisation and sums in one query, so a query per
+    # project is an N+1 again and turns this whole block red.
     def org_run(args = {})
-      # ViewingScope resolves one permission row per project — a deliberate
-      # O(projects) pass through the ONE owner of the all/own/none rule (it has
-      # no batch API). In the app this tool runs inside a Solid Queue job where
-      # Prosopite does not raise; paused HERE with reason, mirroring the
-      # "two reports in one turn" example above.
-      Prosopite.pause
       described_class.execute(args: args, context: org_context)
-    ensure
-      Prosopite.resume
+    end
+
+    def queries_of(&)
+      count = 0
+      counter = ->(*, payload) { count += 1 unless payload[:name] == 'SCHEMA' || payload[:cached] }
+      ActiveSupport::Notifications.subscribed(counter, 'sql.active_record', &)
+      count
+    end
+
+    # Found in the API review of 2026-11-05: the org path asked ViewingScope
+    # once per project (membership, admin role, permission row) and summed each
+    # project in a query of its own, so the cost grew with the organisation.
+    it 'asks the same number of queries for three projects as for six' do
+      org_run # warms what is loaded once per process, not per call
+      three = queries_of { org_run }
+
+      # Setup, not the code under test: a loop of factories is not the N+1 here.
+      Prosopite.pause do
+        3.times do |n|
+          extra = create(:project, organisation: organisation)
+          create(:time_session_permission, user: actor, project: extra, can_view_own: true, can_view_all: n.even?)
+          org_session(extra, creator: actor, minutes: 5)
+        end
+      end
+      six = queries_of { org_run }
+
+      expect(JSON.parse(org_run.content)['total']['minutes']).to eq(60 + 30 + 45 + 15)
+      expect(six).to eq(three)
     end
 
     before do

@@ -112,7 +112,8 @@ module Lalabase
         # TimeSessions::ViewingScope (§2.4) -- so the filter has to resolve
         # against the projects this pass actually found, not against an area
         # query that would raise.
-        candidates = reachable_projects(context)
+        viewing = TimeSessions::ViewingScope.for_organisation(user: context.actor, organisation: context.organisation)
+        candidates = reachable_projects(context, viewing)
         if candidates.empty?
           return Result.new(error: 'no access to the time sessions of any project',
                             coverage: context.scope.coverage_with(searched: 0))
@@ -121,28 +122,22 @@ module Lalabase
         # S3a T5: resolved before the sum -- an ambiguous project name must answer
         # with candidates, not with a sum over the wrong set of projects.
         chosen = resolve_project_filter(args, context,
-                                        candidates: Project.where(id: candidates.map { |project, _v| project.id }))
+                                        candidates: Project.where(id: candidates.map { |project, _t| project.id }))
         return chosen if chosen.is_a?(Result)
 
-        reachable = chosen ? candidates.select { |project, _v| project.id == chosen.id } : candidates
+        reachable = chosen ? candidates.select { |project, _t| project.id == chosen.id } : candidates
         # Named, not counted, when the question itself named the project (T5
         # review) -- same rule as the chip, same sentence under the answer.
         coverage = context.scope.coverage_with(searched: reachable.size, chosen: chosen&.name)
 
-        filters = resolve_filters(args, context, time_project_ids: reachable.map { |project, _v| project.id })
+        filters = resolve_filters(args, context, time_project_ids: reachable.map { |project, _t| project.id })
         if filters.is_a?(Result)
           # Candidate lists and refused filters wear the reach too (see GetTicket).
           filters.coverage ||= coverage
           return filters
         end
 
-        totals = empty_raw_totals
-        reachable.each do |project, viewing|
-          scope = filtered_sessions(viewing.apply(project.time_sessions), project, filters)
-          merge_raw_totals!(totals, raw_bucket_totals(scope))
-        end
-
-        buckets = totals.transform_values { |t| with_hours(t) }
+        buckets = bucket_totals(org_sessions(reachable, viewing, context, filters))
         json_result(
           {
             scope: combined_tier(reachable),
@@ -154,23 +149,24 @@ module Lalabase
           },
           # One citation per included project: the area keeps the answer
           # content-bearing, and the per-project chips are the §14 origin trail.
-          citations: reachable.map { |project, _v| Lalabase::Citations.time_report(project, citation_filters(filters)) },
+          citations: reachable.map { |project, _t| Lalabase::Citations.time_report(project, citation_filters(filters)) },
           coverage: coverage
         )
       end
       private_class_method :org_execute
 
       # The projects whose time the asker may see AT ALL, each paired with its
-      # tier. Deliberately resolved per project through TimeSessions::ViewingScope
-      # (the one owner of the all/own/none rule) instead of an area query — the
-      # area gate cannot tell own from all (§2.4).
+      # tier. The tiers come from ONE read of the permission rows
+      # (ViewingScope.for_organisation, the same owner of the all/own/none rule
+      # as .call): asking .call per project cost three queries per project
+      # (API review 2026-11-05). The area gate cannot tell own from all (§2.4).
       # Unnarrowed on purpose: the T5 project filter resolves AGAINST this list
       # (org_execute above), so this pass is what defines the reach the filter may
       # pick from, and narrowing here would be the wrong order.
-      def self.reachable_projects(context)
+      def self.reachable_projects(context, viewing)
         context.scope.projects.order(:created_at).filter_map do |project|
-          viewing = TimeSessions::ViewingScope.call(user: context.actor, project: project)
-          [project, viewing] unless viewing.none?
+          tier = viewing.tier_for(project.id)
+          [project, tier] unless tier == :none
         end
       end
       private_class_method :reachable_projects
@@ -178,13 +174,28 @@ module Lalabase
       # What the org-wide numbers cover: one tier when every project agrees,
       # otherwise 'mixed' — the model states it either way (description).
       def self.combined_tier(reachable)
-        tiers = reachable.map { |_p, viewing| viewing.tier }.uniq
+        tiers = reachable.map { |_p, tier| tier }.uniq
         tiers.one? ? tiers.first.to_s : 'mixed'
       end
       private_class_method :combined_tier
 
-      # Same filter object the time list uses (see class comment) — per project,
-      # so a number here is the number the same filters show in that project's UI.
+      # The sessions of every reached project in ONE relation, narrowed by the
+      # same ViewingScope that gave the tiers, so "all" in one project never
+      # widens "own" in another (§13-9). Bounded to the reached projects first:
+      # its #apply expects an organisation's relation and covers every project
+      # with a tier, not only those the token and the project filter reach.
+      # Summed in one query instead of one per project. No `project:` for the
+      # filter service: it reads it only to skip a project filter not passed here.
+      def self.org_sessions(reachable, viewing, context, filters)
+        reached = TimeSession.where(organisation_id: context.organisation.id,
+                                    project_id: reachable.map { |project, _t| project.id })
+        filtered_sessions(viewing.apply(reached), nil, filters)
+      end
+      private_class_method :org_sessions
+
+      # Same filter object the time list uses (see class comment), so a number
+      # here is the number the same filters show in the UI (one project, or the
+      # organisation's list).
       def self.filtered_sessions(base, project, filters)
         TimeSessionFilterService.new(
           base_query: base, project: project,
@@ -309,19 +320,6 @@ module Lalabase
         TimeSessions::BucketTotals.call(scope: scope)
       end
       private_class_method :raw_bucket_totals
-
-      def self.empty_raw_totals
-        TimeSessions::BucketTotals.empty
-      end
-      private_class_method :empty_raw_totals
-
-      def self.merge_raw_totals!(acc, other)
-        other.each do |bucket, totals|
-          acc[bucket][:minutes] += totals[:minutes]
-          acc[bucket][:sessions] += totals[:sessions]
-        end
-      end
-      private_class_method :merge_raw_totals!
 
       def self.sum_of(parts)
         with_hours(minutes: parts.sum { |p| p[:minutes] }, sessions: parts.sum { |p| p[:sessions] })

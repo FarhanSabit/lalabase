@@ -31,6 +31,8 @@ starts (`db:prepare lalabase:data_backfills`). Without Docker, run
   so a reader no longer contacts the repository host and images from private repositories
   show. An image that cannot be served shows as its alt text, one with a full address
   becomes a link. SVG is not shown yet. Limits: 5 MB per image, 200 images per set.
+- The assistant's time report over a whole organisation reads the rights once and sums in
+  one query, instead of three queries and a sum for every project.
 
 ### Fixed
 
