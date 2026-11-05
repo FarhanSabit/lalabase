@@ -38,6 +38,7 @@ module MeetingLockGuard
   }.freeze
 
   WRITERS = %w[
+    app/services/actors/correct_meeting_term.rb
     app/services/actors/link_meeting_participant.rb
     app/services/actors/move_meeting.rb
     app/services/actors/save_meeting.rb
@@ -58,7 +59,8 @@ module MeetingLockGuard
   CONTROLLER_LOCK = 'with_meeting_in_project'
 
   # Each one is in WRITERS (checked below).
-  LOCKING_ACTORS = %w[Actors::SaveMeeting Actors::MoveMeeting Actors::LinkMeetingParticipant].freeze
+  LOCKING_ACTORS = %w[Actors::SaveMeeting Actors::MoveMeeting Actors::LinkMeetingParticipant
+                      Actors::CorrectMeetingTerm].freeze
 
   # Only shrinks; every entry gives its reason.
   NO_MEETING_YET = {

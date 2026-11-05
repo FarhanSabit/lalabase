@@ -62,6 +62,18 @@ de:
         published_analyses_bound: "Eine veröffentlichte Analyse stützt sich auf das alte Projekt. Mach sie wieder privat, dann kannst du das Meeting verschieben."
         moved_meanwhile: "Das Meeting wurde gerade schon verschoben. Lade die Seite neu."
         suggestion_run_active: "Für das Meeting werden gerade Ticket-Vorschläge erzeugt. Versuche es gleich noch einmal."
+      # Correcting a misheard word in a meeting (K4b, Actors::CorrectMeetingTerm).
+      correct_meeting_term:
+        not_found: "Dieses Meeting gibt es hier nicht mehr. Lade die Seite neu."
+        forbidden: "Du darfst dieses Meeting nicht bearbeiten."
+        stale_transcript: "Das Transkript hat sich inzwischen geändert."
+        place_gone: "An der markierten Stelle steht diese Form nicht. Markiere das Wort im Transkript neu."
+        speaker_not_found: "Diesen Sprecher gibt es in diesem Meeting nicht."
+        heard_invalid: "Die gehörte Form muss ein Wort oder mehrere Wörter in einer Zeile sein, höchstens 255 Zeichen."
+        correct_blank: "Bitte die richtige Form eingeben."
+        correct_too_long: "Die richtige Form darf höchstens 255 Zeichen lang sein."
+        same_form: "Die richtige Form ist dieselbe wie die gehörte."
+        invalid_scope: "Bitte wählen: nur hier oder überall ersetzen."
       move_ticket:
         number_conflict: "Nummernkonflikt nach %{retries} Versuchen: %{error}"
         has_hierarchy: "Tickets mit Unteraufgaben oder einem übergeordneten Ticket können nicht verschoben werden."
