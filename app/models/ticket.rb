@@ -137,23 +137,19 @@ class Ticket < ApplicationRecord
   validate :parent_unchanged, on: :update
 
   include PgSearch::Model
-  pg_search_scope :search_full_text, using: {
-    tsearch: { prefix: true }
-  }, against: [:title],
-                                     associated_against: {
-                                       posts: [:plain_text_version],
-                                       rich_text_content: [:body]
-                                     }
+  # Title and description, what every reader of the ticket may read. Never add `posts` to
+  # associated_against: a pg_search join cannot ask Post.readable_by, so a hidden private
+  # comment would make its ticket a hit, and prefix matching spells out its words. Until
+  # 2026-11-05 it did, in the ticket list of REST and MCP
+  # (spec/requests/api/ticket_list_search_private_comments_spec.rb). A search over comments
+  # joins the readable ones only, as TicketSearchQuery#readable_posts_join does.
+  pg_search_scope :search_title_and_description, using: { tsearch: { prefix: true } },
+                                                 against: [:title],
+                                                 associated_against: { rich_text_content: [:body] }
 
   # The title alone, same settings. For a picker that lists tickets from several projects
-  # (Tickets::Lookup): search_full_text also matches every comment, private ones included.
+  # (Tickets::Lookup).
   pg_search_scope :search_title, using: { tsearch: { prefix: true } }, against: [:title]
-
-  # pg_search_scope :keyword_search, against: [:title, :content],
-  #   associated_against: {posts: :content},
-  #                 :using => {
-  #                   :tsearch => {:any_word => true, :prefix => true}
-  #                 }
 
   # Plain text version for embeddings
   def plain_text_version
@@ -182,20 +178,11 @@ class Ticket < ApplicationRecord
 
   def self.text_search(query)
     if query.present?
-      search_full_text(query)
+      search_title_and_description(query)
     else
       all
     end
   end
-
-  # def self.text_search_keywords(keyword)
-  #   if keyword.present?
-  #     k = keyword.title.gsub(',',' ')
-  #     keyword_search(k)
-  #   else
-  #     all
-  #   end
-  # end
 
   # Display title with number prefix
   def display_title

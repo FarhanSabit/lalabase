@@ -267,6 +267,7 @@ jobs:
           spec/requests/api/mcp_get_meeting_spec.rb
           spec/requests/api/v1/projects_listing_spec.rb
           spec/requests/api/mcp_idempotency_key_bound_spec.rb
+          spec/requests/api/ticket_list_search_private_comments_spec.rb
           spec/services/mcp/idempotency_store_spec.rb
           spec/services/mcp/tool_call_token_context_spec.rb
           spec/services/personal_access_tokens/reach_listing_spec.rb

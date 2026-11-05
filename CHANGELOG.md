@@ -43,6 +43,11 @@ starts (`db:prepare lalabase:data_backfills`). Without Docker, run
 
 ### Security
 
+- The search of the ticket list in `/api/v1` and in the MCP tool `list_tickets` (`q`) no
+  longer matches the text of comments. It matched every comment, private ones the reader may
+  not read included, so a hit told the searcher what a private comment said. It now searches
+  title and description, as `list_tickets` describes it. The search on the web pages was not
+  affected.
 - `/api/mcp` refuses a JSON-RPC batch (an array of calls) before any call in it runs. Each
   call was carried out, and the per-token rate limit counted the request once.
 - `create_ticket` and `create_meeting` over MCP answer an unexpected failure with a fixed

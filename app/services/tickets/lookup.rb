@@ -4,9 +4,9 @@
 # up to LIMIT tickets of `scope` whose number is the term, then those whose title matches it.
 #
 # The caller hands in what the user may read (policy_scope(Ticket)); relations cross projects,
-# so this search must never be run over anything wider. It searches number and TITLE only:
-# Ticket.search_full_text also matches the text of every comment, private ones included, and a
-# hit there would tell the searcher what a private comment says.
+# so this search must never be run over anything wider. It searches number and TITLE only: a
+# picker term is a title, and a search over comment text would need the readable ones only
+# (Post.readable_by), or a hit would tell the searcher what a private comment says.
 #
 # No SQL is built from the term here. The number goes in as an integer, the title through
 # pg_search (Ticket.search_title), which strips tsquery syntax and quotes the rest; the raw
