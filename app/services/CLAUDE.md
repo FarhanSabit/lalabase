@@ -13,7 +13,7 @@ Ausgenommene Subtrees mit eigenem Vertrag: `actors/`, `lalabase/tools/`).
 „Actor-Pattern", Guard: `spec/services/actors/actor_contract_guard_spec.rb`). Triviales
 Einzel-`update!` ohne Side-Effects bleibt im Controller.
 
-* An actor writes and checks no rights. Exceptions lock first and authorize again under the lock (`AcceptTicketSuggestion`, `StartTicketSuggestionRun`).
+* An actor writes and checks no rights. Exceptions lock first and authorize again under the lock (`AcceptTicketSuggestion`, `StartTicketSuggestionRun`, `CorrectMeetingTerm`).
 * Finding belongs to one object per domain (`Tickets::ReadableForToken`, `Tickets::RelationAccess`, `People::Lookup`); they share the question, not code. Where `nil` would drop a limit, the keyword is required.
 * The policy decides yes or no.
 * The caller words the answer (status, text, 404 form).
@@ -172,6 +172,15 @@ Verzeichnis-Übersicht (Auswahl):
   Status). Das Ziel löst der Aufrufer über den Policy-Scope auf. ⚠️ EINE Sperr-Reihenfolge:
   jeder Glossar-Write sperrt zuerst den Begriff (`glossary/term_lock.rb`, ein weggefallener
   Begriff ist `not_found`); andersherum blockierten sich Löschen und Zusammenführen.
+  K4b (05.11.2026): `correct_meeting_term` korrigiert ein Wort im Transkript und lernt es
+  fürs Glossar. Reihenfolge: Meeting sperren (`lock_in_project!`), `MeetingPolicy#update?` unter
+  der Sperre, Digest (anders = `:stale_transcript`, nichts geschrieben), Stelle nur als echter
+  Treffer, Schreiben über `SaveMeeting` (`keep_summary: true`, die EINE Ausnahme der
+  Zusammenfassung), DANN der Begriff (`TermLock`; gleichzeitig angelegt = gefunden, nicht
+  abgelehnt). Status nach `GlossaryPolicy.manage_allowed?`: mit Recht bestätigt, ohne Vorschlag,
+  auch an einem bestätigten Begriff. `confirm_heard_form`/`reject_heard_form`: die offenen
+  Zeilen einer Form bestätigen oder löschen (bestätigte bleiben). `set_glossary_term_status`
+  bestätigt mit einem VORGESCHLAGENEN Begriff seine offenen Formen.
   Registrierung (Website-Schnitt W2, 15.09.2026): `create_signup` ist die EINE
   Selbst-Registrierung für das Formular und später den Provisioning-Endpunkt. Tier 2: Sprache
   und tenant-freier Rahmen umschließen den ganzen Lauf (die Bestätigungsmail rendert beim
@@ -185,6 +194,14 @@ Verzeichnis-Übersicht (Auswahl):
   ist `User#claim_first_visit!` (`UPDATE ... WHERE last_seen_at IS NULL`); die App führt
   kein Devise `trackable`. ⚠️ Host aus `ActionMailer::Base.default_url_options`, nicht
   aus dem Config-Objekt: das ist unter RSpec leer.
+* `meetings/` (Auswahl, K4b, 05.11.2026) — `term_replacement.rb` ist die EINE Regel für Zählen
+  und Ersetzen einer gehörten Form (ganze Wörter nach Unicode, NICHT `\b`; Fall wie markiert;
+  mehrere Wörter nur innerhalb der Zeile; nie in der Sprecherbezeichnung, deren Regel
+  `speaker_markup.rb#label` mit dem Fettsetzen teilt; nie im Frontmatter). `#occurrences` speist
+  Dialog und Ersetzung zugleich. `transcript_mark.rb` findet eine Markierung des Browsers im
+  GESPEICHERTEN Transkript: Text der Seite aus demselben HTML (`MeetingsHelper#meeting_transcript_html`),
+  n-ter Treffer dort = n-ter Treffer im Speicher, sonst Ablehnung. `term_correction_dialog.rb`
+  ist, was der Dialog zeigt (Stelle, Zahl, Sprecher, Digest), geteilt von `new`, `count`, `create`.
 * `people/` — `directory.rb`, das Lese-Objekt der Personenliste (seit 26.10.2026): Mitglieder
   über `MembershipPolicy::Scope` (dieselbe Reichweite wie die Mitgliederseite), dazu die
   Zeilen ohne aktives Mitglied als Kontakte; Suche in Ruby über `PersonName.normalize`.

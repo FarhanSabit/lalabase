@@ -1,4 +1,4 @@
-# Karte: app/models (Stand: 2026-11-04)
+# Karte: app/models (Stand: 2026-11-05)
 
 ~80 Modelle liegen flach in diesem Verzeichnis; Namespaces existieren nur für `admin/`,
 `knowledge/`, `overview/`, `smart_folders/`, `time_sessions/`, `user/`. Die Domänen-Zugehörigkeit ist am
@@ -117,6 +117,15 @@ Verzeichnis-Layout nicht ablesbar — diese Karte gruppiert sie:
   `meeting_id` wird leer (FK `on_delete: :nullify`, Ausnahme E4, Kommentar an
   `Meeting#purge_fragment_content_embeddings`); nie auf `cascade` stellen. Die Kontolöschung leert
   nur den Sprecher (`erase_term_correction_speakers!`).
+  K4b (05.11.2026): JEDE gehörte Form hat einen eigenen Status (`term_corrections.status`,
+  `proposed`/`confirmed`, Check `term_corrections_status_known`, Altbestand `confirmed`). Ohne
+  `manage_glossary` entsteht sie als Vorschlag, auch an einem bestätigten Begriff. Wirksam ist
+  nur `TermCorrection.effective` (bestätigte Form an bestätigtem Begriff): K4c und das Gerät lesen
+  dort, nie `term_corrections` direkt. ⚠️ `Meeting#invalidate_stale_summary` hat GENAU EINE
+  Ausnahme: `keep_summary_for_next_save!` (eine Speicherung, eine Instanz), gesetzt nur von
+  `Actors::SaveMeeting` mit `keep_summary: true`, das nur `Actors::CorrectMeetingTerm` übergibt
+  (Wächter `spec/architecture/meeting_summary_exception_guard_spec.rb`). Nicht über
+  „`generated_summary` mitschreiben“ lösen: ohne Treffer ändert sie sich nicht und ginge trotzdem.
 * **Activity/Notifications**: `activity`, `user_activity`, `outbox_event`, `notification`,
   `notification_preference`, `notification_subscription`, `email_log` — Services dazu unter
   `app/services/notifications/` (eigene Karte dort)
