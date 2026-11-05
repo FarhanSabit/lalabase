@@ -196,6 +196,19 @@ RSpec.describe 'Marketing screenshots', :marketing_screenshots, type: :system do
         capture(locale, :knowledge, clip_to: 'main.column.content', until_bottom_of: '#note-header')
       end
 
+      # The weekly call with Deichblick, open next to the list: who took part, the AI
+      # summary with the tasks it found, the transcript under it. The detail column
+      # only, down to the assistant capsule: on the website the picture stands in a row
+      # beside its text, like the note above.
+      it 'takes a meeting with its summary' do
+        meeting = world.meetings.fetch(Lalabase::Demo::Fiction::MEETING_QUESTION[:meeting])
+        visit organisation_project_meeting_path(world.organisation, meeting.project, meeting)
+        expect(page).to have_css("##{ActionView::RecordIdentifier.dom_id(meeting)}_summary_section")
+        expect(page).to have_text(meeting.title)
+        expect(page).to have_no_css('.layout.hide-content')
+        capture(locale, :meeting, clip_to: 'main.column.content')
+      end
+
       # One ticket with its comments and the hours booked on it.
       it 'takes a ticket with its context' do
         ticket = world.ticket(Lalabase::Demo::Fiction::CHAT[:ticket])
