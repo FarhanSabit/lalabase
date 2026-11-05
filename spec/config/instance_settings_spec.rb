@@ -252,6 +252,18 @@ RSpec.describe 'config/environments/production.rb' do
     end
   end
 
+  # The cache gets a directory of its own under tmp/cache. Rails' default is
+  # tmp/cache itself, where bootsnap and the asset caches live too, and
+  # CacheCleanupJob (FileStore#cleanup) reads every file below the store's
+  # directory. In every environment of production.rb, the image included.
+  describe 'the cache store' do
+    it 'is a file store in tmp/cache/store, with or without LALABASE_HOST' do
+      [evaluate, evaluate('LALABASE_HOST' => 'tickets.example.org')].each do |config|
+        expect(config[:cache_store]).to eq([:file_store, Rails.root.join('tmp/cache/store')])
+      end
+    end
+  end
+
   # Lines a shared .env may carry from an old template. production.rb used to
   # ignore them, and it still must.
   context 'on our servers with ASSET_HOST, RAILS_LOG_TO_STDOUT and LALABASE_FORCE_SSL lines' do

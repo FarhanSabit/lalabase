@@ -119,8 +119,10 @@ Rails.application.configure do
     end
   end
 
-  # Use a different cache store in production.
-  # config.cache_store = :mem_cache_store
+  # A file store, as Rails' default, but in a directory of its own: the default
+  # is tmp/cache itself, which bootsnap and the asset caches share, and
+  # CacheCleanupJob (FileStore#cleanup) reads every file below the store.
+  config.cache_store = :file_store, Rails.root.join('tmp/cache/store')
 
   # Use a real queuing backend for Active Job. Solid Queue runs on the primary
   # database: the queue connection is pinned to :primary in
