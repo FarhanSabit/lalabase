@@ -104,4 +104,20 @@ test "$(docker compose ps worker --format '{{.State}}')" = "running"
 # the cut-off logs command would turn a passing check red.
 grep -q 'Started Worker' <<<"$(docker compose logs worker)"
 
+# The worker sweeps the cache the web container writes (CacheCleanupJob):
+# both must mount the same store. An entry the web writes has to be visible
+# in the worker, and gone for the web once the worker swept it.
+echo "Worker sweeps the cache of the web container"
+cache_file='Rails.cache.send(:normalize_key, "docker_check", nil)'
+docker compose exec -T web bin/rails runner \
+  "Rails.cache.write('docker_check', 1, expires_in: 1)"
+docker compose exec -T worker bin/rails runner \
+  "exit(File.exist?(${cache_file}) ? 0 : 1)" ||
+  { echo "::error::The worker does not see the web container's cache"; exit 1; }
+sleep 2
+docker compose exec -T worker bin/rails runner 'CacheCleanupJob.perform_now'
+docker compose exec -T web bin/rails runner \
+  "exit(File.exist?(${cache_file}) ? 1 : 0)" ||
+  { echo "::error::An expired entry of the web container survived the sweep"; exit 1; }
+
 echo "Docker check passed."

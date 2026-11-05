@@ -14,13 +14,15 @@
 # To build the image from your checkout instead, see compose.build.yml.
 #
 # Services: web (Puma), worker (Solid Queue), db (PostgreSQL with pgvector),
-# redis (Action Cable and the cache; Valkey, a BSD-licensed Redis fork) and
+# redis (Action Cable; Valkey, a BSD-licensed Redis fork) and
 # caddy (TLS with an automatic certificate). Caddy only starts with the "tls"
 # profile, which .env.docker.example switches on; leave it off if a proxy of
 # your own terminates TLS, and point that proxy at 127.0.0.1:3000.
 #
-# Data lives in three volumes: the database, uploaded files (storage) and
-# Caddy's certificates. `docker compose down -v` deletes all of them.
+# Data lives in four volumes: the database, uploaded files (storage), the
+# Rails cache and Caddy's certificates. `docker compose down -v` deletes all
+# of them. The cache is shared by web and worker: the worker's hourly
+# CacheCleanupJob deletes the expired entries the web container wrote.
 
 x-app: &app
   image: ghcr.io/lalabase/lalabase:${LALABASE_VERSION:-2026.11.0}
@@ -47,6 +49,7 @@ x-app: &app
     RAILS_MAX_THREADS: ${RAILS_MAX_THREADS:-3}
   volumes:
     - storage:/rails/storage
+    - cache:/rails/tmp/cache/store
   depends_on:
     db:
       condition: service_healthy
@@ -120,4 +123,5 @@ services:
 volumes:
   db:
   storage:
+  cache:
   caddy:

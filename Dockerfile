@@ -90,10 +90,12 @@ FROM base
 COPY --from=build "${BUNDLE_PATH}" "${BUNDLE_PATH}"
 COPY --from=build /rails /rails
 
-# Not root at run time. storage/ holds the uploads and is a volume in compose.yml.
+# Not root at run time. storage/ holds the uploads and tmp/cache/store the
+# Rails cache; both are volumes in compose.yml. Created here so a new volume
+# takes their owner from the image.
 RUN groupadd --system --gid 1000 rails && \
     useradd rails --uid 1000 --gid 1000 --create-home --shell /bin/bash && \
-    mkdir -p log storage tmp && \
+    mkdir -p log storage tmp/cache/store && \
     chown -R rails:rails log storage tmp
 USER 1000:1000
 
