@@ -11,7 +11,8 @@ require 'rails_helper'
 # It builds the Nordlicht fiction (Lalabase::Demo::World, the same world as the
 # public demo) in the test database, freezes the clock and saves
 # one picture per motif and language to tmp/screenshots/marketing/<locale>/. The
-# website imports them from there. The README shows four English ones, copied by hand
+# website imports them from there; what its rows show also comes as <motif>_phone, a
+# detail taken in the app's phone layout. The README shows four English ones, copied by hand
 # to .github/readme/ (ticket_assistant, meeting_assistant, board, time, with dashes for
 # underscores); copy them again after a new run, then redraw the framed tiles of the
 # README's gallery with `bundle exec ruby script/readme_gallery`.
@@ -34,25 +35,47 @@ module MarketingScreenshots
   # The window for the README pictures with the assistant open. GitHub shows a picture
   # about 840 px wide; from a 1600 px window its text came out too small to read.
   README_WIDTH = 1280
+  # The screen for the pictures the website shows on a phone, where a desktop picture
+  # shrinks to a fraction of its width and its text can no longer be read. A large
+  # phone, emulated: Chrome keeps a window at least 500 px wide.
+  PHONE_WIDTH = 430
+  PHONE_HEIGHT = 932
+  # A phone picture stands in a row of a long page and may not stretch it: at most
+  # about four thirds of its width.
+  PHONE_MAX_HEIGHT = 580
   CLIP_MARGIN = 16
   # The assistant's collapsed state hovers over the bottom of every page. A picture
   # ends above it.
   CAPSULE = '#assistant_panel input[placeholder]'
   # The visible column of the open assistant. #assistant_panel itself spans the page.
   PANEL = '#assistant_panel [data-assistant-panel-target="panel"]'
+
+  def self.chrome_options
+    options = Selenium::WebDriver::Chrome::Options.new
+    options.add_argument('--headless=new')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    options.add_argument('--disable-gpu')
+    options.add_argument('--hide-scrollbars')
+    options.add_argument("--window-size=#{WIDTH},#{HEIGHT}")
+    # Twice the pixels, so the pictures stay sharp on a high-density screen.
+    options.add_argument('--force-device-scale-factor=2')
+    LocalChrome.apply_binary(options)
+  end
 end
 
 Capybara.register_driver :marketing_chrome do |app|
-  options = Selenium::WebDriver::Chrome::Options.new
-  options.add_argument('--headless=new')
-  options.add_argument('--no-sandbox')
-  options.add_argument('--disable-dev-shm-usage')
-  options.add_argument('--disable-gpu')
-  options.add_argument('--hide-scrollbars')
-  options.add_argument("--window-size=#{MarketingScreenshots::WIDTH},#{MarketingScreenshots::HEIGHT}")
-  # Twice the pixels, so the pictures stay sharp on a high-density screen.
-  options.add_argument('--force-device-scale-factor=2')
-  Capybara::Selenium::Driver.new(app, browser: :chrome, options: LocalChrome.apply_binary(options))
+  Capybara::Selenium::Driver.new(app, browser: :chrome, options: MarketingScreenshots.chrome_options)
+end
+
+# The phone pictures get a browser of their own that is a phone from the start. Chrome
+# keeps a window at least 500 px wide, and a phone emulated in the browser of the other
+# pictures would have to be taken down again after every one of them.
+Capybara.register_driver :marketing_phone_chrome do |app|
+  options = MarketingScreenshots.chrome_options
+  options.add_emulation(device_metrics: { width: MarketingScreenshots::PHONE_WIDTH,
+                                          height: MarketingScreenshots::PHONE_HEIGHT, pixelRatio: 2 })
+  Capybara::Selenium::Driver.new(app, browser: :chrome, options:)
 end
 
 RSpec.describe 'Marketing screenshots', :marketing_screenshots, type: :system do
@@ -94,10 +117,35 @@ RSpec.describe 'Marketing screenshots', :marketing_screenshots, type: :system do
   # to the assistant capsule when no element is named. `clip_to` narrows the picture to
   # the left, right and top edge of one element, or of several taken together: a tile on the website is a third of the
   # page wide, and the whole window shrunk to that is unreadable. `from_left_of` cuts
-  # away everything left of one element (the sidebar beside the assistant). The window
-  # is taken whole and cut with libvips, which the core already carries for Active Storage.
+  # away everything left of one element (the sidebar beside the assistant).
   def capture(locale, motif, until_bottom_of: nil, clip_to: nil, from_left_of: nil,
               margin: MarketingScreenshots::CLIP_MARGIN)
+    save_picture(locale, motif) do |window_width, window_height|
+      left, top, right = picture_columns(window_width, clip_to:, from_left_of:, margin:)
+      [left, top, right, [picture_bottom(until_bottom_of), window_height].min]
+    end
+  end
+
+  # A picture for a phone: the whole width of the window, from the top of `from` to the
+  # bottom of `to`, so it begins and ends at a seam of the layout and never inside a
+  # line of text. `above` and `below` are the room left around the two; a bar that
+  # spans the window gets none above, or the edge of the bar over it shows as a stripe.
+  # Fails when the picture would come out taller than PHONE_MAX_HEIGHT.
+  def capture_phone(locale, motif, from:, to:, above: 0, below: 8)
+    save_picture(locale, motif) do |window_width, window_height|
+      top = box(from)['top'] - above
+      bottom = box(to)['bottom'] + below
+      expect(bottom - top).to be <= MarketingScreenshots::PHONE_MAX_HEIGHT
+      expect(bottom).to be <= window_height
+      [0, top, window_width, bottom]
+    end
+  end
+
+  # Takes the window and keeps the area the block names as [left, top, right, bottom], in
+  # CSS pixels; the block gets the window's width and height in the same unit. The
+  # window is taken whole and cut with libvips, which the core already carries for
+  # Active Storage.
+  def save_picture(locale, motif)
     dir = MarketingScreenshots::OUTPUT.join(locale.to_s)
     FileUtils.mkdir_p(dir)
     window = dir.join("#{motif}.window.png")
@@ -106,11 +154,11 @@ RSpec.describe 'Marketing screenshots', :marketing_screenshots, type: :system do
 
     image = Vips::Image.new_from_file(window.to_s)
     scale = image.width.to_f / page.evaluate_script('window.innerWidth')
-    left, top, right = picture_columns(image.width / scale, clip_to:, from_left_of:, margin:)
-    bottom = [picture_bottom(until_bottom_of), image.height / scale].min
+    left, top, right, bottom = yield(image.width / scale, image.height / scale)
     area = [left, top, right - left, bottom - top].map { |value| (value * scale).round }
     image.crop(*area).write_to_file(dir.join("#{motif}.png").to_s)
-    FileUtils.rm_f(window)
+  ensure
+    FileUtils.rm_f(window) if window
   end
 
   def picture_columns(window_width, clip_to:, from_left_of:, margin:)
@@ -265,6 +313,70 @@ RSpec.describe 'Marketing screenshots', :marketing_screenshots, type: :system do
         # No margin: around it are the borders of the neighbouring columns.
         capture(locale, :assistant, clip_to: '#assistant_panel_body', margin: 0,
                                     until_bottom_of: '#assistant_panel [data-testid="citation-list"]')
+      end
+
+      # The motifs of the website's rows once more, for a phone and in the app's phone
+      # layout. One detail each, across the whole screen, from one seam of the layout to
+      # another.
+      context 'on a phone' do
+        before do
+          driven_by :marketing_phone_chrome
+          set_browser_clock
+        end
+
+        # The project's tabs, the saved filters and the first four tickets with status.
+        it 'takes the ticket list for phones' do
+          visit organisation_project_tickets_path(world.organisation, world.project(:deichblick), viewport: 'mobile')
+          expect(page).to have_css('.mobile-tickets > .mobile-ticket-row', minimum: 4)
+          capture_phone(locale, :tickets_phone, from: '.mobile-project-tabs',
+                                                to: '.mobile-tickets > .mobile-ticket-row:nth-child(4)')
+        end
+
+        # The week's bookings per ticket with their durations, from the filter down to the
+        # last one. The page's own title would repeat the bar above it.
+        it 'takes the time list for phones' do
+          visit organisation_time_sessions_path(world.organisation, date_range: 'this_week')
+          expect(page).to have_text(Lalabase::Demo::Fiction::TICKETS[3].fetch(locale))
+          capture_phone(locale, :time_phone, from: '#timeSessions [data-controller~="mobile-filter-drawer"]',
+                                             to: '#timeSessions .md\\:hidden .space-y-6', above: 12)
+        end
+
+        # The note the assistant cites, whole, under the project's tabs.
+        it 'takes the open note for phones' do
+          visit organisation_project_knowledge_index_path(world.organisation, world.project(:deichblick),
+                                                          note_id: world.notes.first.id, viewport: 'mobile')
+          expect(page).to have_css('.note-content')
+          capture_phone(locale, :knowledge_phone, from: '.mobile-project-tabs', to: '.note-content')
+        end
+
+        # The weekly call from its title down to the end of the AI summary.
+        it 'takes the meeting for phones' do
+          meeting = world.meetings.fetch(Lalabase::Demo::Fiction::MEETING_QUESTION[:meeting])
+          visit organisation_project_meeting_path(world.organisation, meeting.project, meeting, viewport: 'mobile')
+          summary = "##{ActionView::RecordIdentifier.dom_id(meeting)}_summary_section"
+          expect(page).to have_css(summary)
+          capture_phone(locale, :meeting_phone, from: '#meeting-header > h2', to: summary, above: 16)
+        end
+
+        # The open assistant: question, answer and its three sources.
+        it 'takes the assistant answer for phones' do
+          visit organisation_root_path(organisation_id: world.organisation.id,
+                                       assistant_chat_id: world.chat.id, assistant: 'full')
+          open_citations(3)
+          capture_phone(locale, :assistant_phone, from: MarketingScreenshots::PANEL,
+                                                  to: '#assistant_panel [data-testid="citation-list"]')
+        end
+
+        # The assistant on the ticket it was asked about, as in the README picture. On a
+        # phone it covers the ticket.
+        it 'takes the assistant on the ticket for phones' do
+          ticket = world.ticket(Lalabase::Demo::Fiction::TICKET_QUESTION[:ticket])
+          visit organisation_project_ticket_path(world.organisation, ticket.project, ticket,
+                                                 assistant_chat_id: world.ticket_question.id, viewport: 'mobile')
+          open_citations(2)
+          capture_phone(locale, :ticket_assistant_phone, from: MarketingScreenshots::PANEL,
+                                                         to: '#assistant_panel [data-testid="citation-list"]')
+        end
       end
     end
   end
