@@ -222,6 +222,19 @@ class Meeting < ApplicationRecord
     project_id == authorized_project_id
   end
 
+  # The ONE exception to invalidate_stale_summary (K4b, plan §5.4, E4/E5): a
+  # term correction (Actors::CorrectMeetingTerm) changes the transcript and
+  # keeps the AI summary, with the same replacement on "everywhere", untouched
+  # on "only here". It asks Actors::SaveMeeting for it (keep_summary: true),
+  # which sets this on its own instance right before it saves; the next save
+  # takes it and clears it, whatever it changes, so it holds for that one save.
+  # Nothing else sets it (guard: spec/architecture/meeting_summary_exception_guard_spec.rb).
+  # Not "write generated_summary along": a summary without the word would be
+  # unchanged and dropped all the same.
+  def keep_summary_for_next_save!
+    @keep_summary_for_next_save = true
+  end
+
   # The live summary stream names the project: after a move (Actors::MoveMeeting)
   # a page still open in the old project hears nothing of what is written in
   # the new one. The view subscribes through the same method.
@@ -301,10 +314,14 @@ class Meeting < ApplicationRecord
 
   # Clears the summary trio remnants when transcript or notes change. Skipped when
   # generated_summary is written in the same save — the service persisting a fresh
-  # summary never touches the source. Known race, accepted: a job finishing AFTER
+  # summary never touches the source — and for the one save a term correction
+  # asked for (keep_summary_for_next_save!). Known race, accepted: a job finishing AFTER
   # a source edit re-writes a summary of the old source; the next edit clears it
   # again (review #235).
   def invalidate_stale_summary
+    kept = @keep_summary_for_next_save
+    @keep_summary_for_next_save = false
+    return if kept
     return if new_record?
     return if will_save_change_to_attribute?(:generated_summary)
     return unless will_save_change_to_attribute?(:transcript) || will_save_change_to_attribute?(:notes)

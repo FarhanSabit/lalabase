@@ -17,9 +17,14 @@ module Actors
     # participant_links: normalized name => person_id, for a caller that has
     # resolved people through the directory itself (Meetings::Intake). Separate
     # from `params` on purpose: a payload never names a person_id.
-    def initialize(project:, params:, current_user:, id: nil, participant_links: {})
+    # keep_summary: the AI summary survives this one save of a changed
+    # transcript (Meeting#keep_summary_for_next_save!). Only a term correction
+    # asks for it (Actors::CorrectMeetingTerm, K4b; guard:
+    # spec/architecture/meeting_summary_exception_guard_spec.rb).
+    def initialize(project:, params:, current_user:, id: nil, participant_links: {}, keep_summary: false)
       super()
       @participant_links = participant_links
+      @keep_summary = keep_summary
       # Extract BEFORE find_meeting: a new record does project.meetings.build(params),
       # which would choke on a :participants key that is not a Meeting column.
       @participants_payload = extract_participants(params)
@@ -38,6 +43,7 @@ module Actors
 
       if @meeting.id.present?
         guard_still_in_project!
+        @meeting.keep_summary_for_next_save! if @keep_summary
         @meeting.update!(@meeting_params)
       else
         @meeting.creator = @current_user
