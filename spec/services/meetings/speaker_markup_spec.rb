@@ -120,6 +120,7 @@ RSpec.describe Meetings::SpeakerMarkup do
       expect(mark(text, ['Bert Bauer', 'Karl Krause'])).to eq(text)
     end
   end
+
   # The label of one line (K4b): what Meetings::TermReplacement never replaces
   # and reads the speaker from. The same participant list decides, in the plain
   # and in the already bolded form.

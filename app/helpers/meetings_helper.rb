@@ -271,6 +271,14 @@ module MeetingsHelper
     meeting_markdown_source(meeting.transcript, speakers: participants.map(&:display_name))
   end
 
+  # The HTML the transcript block of the page holds: the component's own render
+  # of meeting_transcript_source. Meetings::TranscriptMark reads the text the
+  # browser shows out of it, to find a mark of the reader in the stored
+  # transcript (K4b); rendered the same way, the two texts are the same.
+  def meeting_transcript_html(meeting, participants)
+    Neo::MarkdownPreviewComponent.new(markdown: meeting_transcript_source(meeting, participants)).rendered_markdown
+  end
+
   # Plain-text source for the header "Abriss": the AI summary if present, else the
   # notes. Both run through the SAME path — frontmatter strip + StripDown (markdown →
   # plain text) — so a leading metadata block and "##"/"**" syntax never surface as

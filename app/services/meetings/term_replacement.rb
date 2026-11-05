@@ -35,10 +35,14 @@ module Meetings
     Match = Data.define(:line_index, :char_offset, :length, :in_label)
     Replaced = Data.define(:text, :count)
 
-    def initialize(text:, heard:, participants: [])
+    # skip_frontmatter: false for a text that has none by construction (the
+    # text a page shows, Meetings::TranscriptMark), where a leading block of
+    # "---" lines is content.
+    def initialize(text:, heard:, participants: [], skip_frontmatter: true)
       @text = text.to_s
       @words = heard.to_s.split(/[[:space:]]+/).reject(&:empty?)
       @participants = Array(participants)
+      @skip_frontmatter = skip_frontmatter
     end
 
     # Every whole-word match outside the frontmatter, in text order, the ones
@@ -124,7 +128,7 @@ module Meetings
     # block that ends the text without a line break ends on a line of its own.
     def first_content_line
       @first_content_line ||= begin
-        block = @text[Meeting::FRONTMATTER_BLOCK]
+        block = @text[Meeting::FRONTMATTER_BLOCK] if @skip_frontmatter
         if block.nil? then 0
         elsif block.end_with?("\n") then block.count("\n")
         else block.count("\n") + 1
