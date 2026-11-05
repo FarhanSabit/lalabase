@@ -186,6 +186,37 @@ RSpec.describe 'Organisations::MeetingTermCorrections', :ci_guard, type: :reques
     end
   end
 
+  # Prosopite watches every example: the dialog reads the participants, the
+  # glossary suggestions and the glossary rights once, however many there are.
+  describe 'queries' do
+    before do
+      Prosopite.pause do
+        4.times do |index|
+          create(:meeting_participant, meeting: meeting, display_name: "Gast Nummer#{index}",
+                                       person: create(:person, organisation: organisation))
+          create(:glossary_term, organisation: organisation, term: "Begriff #{index}")
+        end
+      end
+    end
+
+    it 'opens the dialog with many participants and terms without an N+1' do
+      sign_in writer('manage_glossary')
+      get new_path, headers: frame
+
+      expect(response).to have_http_status(:ok)
+      expect(page_markup).to have_css('select[name="term_correction[speaker_id]"] option', count: 7)
+      expect(page_markup).to have_css('datalist option', count: 4, visible: :all)
+    end
+
+    it 'corrects in a meeting with many participants and terms without an N+1' do
+      sign_in writer('manage_glossary')
+      post_correction
+
+      expect(response).to have_http_status(:ok)
+      expect(TermCorrection.count).to eq(1)
+    end
+  end
+
   describe 'the count' do
     it 'counts the heard form as typed, in its own frame' do
       sign_in writer

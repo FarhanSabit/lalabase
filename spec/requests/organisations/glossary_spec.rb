@@ -1003,7 +1003,8 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
           create(:term_correction, organisation: organisation, glossary_term: found, heard: "vor schlag #{index}",
                                    project: create(:project, organisation: organisation), user: member_with(role_with))
           create(:term_correction, organisation: organisation, glossary_term: found, heard: "vorschlak #{index}",
-                                   person: create(:person, organisation: organisation), project: open_project)
+                                   person: create(:person, organisation: organisation), project: open_project,
+                                   status: 'proposed')
         end
       end
     end
@@ -1014,7 +1015,9 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
       get organisation_glossary_terms_path(organisation)
 
       expect(response).to have_http_status(:ok)
-      expect(Nokogiri::HTML(response.body).css('[data-glossary-row]').size).to eq(5)
+      page = Nokogiri::HTML(response.body)
+      expect(page.css('[data-glossary-row]').size).to eq(5)
+      expect(page.text.scan(I18n.t('views.organisations.glossary.index.open_forms', count: 1)).size).to eq(3)
     end
 
     it 'renders a lane with many heard forms without an N+1' do
@@ -1026,7 +1029,9 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
       get organisation_glossary_term_path(organisation, target), headers: frame_headers
 
       expect(response).to have_http_status(:ok)
-      expect(Nokogiri::HTML(response.body).css('.glossary-heard__row').size).to eq(3)
+      page = Nokogiri::HTML(response.body)
+      expect(page.css('.glossary-heard__row').size).to eq(3)
+      expect(page.css('.glossary-heard__decide form').size).to eq(2)
     end
   end
 
