@@ -78,9 +78,10 @@ class NeoTagComponent < ViewComponent::Base
   end
 
   # What the cross removes, by name: a row of chips is a row of buttons, and "Remove"
-  # five times over tells a screen reader nothing.
+  # five times over tells a screen reader nothing. As text, because the template
+  # escapes the label: an entity in it would be read out as "&quot;".
   def remove_label
-    name = helpers.strip_tags(tag_content.to_s).squish
+    name = helpers.text_from_html(tag_content).squish
     name.present? ? t('components.neo_tag.remove', name: name) : t('views.common.remove')
   end
 

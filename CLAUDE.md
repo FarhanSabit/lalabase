@@ -29,7 +29,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build & Test Commands
 
-* **Runtime**: Ruby 4.0.7 (`.ruby-version`), Rails 8.1.4, `config.load_defaults 7.2`.
+* **Runtime**: Ruby 4.0.7 (`.ruby-version`), Rails 8.1.4.1, `config.load_defaults 7.2`.
   CI reads Ruby from `.ruby-version`.
 
 * **Development server**: **zwei Prozesse nötig** — `bin/dev` (Tailwind-Watch + Solid Queue via

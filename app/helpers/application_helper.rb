@@ -738,4 +738,14 @@ module ApplicationHelper
   def javascript_translations
     { stimulus: I18n.t('stimulus') }
   end
+
+  # HTML as text, for a place that escapes what it writes: truncate, an attribute
+  # written with <%= %>, the value of a translation. strip_tags returns HTML: & < >
+  # as entities, " and ' as well since Rails 8.1.4.1, a no-break space as &nbsp;.
+  # Escaped once more, each would show as its entity. Reading the stripped text as
+  # a fragment decodes them all; CGI.unescapeHTML leaves &nbsp; standing. The
+  # result is a plain String, so markup in it is escaped wherever it is written.
+  def text_from_html(html)
+    Nokogiri::HTML5.fragment(strip_tags(html.to_s)).text
+  end
 end

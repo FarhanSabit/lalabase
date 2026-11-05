@@ -94,6 +94,14 @@ RSpec.describe NeoTagComponent, type: :component do
 
       expect(page).to have_css("button.remove-button[aria-label='Anna Admin entfernen']")
     end
+
+    # Since Rails 8.1.4.1 strip_tags writes quotes as entities too, and the template
+    # escapes the label once more: a reader heard "&quot;", and "&amp;" before that.
+    it 'names the button with quotes, ampersands and no-break spaces as they read' do
+      render_inline(described_class.new(removable: true)) { %q(<span>Werkstatt&nbsp;"Nord" &amp; Kim's</span>).html_safe }
+
+      expect(page.find('button.remove-button')['aria-label']).to eq(%q(Werkstatt "Nord" & Kim's entfernen))
+    end
   end
 
   context 'with href' do
