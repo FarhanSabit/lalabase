@@ -284,6 +284,24 @@ RSpec.describe 'Organisations::MeetingTermCorrections', :ci_guard, type: :reques
       expect(TermCorrection.count).to eq(0)
     end
 
+    # The transcript changed under the correction (the actor's digest check),
+    # and the meeting moved into another project right after: the dialog is not
+    # drawn again from a meeting this request was never checked for.
+    it 'answers 404 when the meeting moved after a refusal that would count again' do
+      sign_in writer('manage_glossary')
+      elsewhere = create(:project, organisation: organisation)
+      allow_any_instance_of(Actors::CorrectMeetingTerm).to receive(:call) do
+        Meeting.where(id: meeting.id).update_all(project_id: elsewhere.id)
+        Actors::BaseActor::Result.new(success: false, errors: ['geändert'], code: :stale_transcript)
+      end
+
+      post_correction
+
+      expect(response).to have_http_status(:not_found)
+      expect(response.body).to include(%(<turbo-stream action="remove" target="meeting-term-correction-modal-#{meeting.id}-#{modal_token}">))
+      expect(response.body).not_to include('Lalabeis kann viel')
+    end
+
     it 'shows the dialog again with the reason for a refused correction' do
       sign_in writer('manage_glossary')
       post_correction(correct: '  ')

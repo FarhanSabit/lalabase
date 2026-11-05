@@ -138,10 +138,17 @@ module Organisations
     end
 
     # The dialog again, in place of the opening that sent it, with what was
-    # typed, counted against the transcript stored now.
+    # typed, counted against the transcript stored now. Read again after a
+    # refusal of the actor inside this project only: a move or a delete that
+    # committed right after it leaves nothing to draw here.
     def refused(errors: [], notice: nil, reload: false)
-      @meeting.reload if reload
-      @dialog = build_dialog(heard: heard_param) if reload
+      if reload
+        @meeting = @project.meetings.find_by(id: @meeting.id)
+        @participants = nil
+        return render_not_found unless @meeting
+
+        @dialog = build_dialog(heard: heard_param)
+      end
       @errors = errors
       @notice = notice
       @fields = correction_fields
