@@ -132,6 +132,7 @@ RSpec.describe 'Organisations::MeetingTermCorrections', :ci_guard, type: :reques
       expect(dialog).to have_text(I18n.t("#{tc}.count.found_by_speaker", count: 3, speaker_count: 2, speaker: 'Ben Birne'))
       expect(dialog).to have_button(I18n.t("#{tc}.everywhere", count: 3))
       expect(dialog).to have_button(I18n.t("#{tc}.here"))
+      expect(dialog).to have_no_text(I18n.t("#{tc}.count.everywhere_hidden"))
       expect(dialog).to have_css("input[name='digest'][value='#{digest}']", visible: :all)
     end
 

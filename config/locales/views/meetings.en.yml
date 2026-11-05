@@ -180,7 +180,7 @@ en:
               other: "Appears %{count} times, %{speaker_count} of them by %{speaker}."
             not_at_mark: This form does not stand at the marked place. Change it or mark again.
             ambiguous: This form cannot be matched to the marked place for sure. Mark it again or change it through "Edit".
-            everywhere_hidden: Replacing everywhere does not work here. The form also stands in places the page does not show (in a link, for example).
+            everywhere_hidden: Replacing everywhere does not work here. The page does not show every place of this form as it is stored (in a link, for example).
             heard_blank: Please enter the heard form.
           mark_errors:
             not_found: This place cannot be found in the transcript. Reload the page and mark again.

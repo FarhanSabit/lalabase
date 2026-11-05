@@ -181,7 +181,7 @@ de:
               other: "Kommt %{count}-mal vor, davon %{speaker_count}-mal bei %{speaker}."
             not_at_mark: Diese Form steht nicht an der markierten Stelle. Ändere sie oder markiere neu.
             ambiguous: Diese Form lässt sich an der markierten Stelle nicht sicher zuordnen. Markiere sie neu oder ändere sie über „Bearbeiten“.
-            everywhere_hidden: Überall ersetzen geht hier nicht. Die Form steht auch an Stellen, die die Seite nicht zeigt (etwa in einem Link).
+            everywhere_hidden: Überall ersetzen geht hier nicht. Die Seite zeigt nicht jede Stelle dieser Form so, wie sie gespeichert ist (etwa in einem Link).
             heard_blank: Bitte die gehörte Form eingeben.
           mark_errors:
             not_found: Diese Stelle lässt sich im Transkript nicht finden. Lade die Seite neu und markiere noch einmal.

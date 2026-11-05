@@ -164,18 +164,19 @@ RSpec.describe 'Correcting a term in a meeting', type: :system do
     expect(meeting.reload.transcript).to start_with("Anna: Wir testen Lalabase heute.\nBen: Lalabeis kann viel")
   end
 
-  # Review round 2 of #121: where the 40 characters around the mark repeat,
-  # only the offset the browser counts tells the places apart.
+  # Review rounds 2 and 3 of #121: where the 40 characters around the mark
+  # repeat, only the offset the browser counts tells the places apart. The
+  # sixth of ten equal lines has 40 equal characters on either side.
   it 'corrects the marked one of several lines that read the same' do
     user = admin(:de)
     meeting = meeting_for(user)
-    repeated = Array.new(6) { 'Ben: Lalabeis ja' }.join("\n")
+    repeated = Array.new(10) { 'Ben: Lalabeis ja' }.join("\n")
     meeting.update!(transcript: repeated)
     sign_in user
     visit organisation_project_meetings_path(organisation, project, meeting_id: meeting.id)
     expect(page).to have_text('Ben: Lalabeis ja')
 
-    mark_in_transcript(meeting, 'Lalabeis', nth: 2)
+    mark_in_transcript(meeting, 'Lalabeis', nth: 5)
     find("#meeting-term-correction-trigger-#{meeting.id}").click
     within('[role="dialog"]') do
       fill_in I18n.t("#{tc}.correct_label", locale: :de), with: 'Lalabase'
@@ -183,9 +184,9 @@ RSpec.describe 'Correcting a term in a meeting', type: :system do
     end
 
     expect(page).to have_text(I18n.t("#{tc}.flash.replaced", count: 1, locale: :de))
-    expect(meeting.reload.transcript.split("\n")).to eq(
-      ['Ben: Lalabeis ja', 'Ben: Lalabeis ja', 'Ben: Lalabase ja', 'Ben: Lalabeis ja', 'Ben: Lalabeis ja', 'Ben: Lalabeis ja']
-    )
+    lines = meeting.reload.transcript.split("\n")
+    expect(lines[5]).to eq('Ben: Lalabase ja')
+    expect(lines.count('Ben: Lalabeis ja')).to eq(9)
   end
 
   it 'offers no correction in the panel beside a ticket' do

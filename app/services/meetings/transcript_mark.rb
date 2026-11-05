@@ -90,8 +90,27 @@ module Meetings
 
     # The place of a heard form at the mark: the mark's own place for the form
     # as marked, else the occurrence of the changed form that overlaps the mark,
-    # proved at its place on the page the same way.
+    # proved at its place on the page the same way. Read once per form: the
+    # dialog asks again for "everywhere", and each proof renders the page.
     def place_of(heard)
+      @places ||= {}
+      @places[words(heard)] ||= proved_place_of(heard)
+    end
+
+    # Whether "everywhere" may replace the heard form: the form stands at the
+    # mark, and the page shows every stored occurrence of it, each at a place of
+    # its own and in order, with the page otherwise as before.
+    def everywhere?(heard)
+      @everywhere ||= {}
+      key = words(heard)
+      return @everywhere[key] if @everywhere.key?(key)
+
+      @everywhere[key] = place_of(heard).success? && all_shown?(replacement_for(heard))
+    end
+
+    private
+
+    def proved_place_of(heard)
       result = resolve
       return result unless result.success?
       return result if same_form?(heard)
@@ -105,18 +124,6 @@ module Meetings
 
       Result.new(place: place_for(occurrence), error: nil)
     end
-
-    # Whether "everywhere" may replace the heard form: the form stands at the
-    # mark, and the page shows every stored occurrence of it, each at a place of
-    # its own and in order, with the page otherwise as before.
-    def everywhere?(heard)
-      @everywhere ||= {}
-      return @everywhere[heard] if @everywhere.key?(heard)
-
-      @everywhere[heard] = place_of(heard).success? && all_shown?(replacement_for(heard))
-    end
-
-    private
 
     def map(start)
       shown = TermReplacement.new(text: visible, heard: @mark, skip_frontmatter: false).scan
@@ -157,12 +164,13 @@ module Meetings
 
     # Every occurrence replaced by a marker of its own: the page shows the
     # markers once each, in order, and with the stored texts put back it is the
-    # page as it was.
+    # page as it was. Text of the transcript that only looks like a marker is
+    # no marker of this probe, and stays as it is (review round 3 of #121).
     def all_shown?(replacement)
       texts = {}
       probe = replacement.replace_each { |occurrence| new_marker.tap { |marker| texts[marker] = replacement.text_at(occurrence) } }
       shown = text_of(@render.call(probe.text))
-      return false unless shown.scan(MARKER) == texts.keys
+      return false unless shown.scan(MARKER).select { |marker| texts.key?(marker) } == texts.keys
 
       shown.gsub(MARKER) { |marker| texts.fetch(marker, marker) } == visible
     end

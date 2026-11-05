@@ -190,6 +190,55 @@ RSpec.describe Meetings::TranscriptMark do
       expect(mark.place_of('Lala *beis*').error).to eq(:ambiguous)
     end
 
+    # Review round 3 of #121: a changed form that begins before the mark, at
+    # the first match and at a later one.
+    it 'finds a changed form that begins before the mark' do
+      text = "Anna: Herr Lala Beis sagte etwas.\nBen: Lala Beis nochmal."
+
+      first = mark_object(text, mark: 'Beis', nth: 0)
+      later = mark_object(text, mark: 'Beis', nth: 1)
+
+      expect(first.place_of('Lala Beis').place.to_h).to eq(line_index: 0, char_offset: 11, length: 9)
+      expect(later.place_of('Lala Beis').place.to_h).to eq(line_index: 1, char_offset: 5, length: 9)
+    end
+
+    # Review round 3 of #121: the page shows every marker, in order, and still
+    # is not the page it was: the stored "&amp;amp;" shows as "&amp;", and the
+    # markers in it show as text. Only the comparison with the old page sees it.
+    it 'refuses everywhere where the markers show but the page around them does not stay the same' do
+      text = "Anna: amp ist eine Abkuerzung, R&amp;amp;D auch, und amp nochmal.\n"
+      mark = mark_object(text, mark: 'amp')
+
+      expect(mark.resolve).to be_success
+      expect(mark.everywhere?('amp')).to be(false)
+    end
+
+    # Review round 3 of #121: text that only looks like a marker is not one.
+    it 'allows everywhere beside text that looks like a marker' do
+      text = "Ben: Lalabeis und QabcdefghijklmnopQ.\nAnna: Lalabeis.\n"
+      mark = mark_object(text)
+
+      expect(mark.everywhere?('Lalabeis')).to be(true)
+    end
+
+    # Review round 3 of #121: the count runs at every pause in typing; the
+    # changed form's proof is read once, not again for "everywhere".
+    it 'renders the page at most four times for a changed form and everywhere' do
+      text = "Anna: Lala beis heute.\nBen: Lala ist da.\n"
+      calls = 0
+      counting = lambda do |source|
+        calls += 1
+        render.call(source)
+      end
+      mark = described_class.new(transcript: text, render: counting, participants: participants,
+                                 **browser_mark(text, 'Lala beis'))
+
+      mark.place_of('Lala')
+      mark.everywhere?('Lala')
+
+      expect(calls).to be <= 4
+    end
+
     it 'refuses a changed form that does not stand at the mark' do
       text = "Anna: Lala beis heute.\nBen: Konto ok"
       mark = mark_object(text, mark: 'Lala beis')
@@ -215,14 +264,16 @@ RSpec.describe Meetings::TranscriptMark do
     expect(result.error).to eq(:ambiguous)
   end
 
-  # Review round 2 of #121: where the 40 characters around the mark repeat,
-  # only the offset tells the places apart.
+  # Review rounds 2 and 3 of #121: where the 40 characters around the mark
+  # repeat, only the offset tells the places apart. The sixth of ten equal
+  # lines has 40 equal characters on either side (the third of six had not).
   it 'tells places with the same context apart by the offset alone' do
-    text = Array.new(6) { 'Ben: Lalabeis ja' }.join("\n")
+    text = Array.new(10) { 'Ben: Lalabeis ja' }.join("\n")
+    mark = browser_mark(text, 'Lalabeis', nth: 5)
+    same = browser_mark(text, 'Lalabeis', nth: 4)
 
-    result = resolve(text, **browser_mark(text, 'Lalabeis', nth: 2))
-
-    expect(result.place.to_h.values_at(:line_index, :char_offset)).to eq([2, 5])
+    expect(mark.values_at(:before, :after)).to eq(same.values_at(:before, :after))
+    expect(resolve(text, **mark).place.to_h.values_at(:line_index, :char_offset)).to eq([5, 5])
   end
 
   it 'refuses a mark over a line break and a mark too long for the glossary' do
