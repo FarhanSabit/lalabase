@@ -56,6 +56,11 @@ starts (`db:prepare lalabase:data_backfills`). Without Docker, run
   ids.
 - The code tools of the assistant (`search_code_symbols`, `get_symbol_details`) neutralise
   code fences in the name and path of a symbol, which come from the repository.
+- `PATCH /api/v1/tickets/:id` writes and answers under a lock on the ticket in the project
+  it was authorized in. A ticket moved to another project in between used to be written
+  there, where the caller may not write, and its answer could show data of that project.
+  It is a 404 now, as if never found. A concurrent change to another attribute is no
+  longer written back with its old value.
 
 ### Upgrade notes
 
