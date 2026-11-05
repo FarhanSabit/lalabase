@@ -702,6 +702,7 @@ jobs:
           spec/system/ticket_list_unread_dot_spec.rb
           spec/system/ticket_relations_spec.rb
           spec/system/meeting_participant_link_spec.rb
+          spec/system/meeting_term_correction_spec.rb
           spec/system/people_review_74_spec.rb
           spec/system/ticket_meeting_panel_spec.rb
           spec/system/ticket_meeting_panel_stages_spec.rb
