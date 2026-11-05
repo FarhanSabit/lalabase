@@ -970,7 +970,10 @@ answers 200 with the ticket summary, like `PATCH /tickets/:id`, which stays as i
 `assignee_ids` REPLACE the list, and `gboyke/lalabase-mcp` relies on that. `parent_id` on that
 PATCH reaches the model (`Ticket#parent_unchanged`, a saved ticket keeps its parent): another
 parent or an empty value is a 422 `validation_failed`/`invalid_input`, the current parent is no
-change, so a client may send back what it read. Status and assignees
+change, so a client may send back what it read. That PATCH writes and answers under the same row
+lock in the authorized project (`locked_ticket` in the controller, since 2026-11-05: a move after
+the rights check let it write into a project the caller may not write; guard
+`spec/requests/api/v1/ticket_update_concurrency_spec.rb`). Status and assignees
 go through `Actors::ApplyTicketChanges` like a board drag (a `TicketBulkRun` included), the title
 through `Actors::SaveTicket` alone under a lock on the row in its project, so the side effects are
 the web's and MCP's, once. Order: read-only token 403, then the read gate (missing, malformed,

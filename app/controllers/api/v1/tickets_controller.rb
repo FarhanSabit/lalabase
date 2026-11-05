@@ -96,22 +96,21 @@ module Api
       # Allowed fields: status, assignee_ids (replace semantics). parent_id passes through so
       # the model answers it (Ticket#parent_unchanged): another parent is a 422, the current
       # one is no change, and nothing is dropped silently.
+      #
+      # The write runs under the ticket's row lock in the authorized project, as
+      # the title write of POST /changes does (Tickets::Change#write_title):
+      # SaveTicket looks the ticket up across the organisation, and a move after
+      # the rights check let the write land in a project the caller may not
+      # write. A ticket that left the project, or was deleted, is a 404, as if
+      # never found. The status merges into the attributes read under the lock.
       def update
         with_readable_ticket(params[:id]) do |ticket, project|
           authorize ticket, :update?
 
-          result = Actors::SaveTicket.call(
-            project: project,
-            params: save_ticket_update_params(ticket),
-            id: ticket.id,
-            current_user: current_user
-          )
+          result = save_in_project(ticket, project)
+          next render_actor_failure(result) unless result.success?
 
-          if result.success?
-            render json: { data: ticket_serializer.summary(result.resource) }
-          else
-            render_actor_failure(result)
-          end
+          render json: { data: locked_summary(project, ticket) }
         end
       end
 
@@ -138,13 +137,7 @@ module Api
           raise ActiveRecord::RecordNotFound if outcome.gone?
           next render_change_failure(outcome) unless outcome.written?
 
-          # The write released its lock. Keep the authorized project boundary
-          # while reading the response, including the serializer's associations:
-          # a move that won the race is a 404, and a later move waits for us.
-          data = Ticket.transaction do
-            ticket_serializer.summary(project.tickets.lock.find(ticket.id))
-          end
-          render json: { data: data }
+          render json: { data: locked_summary(project, ticket) }
         end
       end
 
@@ -253,6 +246,33 @@ module Api
       # previous apply_status_change did. assignee_ids is forwarded only when the
       # client sent the key, so a status-only update leaves assignees untouched
       # while an explicit [] still clears them (SaveTicket treats [] as "remove all").
+      # Current.user wraps the whole transaction: the activities are written on
+      # commit and name Current.user, and this commit comes after SaveTicket's
+      # own with_actor_context restored the previous value (as write_title).
+      def save_in_project(ticket, project)
+        Current.set(user: current_user) do
+          Ticket.transaction do
+            locked = locked_ticket(project, ticket)
+            Actors::SaveTicket.call(project: project, params: save_ticket_update_params(locked), id: locked.id,
+                                    current_user: current_user)
+          end
+        end
+      end
+
+      # The write released its lock. Keep the authorized project boundary while
+      # reading the response, including the serializer's associations: a move
+      # that won the race is a 404, and a later move waits for us.
+      def locked_summary(project, ticket)
+        Ticket.transaction { ticket_serializer.summary(locked_ticket(project, ticket)) }
+      end
+
+      # The ticket that passed with_readable_ticket, read again under FOR UPDATE in
+      # the authorized project. Gone from it (moved or deleted): RecordNotFound, a 404.
+      # Call inside a transaction, or the lock ends with the statement.
+      def locked_ticket(project, ticket)
+        project.tickets.lock.find(ticket.id)
+      end
+
       def save_ticket_update_params(ticket)
         attrs = update_params
         mapped = {}

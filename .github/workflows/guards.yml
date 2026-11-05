@@ -313,6 +313,7 @@ jobs:
           spec/requests/api/v1/post_comment_format_spec.rb
           spec/requests/api/v1/ticket_changes_spec.rb
           spec/requests/api/v1/ticket_changes_concurrency_spec.rb
+          spec/requests/api/v1/ticket_update_concurrency_spec.rb
           spec/requests/api/v1/ticket_changes_side_effects_spec.rb
           spec/requests/api/v1/knowledge_spec.rb
           spec/models/codebase_import_mapping_spec.rb

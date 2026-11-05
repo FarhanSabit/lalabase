@@ -66,7 +66,8 @@ module TicketTokenLookupGuard
     'app/controllers/api/v1/tickets_controller.rb' => {
       code: 'project.tickets.lock.find(ticket.id)',
       reason: 'the ticket already passed with_readable_ticket; this re-reads it under a lock ' \
-              'to answer. Policy scope plus FOR UPDATE would be a different query'
+              'in the same project to write (PATCH) and to answer (PATCH, /changes). Policy scope ' \
+              'plus FOR UPDATE would be a different query'
     },
     RECENT_ACTIVITY => {
       code: 'Ticket.where(id: ids)',
