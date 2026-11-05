@@ -1,4 +1,4 @@
-# Karte: app/services (Stand: 2026-11-04)
+# Karte: app/services (Stand: 2026-11-05)
 
 **Entry-Point-Konvention für NEUE Services: `Klass.call(**kwargs)`** (Klassenmethode; eine
 Instanz-`#call`-Implementierung dahinter ist erlaubt). Pflicht: mindestens 1 Kommentarzeile
@@ -620,7 +620,9 @@ Bekannte Doppel-Verortungen (Altbestand; Boy-Scout-Regel: bei Berührung konsoli
   hat dazu `open_ids` (dieselbe Erledigt-Regel für die graue Anzeige), `tickets/relation_section.rb`
   liest Abschnitt und Kopf-Hinweis EINES Tickets in fester Abfragezahl (nur sichtbare Beziehungen,
   der Hinweis zählt trotzdem alle Blocker), `tickets/lookup.rb` ist die Suche des Pickers (Nummer
-  oder Titel über `Ticket.search_title`, NIE `search_full_text`: das trifft auch private Kommentare).
+  oder Titel über `Ticket.search_title`). Die Suche `q` der Ticketliste (REST und MCP, `tickets/filter.rb`) geht über
+  `Ticket.search_title_and_description`: Titel und Beschreibung, keine Kommentare. Bis zum 05.11.2026
+  traf sie jeden Kommentar, private eingeschlossen; ein pg_search-Join kann `readable_by` nicht fragen.
   Seit PR 4 (Filter): `tickets/waiting_state_filter.rb` macht aus „wartet“/„hält auf“ eine
   Ja/Nein-Bedingung („ist nicht“ = der Rest der Liste, erledigte Tickets eingeschlossen); Leiste
   (`AdHocFilterService`) und Ansicht (`SmartFolders::Filters::WaitingFilter`/`BlockingFilter`)

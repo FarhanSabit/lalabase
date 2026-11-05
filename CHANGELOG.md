@@ -32,6 +32,14 @@ starts (`db:prepare lalabase:data_backfills`). Without Docker, run
   show. An image that cannot be served shows as its alt text, one with a full address
   becomes a link. SVG is not shown yet. Limits: 5 MB per image, 200 images per set.
 
+### Security
+
+- The search of the ticket list in `/api/v1` and in the MCP tool `list_tickets` (`q`) no
+  longer matches the text of comments. It matched every comment, private ones the reader may
+  not read included, so a hit told the searcher what a private comment said. It now searches
+  title and description, as `list_tickets` describes it. The search on the web pages was not
+  affected.
+
 ### Upgrade notes
 
 - Run `bin/rails documentation:resync_all` once after updating. Until then a page keeps
