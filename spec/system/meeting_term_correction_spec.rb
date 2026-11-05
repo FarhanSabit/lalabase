@@ -15,11 +15,22 @@ RSpec.describe 'Correcting a term in a meeting', type: :system do
   let(:transcript) { "Anna: Wir testen Lalabeis heute.\nBen: Lalabeis kann viel, sagt Anna.\nUnd Lalabeis-Konten auch." }
 
   before do
+    # Stylesheets on: the button over a mark is hidden (Tailwind's hidden) until there is a
+    # mark, so finding it visible waits for the controller to place it.
+    driven_by :selenium_chrome_headless_full
     Prosopite.pause
     ActsAsTenant.current_tenant = organisation
   end
 
   after do
+    # The window and this origin's storage are reused by the next example (the lane state of
+    # the meetings, tickets and glossary pages lives there).
+    begin
+      page.execute_script('sessionStorage.clear(); localStorage.clear()')
+    rescue StandardError
+      nil
+    end
+    page.driver.browser.manage.window.resize_to(1440, 900)
     ActsAsTenant.current_tenant = nil
     Prosopite.resume
   end
@@ -130,12 +141,37 @@ RSpec.describe 'Correcting a term in a meeting', type: :system do
     )
   end
 
+  # A meeting with notes shows its transcript collapsed (clamp: :tall): the text
+  # the browser holds is the whole transcript all the same, and a mark in the
+  # part that shows is found.
+  it 'corrects in a collapsed transcript, only at the mark' do
+    user = admin(:de)
+    meeting = meeting_for(user)
+    meeting.update!(notes: 'Kurze Notiz zum Gespräch.')
+    sign_in user
+    visit organisation_project_meetings_path(organisation, project, meeting_id: meeting.id)
+    expect(page).to have_css("##{ActionView::RecordIdentifier.dom_id(meeting, :transcript)} [data-controller='clamp-toggle']")
+
+    mark_in_transcript(meeting, 'Lalabeis', nth: 0)
+    find("#meeting-term-correction-trigger-#{meeting.id}").click
+    within('[role="dialog"]') do
+      expect(page).to have_select(I18n.t("#{tc}.speaker_label", locale: :de), selected: 'Anna Ananas')
+      fill_in I18n.t("#{tc}.correct_label", locale: :de), with: 'Lalabase'
+      click_button I18n.t("#{tc}.here", locale: :de)
+    end
+
+    expect(page).to have_text(I18n.t("#{tc}.flash.replaced", count: 1, locale: :de))
+    expect(meeting.reload.transcript).to start_with("Anna: Wir testen Lalabase heute.\nBen: Lalabeis kann viel")
+  end
+
   it 'offers no correction in the panel beside a ticket' do
     user = admin(:de)
     meeting = meeting_for(user)
     ticket = create(:ticket, project: project, title: 'Ticket neben dem Meeting', creator: user)
     meeting.outgoing_references.create!(organisation: organisation, target: ticket, target_title_snapshot: ticket.display_title)
     sign_in user
+    # A medium grid: the ticket and the meeting beside each other (the after hook sets the
+    # window back).
     page.driver.browser.manage.window.resize_to(1200, 900)
     visit organisation_project_tickets_path(organisation, project, ticket_id: ticket.id)
 
@@ -146,7 +182,5 @@ RSpec.describe 'Correcting a term in a meeting', type: :system do
       expect(page).to have_no_css('[data-controller~="transcript-selection"]')
       expect(page).to have_no_css("#meeting-term-correction-trigger-#{meeting.id}", visible: :all)
     end
-  ensure
-    page.driver.browser.manage.window.resize_to(1440, 900)
   end
 end

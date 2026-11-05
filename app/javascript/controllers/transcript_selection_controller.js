@@ -25,6 +25,9 @@ export default class extends Controller {
   connect() {
     this.follow = this.follow.bind(this)
     document.addEventListener("selectionchange", this.follow)
+    // A mark made before this controller connected (the page was still loading its
+    // scripts) changes nothing any more: look at it once now.
+    this.follow()
   }
 
   disconnect() {
