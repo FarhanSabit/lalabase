@@ -31,8 +31,12 @@ module Meetings
     WORD_GAP = '[[:blank:]]+'
 
     # One whole-word match: its line, where it starts in the line and how long
-    # it is (characters), and whether it starts inside the speaker label.
-    Match = Data.define(:line_index, :char_offset, :length, :in_label)
+    # it is (characters, what term_corrections stores), whether it starts inside
+    # the speaker label, and the same place in bytes. The bytes are for the
+    # work: Ruby finds the n-th character of a text with umlauts by counting
+    # from its start, so a long line with many matches would be counted over
+    # and over (a transcript can be one line of a megabyte).
+    Match = Data.define(:line_index, :char_offset, :length, :in_label, :byte_offset, :byte_length)
     Replaced = Data.define(:text, :count)
 
     # skip_frontmatter: false for a text that has none by construction (the
@@ -68,11 +72,7 @@ module Meetings
       by_line = targets.group_by(&:line_index)
       result = lines.each_with_index.map do |line, index|
         hits = by_line[index]
-        next line unless hits
-
-        hits.sort_by(&:char_offset).reverse.each_with_object(line.dup) do |hit, changed|
-          changed[hit.char_offset, hit.length] = with
-        end
+        hits ? replaced_line(line, hits, with) : line
       end
       Replaced.new(text: result.join("\n"), count: targets.size)
     end
@@ -109,14 +109,35 @@ module Meetings
       lines.each_with_index.flat_map do |line, index|
         next [] if index < first_content_line
 
-        label_end = labels[index]&.ends_at
-        line.to_enum(:scan, regex).map do
-          found = Regexp.last_match
-          start = found.begin(0)
-          Match.new(line_index: index, char_offset: start, length: found[0].length,
-                    in_label: !label_end.nil? && start < label_end)
-        end
+        matches_in(line, index, regex)
       end
+    end
+
+    # The matches of one line. The character offset is counted on from the
+    # match before, never from the start of the line again.
+    def matches_in(line, index, regex)
+      label_end = labels[index]&.ends_at
+      chars = 0
+      bytes = 0
+      line.to_enum(:scan, regex).map do
+        found = Regexp.last_match
+        byte_start = found.byteoffset(0).first
+        chars += line.byteslice(bytes, byte_start - bytes).length
+        bytes = byte_start
+        Match.new(line_index: index, char_offset: chars, length: found[0].length,
+                  in_label: !label_end.nil? && chars < label_end, byte_offset: byte_start, byte_length: found[0].bytesize)
+      end
+    end
+
+    # One line with `with` in place of its hits, put together from the pieces
+    # between them (in bytes, one pass).
+    def replaced_line(line, hits, with)
+      cursor = 0
+      result = hits.sort_by(&:byte_offset).each_with_object(+'') do |hit, changed|
+        changed << line.byteslice(cursor, hit.byte_offset - cursor) << with
+        cursor = hit.byte_offset + hit.byte_length
+      end
+      result << line.byteslice(cursor, line.bytesize - cursor)
     end
 
     def pattern

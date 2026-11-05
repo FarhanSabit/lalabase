@@ -174,6 +174,23 @@ RSpec.describe Meetings::TermReplacement do
       expect(replaced("Lalabeis\r\nLalabeis\n", 'Lalabeis', with: 'Lalabase')).to eq("Lalabase\r\nLalabase\n")
     end
 
+    # A transcript can be one line of half a megabyte. Ruby finds the n-th
+    # character of a text with umlauts by counting from its start; counting
+    # each match from the start of the line again took about nine seconds for
+    # this line (review of the first version), counting on takes milliseconds.
+    it 'counts and replaces many matches in one long line in one pass' do
+      line = (['Grüße an Lalabeis'] * 20_000).join(' und ')
+      subject = replacement(line, 'Lalabeis')
+      result = nil
+
+      elapsed = Benchmark.realtime { result = subject.replace(with: 'Lalabase') }
+
+      expect(elapsed).to be < 2
+      expect(result.count).to eq(20_000)
+      expect(subject.occurrences.last.char_offset).to eq(line.rindex('Lalabeis'))
+      expect(result.text).to eq(line.gsub('Lalabeis', 'Lalabase'))
+    end
+
     it 'counts in characters, not bytes' do
       occurrence = replacement('Grüße, Lalabeis', 'Lalabeis').occurrences.first
 

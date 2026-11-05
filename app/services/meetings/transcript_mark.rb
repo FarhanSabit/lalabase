@@ -77,7 +77,7 @@ module Meetings
     def map(start)
       shown = TermReplacement.new(text: visible, heard: @mark, skip_frontmatter: false).scan
       line_index, column = line_and_column(start)
-      ordinal = shown.index { |match| match.line_index == line_index && match.char_offset == column }
+      ordinal = shown.index { |match| match.line_index == line_index && match.byte_offset == column }
       return refuse(:not_a_word) unless ordinal
 
       stored = TermReplacement.new(text: @transcript, heard: @mark, participants: @participants).scan
@@ -96,30 +96,42 @@ module Meetings
       @visible ||= Nokogiri::HTML5.fragment(@displayed_html).text
     end
 
+    # Where the mark starts in the text the page shows, in bytes, or nil.
+    # Bytes, because Ruby finds the n-th character of a text with umlauts by
+    # counting from its start: a search over many candidates would count a
+    # long transcript again for each of them.
     def locate
-      return @offset if @offset && fits?(@offset)
+      if @offset && @offset >= 0
+        start = visible[0, @offset].bytesize
+        return start if fits?(start)
+      end
 
       starts = []
       from = 0
-      while (found = visible.index(@mark, from))
+      while (found = visible.byteindex(@mark, from))
         starts << found if fits?(found)
-        from = found + 1
+        break if starts.size > 1
+
+        from = found + @mark[0].bytesize
       end
       starts.first if starts.one?
     end
 
+    # The mark and its context at this place (in bytes).
     def fits?(start)
-      finish = start + @mark.length
-      return false if start < @before.length || finish + @after.length > visible.length
+      finish = start + @mark.bytesize
+      return false if start < @before.bytesize || finish + @after.bytesize > visible.bytesize
 
-      visible[start, @mark.length] == @mark &&
-        visible[start - @before.length, @before.length] == @before &&
-        visible[finish, @after.length] == @after
+      visible.byteslice(start, @mark.bytesize) == @mark &&
+        visible.byteslice(start - @before.bytesize, @before.bytesize) == @before &&
+        visible.byteslice(finish, @after.bytesize) == @after
     end
 
+    # The line of a place and where it starts in that line, in bytes, the way
+    # TermReplacement::Match#byte_offset counts.
     def line_and_column(start)
-      prefix = visible[0, start]
-      line_start = prefix.rindex("\n")
+      prefix = visible.byteslice(0, start)
+      line_start = prefix.byterindex("\n")
       [prefix.count("\n"), line_start ? start - line_start - 1 : start]
     end
 

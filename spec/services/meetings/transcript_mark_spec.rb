@@ -122,6 +122,22 @@ RSpec.describe Meetings::TranscriptMark do
     expect(resolve(text, **browser_mark(text, 'Lalabeis')).place.to_h.values_at(:line_index, :char_offset)).to eq([0, 18])
   end
 
+  # One line of half a megabyte with the form 20,000 times, and an offset that
+  # does not fit: the context search runs over every candidate. In characters
+  # that took about eight seconds; in bytes it takes milliseconds.
+  it 'finds a mark in one long line with many candidates quickly, also by its context alone' do
+    line = "Anna: #{(['Grüße an Lalabeis'] * 20_000).join(' und ')}"
+    shown = visible(line)
+    start = shown.rindex('Lalabeis')
+    mark = { text: 'Lalabeis', before: shown[start - 40, 40], after: shown[start + 8, 40].to_s, offset: 3 }
+    result = nil
+
+    elapsed = Benchmark.realtime { result = resolve(line, **mark) }
+
+    expect(elapsed).to be < 2
+    expect(result.place.to_h).to eq(line_index: 0, char_offset: line.rindex('Lalabeis'), length: 8)
+  end
+
   it 'refuses a blank mark' do
     expect(resolve(transcript, text: '  ', before: '', after: '', offset: 0).error).to eq(:not_found)
   end
