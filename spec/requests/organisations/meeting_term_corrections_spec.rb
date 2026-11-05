@@ -346,12 +346,15 @@ RSpec.describe 'Organisations::MeetingTermCorrections', :ci_guard, type: :reques
                             role: create(:role, organisation: stranger_org, title: Role::ACCOUNT_ADMIN_TITLE), active: true)
         user
       end
+      # One sign-in per request: a 404 of the exceptions app writes no session.
       sign_in stranger
-
       get new_path, headers: frame
       expect(response.status).to be_in([302, 404])
+      expect(response.location.to_s).not_to include(new_user_session_path)
+      sign_in stranger
       post_correction
       expect(response.status).to be_in([302, 404])
+      expect(response.location.to_s).not_to include(new_user_session_path)
       expect(meeting.reload.transcript).to eq(transcript)
       expect(TermCorrection.count).to eq(0)
     end

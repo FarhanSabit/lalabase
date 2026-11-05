@@ -346,6 +346,9 @@ Rails.application.routes.draw do
         patch :reject
         post :merge
         delete 'heard/:correction_id', action: :destroy_heard_form, as: :heard_form
+        # An open heard form (K4b, E3): confirm its proposals, or reject them.
+        patch 'heard/:correction_id/confirm', action: :confirm_heard_form, as: :confirm_heard_form
+        delete 'heard/:correction_id/proposals', action: :reject_heard_form, as: :reject_heard_form
       end
     end
 

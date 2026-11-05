@@ -23,6 +23,10 @@
       <% unless term.confirmed? %>
         <span class="glossary-status <%= term.rejected? ? 'glossary-status--rejected' : 'glossary-status--proposed' %>"><%= glossary_status_name(term.status) %></span>
       <% end %>
+      <% open_forms = glossary_open_form_count(term) %>
+      <% if open_forms.positive? %>
+        <span class="glossary-status glossary-status--proposed"><%= t('views.organisations.glossary.index.open_forms', count: open_forms) %></span>
+      <% end %>
     </span>
     <% if count.positive? %>
       <span class="people-row__sub"><%= t('views.organisations.glossary.index.heard_as', forms: glossary_row_forms(term)) %></span>

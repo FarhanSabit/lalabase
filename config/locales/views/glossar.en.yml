@@ -23,8 +23,13 @@ en:
         no_target: "Please choose the term to merge with."
       heard_form:
         not_found: "This heard form no longer exists."
+        not_open: "This heard form is no longer open. Someone has confirmed or rejected it in the meantime."
         destroy:
           success: "Heard form deleted."
+        confirm:
+          success: "Heard form confirmed."
+        reject:
+          success: "Proposal rejected."
   views:
     organisations:
       glossary:
@@ -69,6 +74,10 @@ en:
           corrections_count:
             one: "1 correction"
             other: "%{count} corrections"
+          # Heard forms with a proposal (K4b, E3), beside the term in the list.
+          open_forms:
+            one: "1 open form"
+            other: "%{count} open forms"
         show:
           edit: "Edit"
           close: "Close"
@@ -85,6 +94,12 @@ en:
             one: "replaced once"
             other: "replaced %{count} times"
           delete_heard: "Delete heard form “%{heard}”"
+          # An open heard form (K4b, E3): a proposal from a meeting, not yet working.
+          open_form: "Proposal"
+          proposed_row: "proposal"
+          reject_form_confirm:
+            one: "Reject the proposal “%{heard}” of “%{term}”?"
+            other: "Reject the %{count} proposals “%{heard}” of “%{term}”?"
           delete_heard_confirm:
             one: "Delete the heard form “%{heard}” of “%{term}”?"
             other: "Delete the heard form “%{heard}” of “%{term}”, with all %{count} corrections?"

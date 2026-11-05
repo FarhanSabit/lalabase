@@ -82,6 +82,12 @@ module GlossaryHelper
     end
   end
 
+  # How many heard forms of a term are open (K4b, E3): forms with at least one
+  # proposal, which work nowhere until confirmed. Reads the loaded corrections.
+  def glossary_open_form_count(term)
+    term.term_corrections.select(&:proposed?).map(&:normalized_heard).uniq.size
+  end
+
   # The line under a term in the list: its heard forms, each with its count
   # when it was heard more than once.
   def glossary_row_forms(term)

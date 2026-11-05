@@ -23,8 +23,13 @@ de:
         no_target: "Bitte einen Begriff wählen, mit dem zusammengeführt wird."
       heard_form:
         not_found: "Diese gehörte Form gibt es nicht mehr."
+        not_open: "Diese gehörte Form ist nicht mehr offen. Jemand hat sie inzwischen bestätigt oder verworfen."
         destroy:
           success: "Gehörte Form gelöscht."
+        confirm:
+          success: "Gehörte Form bestätigt."
+        reject:
+          success: "Vorschlag verworfen."
   views:
     organisations:
       glossary:
@@ -69,6 +74,10 @@ de:
           corrections_count:
             one: "1 Korrektur"
             other: "%{count} Korrekturen"
+          # Heard forms with a proposal (K4b, E3), beside the term in the list.
+          open_forms:
+            one: "1 offene Form"
+            other: "%{count} offene Formen"
         show:
           edit: "Bearbeiten"
           close: "Schließen"
@@ -85,6 +94,12 @@ de:
             one: "1-mal ersetzt"
             other: "%{count}-mal ersetzt"
           delete_heard: "Gehörte Form „%{heard}“ löschen"
+          # An open heard form (K4b, E3): a proposal from a meeting, not yet working.
+          open_form: "Vorschlag"
+          proposed_row: "Vorschlag"
+          reject_form_confirm:
+            one: "Den Vorschlag „%{heard}“ bei „%{term}“ verwerfen?"
+            other: "Die %{count} Vorschläge „%{heard}“ bei „%{term}“ verwerfen?"
           delete_heard_confirm:
             one: "Die gehörte Form „%{heard}“ bei „%{term}“ löschen?"
             other: "Die gehörte Form „%{heard}“ bei „%{term}“ löschen, mit allen %{count} Korrekturen?"

@@ -11,7 +11,9 @@
 # state. The index answers a lane frame request with the lane alone.
 #
 # Writes go through the glossary actors and leave the frame (_top): they land
-# on the list again, with the term open where one is left. A refused save
+# on the list again, with the term open where one is left. An open heard form
+# (K4b, E3: a correction in a meeting without manage_glossary) is confirmed or
+# rejected here, form by form. A refused save
 # renders the index with the form and its reason (422).
 #
 # Rights: GlossaryPolicy (view_glossary / manage_glossary, account admins
@@ -120,7 +122,28 @@ module Organisations
                    failure_lane: { term_id: @term.id })
     end
 
+    # An open heard form of this term (K4b, E3), named by one of its
+    # corrections: its proposals confirmed (they work from then on), or
+    # rejected (they go; a confirmed correction of the same form stays).
+    def confirm_heard_form
+      decide_heard_form(Actors::ConfirmHeardForm, notice: 'controllers.glossary.heard_form.confirm.success')
+    end
+
+    def reject_heard_form
+      decide_heard_form(Actors::RejectHeardForm, notice: 'controllers.glossary.heard_form.reject.success')
+    end
+
     private
+
+    # The write right first (403 before the correction is looked up), then
+    # only a correction of this term.
+    def decide_heard_form(actor, notice:)
+      authorize @term, :update?
+      correction = policy_scope(TermCorrection).where(glossary_term_id: @term.id).find(params[:correction_id])
+      authorize correction, :update?
+      result = actor.call(correction: correction, current_user: current_user)
+      land(result, notice: notice, lane: { term_id: @term.id }, failure_lane: { term_id: @term.id })
+    end
 
     # The right first (403 without it, before anything is looked up), then
     # through the policy scope: a term of another organisation is no term at
