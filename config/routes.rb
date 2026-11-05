@@ -346,6 +346,9 @@ Rails.application.routes.draw do
         patch :reject
         post :merge
         delete 'heard/:correction_id', action: :destroy_heard_form, as: :heard_form
+        # An open heard form (K4b, E3): confirm its proposals, or reject them.
+        patch 'heard/:correction_id/confirm', action: :confirm_heard_form, as: :confirm_heard_form
+        delete 'heard/:correction_id/proposals', action: :reject_heard_form, as: :reject_heard_form
       end
     end
 
@@ -811,6 +814,11 @@ Rails.application.routes.draw do
         # its frame (?q= searches), create links, destroy unlinks.
         resources :participants, only: [] do
           resource :link, only: %i[new create destroy], controller: 'meeting_participant_links'
+        end
+        # Correcting a misheard word in the transcript (K4b): new renders the dialog into
+        # its frame, count redraws its count, create corrects and learns it for the glossary.
+        resource :term_correction, only: %i[new create], controller: 'meeting_term_corrections' do
+          get :count
         end
         collection do
           # LLM participant detection (Slice 5): runs BEFORE save on the raw

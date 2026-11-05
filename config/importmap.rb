@@ -113,6 +113,9 @@ pin 'custom_period', to: 'lib/custom_period.js'
 # could see it (review of #693).
 pin 'filter_menu_search', to: 'lib/filter_menu_search.js'
 pin 'menu_fit', to: 'lib/menu_fit.js'
+# What the button over a mark in the transcript sends (K4b): the mark, its context and
+# offset in characters, and the fields the dialog counts with. Pure, node:test.
+pin 'transcript_mark', to: 'lib/transcript_mark.js'
 
 # Development: Load controllers from source directory
 if Rails.env.development?
@@ -252,6 +255,7 @@ else
   pin 'controllers/tabs_controller', to: 'controllers/tabs_controller.js'
   pin 'controllers/tag_input_controller', to: 'controllers/tag_input_controller.js'
   pin 'controllers/team_member_edit_controller', to: 'controllers/team_member_edit_controller.js'
+  pin 'controllers/term_correction_modal_controller', to: 'controllers/term_correction_modal_controller.js'
   pin 'controllers/ticket_bulk_panel_controller', to: 'controllers/ticket_bulk_panel_controller.js'
   pin 'controllers/ticket_description_collapse_controller', to: 'controllers/ticket_description_collapse_controller.js'
   pin 'controllers/ticket_direct_navigation_controller', to: 'controllers/ticket_direct_navigation_controller.js'
@@ -269,6 +273,7 @@ else
   pin 'controllers/time_sessions_index_controller', to: 'controllers/time_sessions_index_controller.js'
   pin 'controllers/timeline_filter_controller', to: 'controllers/timeline_filter_controller.js'
   pin 'controllers/toggle_controller', to: 'controllers/toggle_controller.js'
+  pin 'controllers/transcript_selection_controller', to: 'controllers/transcript_selection_controller.js'
   pin 'controllers/turbo_cache_controller', to: 'controllers/turbo_cache_controller.js'
   pin 'controllers/undefined_url_guard_controller', to: 'controllers/undefined_url_guard_controller.js'
   pin 'controllers/upload_progress_controller', to: 'controllers/upload_progress_controller.js'

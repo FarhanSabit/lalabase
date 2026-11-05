@@ -1,4 +1,4 @@
-# Karte: app/javascript/controllers (Stand: 2026-10-27)
+# Karte: app/javascript/controllers (Stand: 2026-11-05)
 
 ~109 Stimulus-Controller, bewusst FLACH gehalten: Unterordner würden via
 `eagerLoadControllersFrom` alle Identifier ändern (`meetings/row_controller.js` →
@@ -26,7 +26,16 @@ Konventionen:
   Speichern treffen nur sie, eine späte Antwort an ein geschlossenes Modal findet nichts. Das
   Fokus-Rücksprungziel liegt am Frame, nicht an der Instanz.
   Ein weiteres Modal derselben Form erbt den Controller statt ihn zu kopieren
-  (`participant_link_modal_controller.js`, seit 27.10.2026: nur das erste Feld ist anders).
+  (`participant_link_modal_controller.js`, seit 27.10.2026: nur das erste Feld ist anders;
+  `term_correction_modal_controller.js`, seit 05.11.2026: Fokus aufs Feld „Richtig“, die Zahl
+  lädt in ihren eigenen Frame nach).
+* `transcript_selection` (K4b, 05.11.2026): eine Markierung im Transkript zeigt „Korrigieren“
+  (über der Markierung, auf dem Telefon darunter, wo sonst das Systemmenü steht). Der Knopf ist
+  ein Link in den Frame des Dialogs; der Controller hält nur seine Adresse aktuell:
+  Markierung, Kontext und Versatz in CODEPUNKTEN über den sichtbaren Text
+  (`lib/transcript_mark.js`, Pin `transcript_mark`, node-Tests). ⚠️ Nie Positionen aus dem HTML
+  an den Server: die Seite zeigt Markdown, die Stelle findet `Meetings::TranscriptMark`. Im Panel
+  neben einem Ticket nicht eingebunden.
 * **Escape gehört dem Obersten** (`lib/escape_owner.js`, seit 17.10.2026): Jeder Controller, der
   auf Escape reagiert, beantwortet `ownsEscape()` (wahr, solange sein nächstes Escape etwas
   Eigenes schließt). Ein Overlay, das ein Skript außerhalb eines Controllers baut, trägt

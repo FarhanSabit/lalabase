@@ -59,7 +59,7 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
   # Every write of the page, one example each: Prosopite reads requests sent
   # from one line of a loop as an N+1.
   def self.write_names
-    %w[create update destroy confirm reject merge destroy_heard_form]
+    %w[create update destroy confirm reject merge destroy_heard_form confirm_heard_form reject_heard_form]
   end
 
   # [verb, path, params] of a write, against the given term.
@@ -71,7 +71,9 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
       'confirm' => [:patch, confirm_organisation_glossary_term_path(organisation, target), {}],
       'reject' => [:patch, reject_organisation_glossary_term_path(organisation, target), {}],
       'merge' => [:post, merge_organisation_glossary_term_path(organisation, target), { target_id: proposal.id }],
-      'destroy_heard_form' => [:delete, heard_form_organisation_glossary_term_path(organisation, target, correction_id: open_correction.id), {}]
+      'destroy_heard_form' => [:delete, heard_form_organisation_glossary_term_path(organisation, target, correction_id: open_correction.id), {}],
+      'confirm_heard_form' => [:patch, confirm_heard_form_organisation_glossary_term_path(organisation, target, correction_id: open_correction.id), {}],
+      'reject_heard_form' => [:delete, reject_heard_form_organisation_glossary_term_path(organisation, target, correction_id: open_correction.id), {}]
     }.fetch(name)
   end
 
@@ -88,7 +90,7 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
   end
 
   def glossary_state
-    [GlossaryTerm.order(:id).pluck(:id, :term, :status, :category), TermCorrection.order(:id).pluck(:id, :glossary_term_id)]
+    [GlossaryTerm.order(:id).pluck(:id, :term, :status, :category), TermCorrection.order(:id).pluck(:id, :glossary_term_id, :status)]
   end
 
   describe 'without the right' do
@@ -880,6 +882,128 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
     end
   end
 
+  # K4b (E3): a correction in a meeting without manage_glossary leaves an open
+  # heard form, also at a confirmed term. The page shows it as open, and only
+  # manage_glossary confirms it (it works from then on) or rejects it (its
+  # proposals go, a confirmed correction of the same form stays).
+  describe 'open heard forms' do
+    let!(:open_form) do
+      create(:term_correction, organisation: organisation, glossary_term: term, heard: 'lala beis', status: 'proposed',
+                               project: open_project)
+    end
+    let(:gs) { 'views.organisations.glossary' }
+
+    def lane_markup
+      get organisation_glossary_term_path(organisation, term), headers: frame_headers
+      Nokogiri::HTML(response.body)
+    end
+
+    def open_group(page)
+      page.css('.glossary-heard__group').find { |group| group.text.include?('lala beis') }
+    end
+
+    it 'marks a term with open forms in the list, also for a reader' do
+      sign_in viewer
+      get organisation_glossary_terms_path(organisation)
+
+      row = Nokogiri::HTML(response.body).css('[data-glossary-row]').find { |node| node.text.include?('Lalabase') }
+      expect(row.text).to include(I18n.t("#{gs}.index.open_forms", count: 1))
+    end
+
+    # Review round 2 of #121: the badge counts forms, not their proposals.
+    it 'counts open forms, not the proposals in them' do
+      create(:term_correction, organisation: organisation, glossary_term: term, heard: 'Lala Beis', status: 'proposed')
+      create(:term_correction, organisation: organisation, glossary_term: term, heard: 'lala bese', status: 'proposed')
+      sign_in viewer
+      get organisation_glossary_terms_path(organisation)
+
+      row = Nokogiri::HTML(response.body).css('[data-glossary-row]').find { |node| node.text.include?('Lalabase') }
+      expect(row.text).to include(I18n.t("#{gs}.index.open_forms", count: 2))
+      expect(row.text).not_to include(I18n.t("#{gs}.index.open_forms", count: 3))
+    end
+
+    it 'shows the open form as a proposal in the lane, without buttons for a reader' do
+      sign_in viewer
+      group = open_group(lane_markup)
+
+      expect(group.text).to include(I18n.t("#{gs}.show.open_form"))
+      expect(group.css('form')).to be_empty
+      closed = lane_markup.css('.glossary-heard__group').find { |node| node.text.include?('la la base') }
+      expect(closed.text).not_to include(I18n.t("#{gs}.show.open_form"))
+    end
+
+    it 'offers confirm and reject of the open form with manage_glossary' do
+      sign_in manager
+      group = open_group(lane_markup)
+
+      actions = group.css('form').pluck('action')
+      expect(actions).to include(confirm_heard_form_organisation_glossary_term_path(organisation, term, correction_id: open_form.id),
+                                 reject_heard_form_organisation_glossary_term_path(organisation, term, correction_id: open_form.id))
+    end
+
+    it 'confirms the form, which works from then on' do
+      sign_in manager
+      patch confirm_heard_form_organisation_glossary_term_path(organisation, term, correction_id: open_form.id)
+
+      expect(response).to redirect_to(organisation_glossary_terms_path(organisation, term_id: term.id))
+      expect(flash[:notice]).to eq(I18n.t('controllers.glossary.heard_form.confirm.success'))
+      expect(TermCorrection.effective.where(id: open_form.id)).to exist
+    end
+
+    it 'rejects the form: its proposals go, its confirmed corrections stay' do
+      kept = create(:term_correction, organisation: organisation, glossary_term: term, heard: 'Lala Beis')
+      sign_in manager
+
+      delete reject_heard_form_organisation_glossary_term_path(organisation, term, correction_id: open_form.id)
+
+      expect(flash[:notice]).to eq(I18n.t('controllers.glossary.heard_form.reject.success'))
+      expect(TermCorrection.where(id: open_form.id)).not_to exist
+      expect(TermCorrection.where(id: kept.id)).to exist
+    end
+
+    it 'says so when nothing of the form is open any more' do
+      sign_in manager
+      open_form.update!(status: 'confirmed')
+
+      patch confirm_heard_form_organisation_glossary_term_path(organisation, term, correction_id: open_form.id)
+
+      expect(flash[:alert]).to eq(I18n.t('controllers.glossary.heard_form.not_open'))
+    end
+
+    it 'answers 404 for a heard form of another term or another organisation, and changes nothing' do
+      foreign = ActsAsTenant.with_tenant(other_organisation) do
+        create(:term_correction, organisation: other_organisation, status: 'proposed')
+      end
+      user = manager
+      before = glossary_state
+
+      # One sign-in per request: a 404 of the exceptions app writes no session.
+      sign_in user
+      patch confirm_heard_form_organisation_glossary_term_path(organisation, proposal, correction_id: open_form.id)
+      expect(response).to have_http_status(:not_found)
+      sign_in user
+      delete reject_heard_form_organisation_glossary_term_path(organisation, term, correction_id: foreign.id)
+      expect(response).to have_http_status(:not_found)
+      sign_in user
+      patch confirm_heard_form_organisation_glossary_term_path(organisation, foreign.glossary_term_id, correction_id: foreign.id)
+      expect(response).to have_http_status(:not_found)
+      expect(glossary_state).to eq(before)
+      expect(ActsAsTenant.without_tenant { foreign.reload.status }).to eq('proposed')
+    end
+
+    it 'confirms the open forms of a proposed term with the term' do
+      proposed_form = create(:term_correction, organisation: organisation, glossary_term: proposal, heard: 'zirbel holz',
+                                               status: 'proposed')
+      sign_in manager
+
+      patch confirm_organisation_glossary_term_path(organisation, proposal)
+
+      expect(proposal.reload).to be_confirmed
+      expect(proposed_form.reload).to be_confirmed
+      expect(open_form.reload).to be_proposed
+    end
+  end
+
   # Prosopite watches every example: the list preloads heard forms, speakers
   # and projects, and asks the write right once, however many rows.
   describe 'queries' do
@@ -891,7 +1015,8 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
           create(:term_correction, organisation: organisation, glossary_term: found, heard: "vor schlag #{index}",
                                    project: create(:project, organisation: organisation), user: member_with(role_with))
           create(:term_correction, organisation: organisation, glossary_term: found, heard: "vorschlak #{index}",
-                                   person: create(:person, organisation: organisation), project: open_project)
+                                   person: create(:person, organisation: organisation), project: open_project,
+                                   status: 'proposed')
         end
       end
     end
@@ -902,7 +1027,9 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
       get organisation_glossary_terms_path(organisation)
 
       expect(response).to have_http_status(:ok)
-      expect(Nokogiri::HTML(response.body).css('[data-glossary-row]').size).to eq(5)
+      page = Nokogiri::HTML(response.body)
+      expect(page.css('[data-glossary-row]').size).to eq(5)
+      expect(page.text.scan(I18n.t('views.organisations.glossary.index.open_forms', count: 1)).size).to eq(3)
     end
 
     it 'renders a lane with many heard forms without an N+1' do
@@ -914,7 +1041,9 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
       get organisation_glossary_term_path(organisation, target), headers: frame_headers
 
       expect(response).to have_http_status(:ok)
-      expect(Nokogiri::HTML(response.body).css('.glossary-heard__row').size).to eq(3)
+      page = Nokogiri::HTML(response.body)
+      expect(page.css('.glossary-heard__row').size).to eq(3)
+      expect(page.css('.glossary-heard__decide form').size).to eq(2)
     end
   end
 

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_04_100200) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_05_100000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -1707,6 +1707,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_04_100200) do
     t.uuid "corrected_by_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "status", default: "confirmed", null: false
     t.index ["corrected_by_id"], name: "index_term_corrections_on_corrected_by_id"
     t.index ["glossary_term_id", "normalized_heard"], name: "index_term_corrections_on_term_and_heard"
     t.index ["meeting_id"], name: "index_term_corrections_on_meeting_id"
@@ -1715,6 +1716,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_04_100200) do
     t.index ["project_id"], name: "index_term_corrections_on_project_id"
     t.index ["user_id"], name: "index_term_corrections_on_user_id"
     t.check_constraint "num_nonnulls(person_id, user_id) <= 1", name: "term_corrections_one_speaker"
+    t.check_constraint "status::text = ANY (ARRAY['proposed'::character varying, 'confirmed'::character varying]::text[])", name: "term_corrections_status_known"
   end
 
   create_table "ticket_assignments", force: :cascade do |t|

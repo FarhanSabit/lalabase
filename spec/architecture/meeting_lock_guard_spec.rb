@@ -38,6 +38,7 @@ module MeetingLockGuard
   }.freeze
 
   WRITERS = %w[
+    app/services/actors/correct_meeting_term.rb
     app/services/actors/link_meeting_participant.rb
     app/services/actors/move_meeting.rb
     app/services/actors/save_meeting.rb
@@ -52,13 +53,15 @@ module MeetingLockGuard
   CONTROLLERS = {
     'organisations/meetings' => 'app/controllers/organisations/meetings_controller.rb',
     'organisations/meeting_ticket_links' => 'app/controllers/organisations/meeting_ticket_links_controller.rb',
-    'organisations/meeting_participant_links' => 'app/controllers/organisations/meeting_participant_links_controller.rb'
+    'organisations/meeting_participant_links' => 'app/controllers/organisations/meeting_participant_links_controller.rb',
+    'organisations/meeting_term_corrections' => 'app/controllers/organisations/meeting_term_corrections_controller.rb'
   }.freeze
 
   CONTROLLER_LOCK = 'with_meeting_in_project'
 
   # Each one is in WRITERS (checked below).
-  LOCKING_ACTORS = %w[Actors::SaveMeeting Actors::MoveMeeting Actors::LinkMeetingParticipant].freeze
+  LOCKING_ACTORS = %w[Actors::SaveMeeting Actors::MoveMeeting Actors::LinkMeetingParticipant
+                      Actors::CorrectMeetingTerm].freeze
 
   # Only shrinks; every entry gives its reason.
   NO_MEETING_YET = {

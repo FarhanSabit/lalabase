@@ -62,6 +62,18 @@ en:
         published_analyses_bound: "A published analysis draws on the old project. Make it private again, then you can move the meeting."
         moved_meanwhile: "The meeting was just moved already. Reload the page."
         suggestion_run_active: "Ticket suggestions are being generated for this meeting. Try again in a moment."
+      # Correcting a misheard word in a meeting (K4b, Actors::CorrectMeetingTerm).
+      correct_meeting_term:
+        not_found: "This meeting is no longer here. Reload the page."
+        forbidden: "You may not edit this meeting."
+        stale_transcript: "The transcript has changed in the meantime."
+        place_gone: "This form does not stand at the marked place. Mark the word in the transcript again."
+        speaker_not_found: "This speaker is not part of this meeting."
+        heard_invalid: "The heard form must be one or more words on one line, at most %{max} characters."
+        correct_blank: "Please enter the right form."
+        correct_too_long: "The right form may be at most %{max} characters long."
+        same_form: "The right form is the same as the heard one."
+        invalid_scope: "Please choose: replace only here or everywhere."
       move_ticket:
         number_conflict: "Number conflict after %{retries} retries: %{error}"
         has_hierarchy: "Tickets with sub-tasks or a parent ticket cannot be moved."

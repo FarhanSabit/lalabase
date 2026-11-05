@@ -62,6 +62,52 @@ RSpec.describe TermCorrection, :ci_guard, type: :model do
                                    transcript_digest: 'a' * 64)).to be_valid
   end
 
+  # Every heard form has a status of its own (K4b, E3): a correction without
+  # manage_glossary is a proposal, also at a confirmed term. Rows written
+  # before K4b are confirmed (the column's default).
+  describe 'the status' do
+    it 'is confirmed unless set, the state of every row before K4b' do
+      expect(create(:term_correction, organisation: organisation, glossary_term: term)).to be_confirmed
+    end
+
+    it 'knows proposed and confirmed, nothing else' do
+      expect(build(:term_correction, organisation: organisation, glossary_term: term, status: 'proposed')).to be_valid
+      expect(build(:term_correction, organisation: organisation, glossary_term: term, status: 'rejected')).not_to be_valid
+      expect(build(:term_correction, organisation: organisation, glossary_term: term, status: nil)).not_to be_valid
+    end
+
+    it 'is held by the database too' do
+      correction = create(:term_correction, organisation: organisation, glossary_term: term)
+
+      expect { described_class.where(id: correction.id).update_all(status: 'rejected') }
+        .to raise_error(ActiveRecord::StatementInvalid, /term_corrections_status_known/)
+    end
+  end
+
+  # What K4c and the device (M4) read: a confirmed form at a confirmed term.
+  # A proposal at a confirmed term and a confirmed form at a proposed or a
+  # rejected term do not work anywhere yet.
+  describe '.effective' do
+    let(:proposed_term) { create(:glossary_term, :proposed, organisation: organisation, term: 'Zirbelholz') }
+    let(:rejected_term) { create(:glossary_term, :rejected, organisation: organisation, term: 'Ahornsirup') }
+
+    it 'is the confirmed forms of confirmed terms, and nothing else' do
+      effective = create(:term_correction, organisation: organisation, glossary_term: term, heard: 'lala bass')
+      create(:term_correction, organisation: organisation, glossary_term: term, heard: 'lala base', status: 'proposed')
+      create(:term_correction, organisation: organisation, glossary_term: proposed_term, heard: 'zirbel holz')
+      create(:term_correction, organisation: organisation, glossary_term: rejected_term, heard: 'ahorn sirup')
+
+      expect(described_class.effective).to contain_exactly(effective)
+    end
+
+    it 'stays inside the tenant' do
+      theirs = ActsAsTenant.with_tenant(other_organisation) { create(:term_correction, organisation: other_organisation) }
+
+      expect(described_class.effective).not_to include(theirs)
+      expect(ActsAsTenant.with_tenant(other_organisation) { described_class.effective.to_a }).to contain_exactly(theirs)
+    end
+  end
+
   describe 'the speaker' do
     let(:person) { create(:person, organisation: organisation) }
     let(:member) { member_of(organisation) }

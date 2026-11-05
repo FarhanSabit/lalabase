@@ -516,6 +516,42 @@ RSpec.describe Meeting, type: :model do
       meeting.update!(notes: 'neu', generated_summary: 'Frische Zusammenfassung')
       expect(meeting.generated_summary).to eq('Frische Zusammenfassung')
     end
+
+    # The one exception (K4b, E4/E5): a term correction keeps the summary, for
+    # the one save of its corrected transcript. Only Actors::SaveMeeting sets it,
+    # when Actors::CorrectMeetingTerm asks (meeting_summary_exception_guard_spec).
+    describe 'the exception of a term correction' do
+      it 'keeps summary and error for the next save of the transcript' do
+        meeting.keep_summary_for_next_save!
+        meeting.update!(transcript: 'Transkript korrigiert')
+
+        expect(meeting.reload.generated_summary).to eq('Alte Zusammenfassung')
+        expect(meeting.summary_creation_error).to eq('alter Fehler')
+      end
+
+      it 'holds for that one save only' do
+        meeting.keep_summary_for_next_save!
+        meeting.update!(transcript: 'Transkript korrigiert')
+        meeting.update!(transcript: 'Transkript bearbeitet')
+
+        expect(meeting.reload.generated_summary).to eq('')
+      end
+
+      it 'is used up by the next save, whatever it changes' do
+        meeting.keep_summary_for_next_save!
+        meeting.update!(title: 'Umbenannt')
+        meeting.update!(notes: 'bearbeitet')
+
+        expect(meeting.reload.generated_summary).to eq('')
+      end
+
+      it 'belongs to the one instance it was set on' do
+        meeting.keep_summary_for_next_save!
+        Meeting.find(meeting.id).update!(notes: 'bearbeitet')
+
+        expect(meeting.reload.generated_summary).to eq('')
+      end
+    end
   end
 
   # Pure function: transcripts pasted from AI tools carry a leading YAML frontmatter

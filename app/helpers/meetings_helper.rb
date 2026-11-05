@@ -268,7 +268,22 @@ module MeetingsHelper
   # participant list. The caller passes the participants it ALREADY loaded for the
   # header chips — never re-query here, that would be one extra query per render.
   def meeting_transcript_source(meeting, participants)
-    meeting_markdown_source(meeting.transcript, speakers: participants.map(&:display_name))
+    meeting_transcript_markdown(meeting.transcript, participants)
+  end
+
+  # The Markdown the page shows for a transcript text: the one place that
+  # prepares it, for the page and for the correction of a term alike.
+  def meeting_transcript_markdown(transcript, participants)
+    meeting_markdown_source(transcript, speakers: participants.map(&:display_name))
+  end
+
+  # The HTML the transcript block of the page holds for a transcript text: the
+  # component's own render of meeting_transcript_markdown.
+  # Meetings::TranscriptMark reads the text the browser shows out of it, and
+  # puts a probe of the stored text through it, to find a mark of the reader
+  # (K4b); rendered the same way, the texts are the same.
+  def meeting_transcript_html(transcript, participants)
+    Neo::MarkdownPreviewComponent.new(markdown: meeting_transcript_markdown(transcript, participants)).rendered_markdown
   end
 
   # Plain-text source for the header "Abriss": the AI summary if present, else the

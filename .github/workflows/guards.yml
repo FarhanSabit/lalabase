@@ -353,6 +353,8 @@ jobs:
           spec/services/actors/merge_glossary_terms_spec.rb
           spec/services/actors/save_glossary_term_spec.rb
           spec/requests/organisations/glossary_spec.rb
+          spec/services/actors/correct_meeting_term_spec.rb
+          spec/requests/organisations/meeting_term_corrections_spec.rb
           spec/requests/organisations/people_spec.rb
           spec/requests/organisations/shown_email_spec.rb
           spec/requests/user_preferences_email_visibility_spec.rb
@@ -700,6 +702,7 @@ jobs:
           spec/system/ticket_list_unread_dot_spec.rb
           spec/system/ticket_relations_spec.rb
           spec/system/meeting_participant_link_spec.rb
+          spec/system/meeting_term_correction_spec.rb
           spec/system/people_review_74_spec.rb
           spec/system/ticket_meeting_panel_spec.rb
           spec/system/ticket_meeting_panel_stages_spec.rb

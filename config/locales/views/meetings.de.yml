@@ -151,6 +151,51 @@ de:
           link: "%{name} mit Person verknüpfen"
           change: "Verknüpfung von %{name} ändern"
           open_person: "%{name}: Person öffnen"
+        # Correcting a misheard word in the transcript (K4b).
+        term_correction:
+          trigger: Korrigieren
+          trigger_label: "Markiertes Wort korrigieren"
+          title: Begriff korrigieren
+          close: Schließen
+          cancel: Abbrechen
+          heard_label: Gehört
+          correct_label: Richtig
+          correct_placeholder: Richtige Schreibweise
+          speaker_label: Sprecher
+          no_speaker: Unbekannt
+          to_glossary_confirm: Ins Glossar übernehmen
+          to_glossary_propose: Fürs Glossar vorschlagen
+          propose_hint: Wer das Glossar pflegt, bestätigt oder verwirft den Vorschlag. Bis dahin wirkt er nirgends.
+          hint: Ersetzt werden nur ganze Wörter, Groß- und Kleinschreibung wie markiert. Der Name des Sprechers am Zeilenanfang bleibt.
+          here: Nur hier ersetzen
+          everywhere:
+            one: "Überall ersetzen (1)"
+            other: "Überall ersetzen (%{count})"
+          recounted: Das Transkript hat sich inzwischen geändert. Die Zahl ist neu gezählt, bitte noch einmal wählen.
+          count:
+            found:
+              one: Kommt 1-mal vor.
+              other: "Kommt %{count}-mal vor."
+            found_by_speaker:
+              one: "Kommt 1-mal vor, bei %{speaker}."
+              other: "Kommt %{count}-mal vor, davon %{speaker_count}-mal bei %{speaker}."
+            not_at_mark: Diese Form steht nicht an der markierten Stelle. Ändere sie oder markiere neu.
+            ambiguous: Diese Form lässt sich an der markierten Stelle nicht sicher zuordnen. Markiere sie neu oder ändere sie über „Bearbeiten“.
+            everywhere_hidden: Überall ersetzen geht hier nicht. Die Seite zeigt nicht jede Stelle dieser Form so, wie sie gespeichert ist (etwa in einem Link).
+            heard_blank: Bitte die gehörte Form eingeben.
+          mark_errors:
+            not_found: Diese Stelle lässt sich im Transkript nicht finden. Lade die Seite neu und markiere noch einmal.
+            not_a_word: Bitte ein ganzes Wort markieren, nicht nur einen Teil davon.
+            ambiguous: Diese Form steht im Transkript anders, als die Seite sie zeigt (etwa in einem Link). Ändere sie über „Bearbeiten“.
+            speaker_label: Der Name des Sprechers gehört zur Teilnehmerliste und lässt sich hier nicht korrigieren.
+            line_break: Bitte nur innerhalb einer Zeile markieren.
+            too_long: "Die Markierung ist zu lang, höchstens %{max} Zeichen."
+          flash:
+            replaced:
+              one: 1 Stelle ersetzt.
+              other: "%{count} Stellen ersetzt."
+            confirmed: Ins Glossar übernommen.
+            proposed: Fürs Glossar vorgeschlagen.
         shared:
           duration_minutes: "%{count} Min"
           participant_type:

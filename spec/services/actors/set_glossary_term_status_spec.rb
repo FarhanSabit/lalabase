@@ -25,6 +25,37 @@ RSpec.describe Actors::SetGlossaryTermStatus, type: :service do
     expect(term.reload.status).to eq('confirmed')
   end
 
+  # K4b (E3): a proposed term came with its heard forms, proposed alike, and
+  # the one who confirms it sees them in the lane. Rejecting leaves the forms
+  # (they work nowhere at a rejected term anyway); a term confirmed again
+  # later keeps what is open.
+  describe 'the open heard forms' do
+    let!(:open_form) { create(:term_correction, organisation: organisation, glossary_term: term, heard: 'lala bass', status: 'proposed') }
+
+    it 'are confirmed with the proposal they came with' do
+      described_class.call(term: term, status: 'confirmed', current_user: writer)
+
+      expect(open_form.reload).to be_confirmed
+    end
+
+    it 'stay open when the term is rejected, and when a rejected term is confirmed' do
+      described_class.call(term: term, status: 'rejected', current_user: writer)
+      expect(open_form.reload).to be_proposed
+
+      described_class.call(term: term, status: 'confirmed', current_user: writer)
+      expect(open_form.reload).to be_proposed
+    end
+
+    it 'of another term stay open' do
+      other = create(:glossary_term, :proposed, organisation: organisation, term: 'Zirbel')
+      elsewhere = create(:term_correction, organisation: organisation, glossary_term: other, heard: 'zirbel holz', status: 'proposed')
+
+      described_class.call(term: term, status: 'confirmed', current_user: writer)
+
+      expect(elsewhere.reload).to be_proposed
+    end
+  end
+
   it 'never proposes, and refuses any other value' do
     confirmed = create(:glossary_term, organisation: organisation)
 

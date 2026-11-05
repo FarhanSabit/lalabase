@@ -227,17 +227,19 @@ from this project": refuse, or answer as if it were not found.
   gives its reason.
 * In a controller the lock is `with_meeting_in_project { ... }` (`MeetingInProject`): the
   block runs under the lock, a moved meeting answers 404. The guard asks **every write
-  action** (each route but GET) of `MeetingsController` and `MeetingTicketLinksController`
-  for that call or for an actor that locks itself (`LOCKING_ACTORS`). A check per file had
+  action** (each route but GET) of `MeetingsController`, `MeetingTicketLinksController`,
+  `MeetingParticipantLinksController` and `MeetingTermCorrectionsController` (K4b) for that call
+  or for an actor that locks itself (`LOCKING_ACTORS`). A check per file had
   passed `create_summary`, unlocked next to a delete that locked, until a fourth review round.
   The exception list (`NO_MEETING_YET`, a write before any meeting exists) only shrinks.
 * `WRITERS` pins the services that lock: the move, the edit, the analysis publication, the
-  booking, and the controller helper. Four review rounds of the move found each of these
+  booking, the participant link, the term correction (K4b), and the controller helper. Four review rounds of the move found each of these
   writes landing in the old project after a move.
 * ⚠️ **Not seen: a write in a service or controller the guard does not name.** Writing a
   meeting's data (its project, links, analyses, bookings) elsewhere means calling the helper
   and adding the file to `WRITERS` or `CONTROLLERS`.
-* Lock order: the meeting before a booking or an analysis, never the other way round.
+* Lock order: the meeting before a booking, an analysis or a glossary term, never the other way
+  round.
 
 ---
 

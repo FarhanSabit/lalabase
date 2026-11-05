@@ -74,6 +74,30 @@ RSpec.describe Actors::SaveMeeting do
     end
   end
 
+  # A term correction (Actors::CorrectMeetingTerm, K4b) keeps the AI summary
+  # for its one save; any other save of the transcript drops it as before.
+  describe 'keep_summary' do
+    let!(:meeting) do
+      create(:meeting, project: project, organisation: organisation, creator: user, transcript: 'Lalabeis hier',
+                       generated_summary: 'Zusammenfassung zu Lalabeis')
+    end
+
+    it 'drops the summary of a changed transcript by default' do
+      described_class.call(project: project, params: { transcript: 'Lalabase hier' }, id: meeting.id, current_user: user)
+
+      expect(meeting.reload.generated_summary).to eq('')
+    end
+
+    it 'keeps it when asked, for that save' do
+      result = described_class.call(project: project, params: { transcript: 'Lalabase hier' }, id: meeting.id,
+                                    current_user: user, keep_summary: true)
+
+      expect(result).to be_success
+      expect(meeting.reload.transcript).to eq('Lalabase hier')
+      expect(meeting.generated_summary).to eq('Zusammenfassung zu Lalabeis')
+    end
+  end
+
   describe 'participant sync' do
     def org_member(_name = nil)
       u = create(:user)

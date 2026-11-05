@@ -30,5 +30,8 @@
     <% if correction.replaced_count > 1 %>
       · <%= t('views.organisations.glossary.show.replaced', count: correction.replaced_count) %>
     <% end %>
+    <% if correction.proposed? %>
+      · <span class="glossary-heard__proposed"><%= t('views.organisations.glossary.show.proposed_row') %></span>
+    <% end %>
   </span>
 </li>

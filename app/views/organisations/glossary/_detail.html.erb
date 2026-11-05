@@ -34,10 +34,37 @@
       <% else %>
         <ul class="glossary-heard__groups">
           <% groups.each do |group| %>
+            <% open_count = group.count(&:proposed?) %>
+            <% form_name = t('views.organisations.glossary.quoted', text: group.first.heard) %>
             <li class="glossary-heard__group">
               <div class="glossary-heard__form">
-                <%= t('views.organisations.glossary.quoted', text: group.first.heard) %>
+                <%= form_name %>
                 <span class="glossary-heard__count"><%= t('views.organisations.glossary.show.times', count: group.size) %></span>
+                <%# K4b (E3): a form with proposals works nowhere until someone with
+                    manage_glossary confirms it; rejecting removes the proposals only. %>
+                <% if open_count.positive? %>
+                  <span class="glossary-status glossary-status--proposed"><%= t('views.organisations.glossary.show.open_form') %></span>
+                  <% if can_write %>
+                    <span class="glossary-heard__decide">
+                      <%= render Neo::Buttons::ButtonComponent.new(
+                        variant: :secondary, size: :small, icon: 'check-lg',
+                        form: { action: confirm_heard_form_organisation_glossary_term_path(@current_organisation, term, correction_id: group.first.id),
+                                method: :patch, params: list_state, data: { turbo_frame: '_top' } }
+                      ) do %>
+                        <%= t('views.organisations.glossary.show.confirm') %><span class="sr-only"> <%= form_name %></span>
+                      <% end %>
+                      <%= render Neo::Buttons::ButtonComponent.new(
+                        variant: :secondary, size: :small, icon: 'x-lg',
+                        confirm: t('views.organisations.glossary.show.reject_form_confirm', heard: group.first.heard, term: term.term,
+                                                                                             count: open_count),
+                        form: { action: reject_heard_form_organisation_glossary_term_path(@current_organisation, term, correction_id: group.first.id),
+                                method: :delete, params: list_state, data: { turbo_frame: '_top' } }
+                      ) do %>
+                        <%= t('views.organisations.glossary.show.reject') %><span class="sr-only"> <%= form_name %></span>
+                      <% end %>
+                    </span>
+                  <% end %>
+                <% end %>
                 <% if can_write %>
                   <%# The whole form goes, with every correction of it (plan §6: a form learnt wrong). %>
                   <span class="glossary-heard__delete">
