@@ -150,6 +150,49 @@ en:
           link: "Link %{name} to a person"
           change: "Change the link of %{name}"
           open_person: "%{name}: open person"
+        # Correcting a misheard word in the transcript (K4b).
+        term_correction:
+          trigger: Correct
+          trigger_label: "Correct the marked word"
+          title: Correct a term
+          close: Close
+          cancel: Cancel
+          heard_label: Heard
+          correct_label: Right
+          correct_placeholder: Right spelling
+          speaker_label: Speaker
+          no_speaker: Unknown
+          to_glossary_confirm: Add to the glossary
+          to_glossary_propose: Propose for the glossary
+          propose_hint: Whoever keeps the glossary confirms or rejects the proposal. Until then it works nowhere.
+          hint: Only whole words are replaced, upper and lower case as marked. The speaker's name at the start of a line stays.
+          here: Replace only here
+          everywhere:
+            one: "Replace everywhere (1)"
+            other: "Replace everywhere (%{count})"
+          recounted: The transcript has changed in the meantime. The number is counted again, please choose again.
+          count:
+            found:
+              one: Appears once.
+              other: "Appears %{count} times."
+            found_by_speaker:
+              one: "Appears once, by %{speaker}."
+              other: "Appears %{count} times, %{speaker_count} of them by %{speaker}."
+            not_at_mark: This form does not stand at the marked place. Change it or mark again.
+            heard_blank: Please enter the heard form.
+          mark_errors:
+            not_found: This place cannot be found in the transcript. Reload the page and mark again.
+            not_a_word: Please mark a whole word, not only a part of it.
+            ambiguous: This form stands differently in the transcript than the page shows it (in a link, for example). Change it through "Edit".
+            speaker_label: The speaker's name belongs to the participant list and cannot be corrected here.
+            line_break: Please mark within one line.
+            too_long: The mark is too long, at most 255 characters.
+          flash:
+            replaced:
+              one: 1 place replaced.
+              other: "%{count} places replaced."
+            confirmed: Added to the glossary.
+            proposed: Proposed for the glossary.
         shared:
           duration_minutes: "%{count} min"
           participant_type:

@@ -19,6 +19,7 @@
  *= require components/filter_bar
  *= require components/column_picker
  *= require components/ticket_meeting_panel
+ *= require components/transcript_correction
  *= require components/sidebar_nav
  *= require components/mobile_app
  */

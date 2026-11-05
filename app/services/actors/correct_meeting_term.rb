@@ -42,6 +42,12 @@ module Actors
     # or :proposed (the heard form's status).
     attr_reader :replaced_count, :glossary_outcome
 
+    # Whether the AI summary got the replacement too ("everywhere", and the
+    # word stood in it).
+    def summary_replaced?
+      @summary_replaced == true
+    end
+
     # place: { line_index:, char_offset:, length: } of the marked span in the
     # stored transcript. digest: SHA-256 (hex) of the transcript the dialog
     # counted. speaker_id: a meeting_participants id of this meeting, or nil.
@@ -124,6 +130,7 @@ module Actors
       params = { transcript: transcript.text }
       summary = replaced_summary if @scope == 'everywhere'
       params[:generated_summary] = summary if summary
+      @summary_replaced = !summary.nil?
 
       @replaced_count = transcript.count
       saved = Actors::SaveMeeting.call(project: @project, params: params, id: @meeting.id, current_user: current_user,

@@ -812,6 +812,11 @@ Rails.application.routes.draw do
         resources :participants, only: [] do
           resource :link, only: %i[new create destroy], controller: 'meeting_participant_links'
         end
+        # Correcting a misheard word in the transcript (K4b): new renders the dialog into
+        # its frame, count redraws its count, create corrects and learns it for the glossary.
+        resource :term_correction, only: %i[new create], controller: 'meeting_term_corrections' do
+          get :count
+        end
         collection do
           # LLM participant detection (Slice 5): runs BEFORE save on the raw
           # transcript payload (scoping via @project, no persisted meeting);

@@ -1,0 +1,30 @@
+/*
+ * Correcting a misheard word in the transcript of a meeting (K4b).
+ *
+ * .transcript-correct: the "Korrigieren" button over a mark. It stands in the
+ * transcript section (.transcript-section, position: relative), and
+ * transcript_selection_controller places it above the mark, below it on a touch
+ * screen, where the system's own menu takes the space above. Hidden (Tailwind's
+ * .hidden) while there is no mark; the second rule keeps it hidden against the
+ * display of the first.
+ *
+ * .term-correction-modal: the width of the dialog's card.
+ */
+.transcript-correct {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  white-space: nowrap;
+}
+
+.transcript-correct.hidden {
+  display: none;
+}
+
+.term-correction-modal {
+  max-width: 28rem;
+}

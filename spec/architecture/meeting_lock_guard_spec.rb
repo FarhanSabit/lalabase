@@ -53,7 +53,8 @@ module MeetingLockGuard
   CONTROLLERS = {
     'organisations/meetings' => 'app/controllers/organisations/meetings_controller.rb',
     'organisations/meeting_ticket_links' => 'app/controllers/organisations/meeting_ticket_links_controller.rb',
-    'organisations/meeting_participant_links' => 'app/controllers/organisations/meeting_participant_links_controller.rb'
+    'organisations/meeting_participant_links' => 'app/controllers/organisations/meeting_participant_links_controller.rb',
+    'organisations/meeting_term_corrections' => 'app/controllers/organisations/meeting_term_corrections_controller.rb'
   }.freeze
 
   CONTROLLER_LOCK = 'with_meeting_in_project'
