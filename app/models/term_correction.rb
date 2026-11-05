@@ -17,6 +17,14 @@
 # Meeting#purge_fragment_content_embeddings). Deleting the project or the
 # person clears the origin or the speaker the same way. Deleting the term or
 # the organisation takes the row with it.
+#
+# Every row has a status of its own (K4b, E3): a correction in a meeting
+# without manage_glossary is proposed, also at a confirmed term, so it works
+# nowhere before someone with the right confirmed it. Rows written before K4b
+# are confirmed (the column's default; the check constraint
+# term_corrections_status_known holds the two values). What works is a
+# confirmed row at a confirmed term: .effective, the one reader K4c and the
+# device (M4) go through.
 class TermCorrection < ApplicationRecord
   # The references to rows of an organisation, declared BEFORE acts_as_tenant:
   # acts_as_tenant 1.0.1 checks the tenant only of references declared before
@@ -37,12 +45,20 @@ class TermCorrection < ApplicationRecord
   belongs_to :corrected_by, class_name: 'User', optional: true
 
   DIGEST_FORMAT = /\A\h{64}\z/
+  STATUSES = %w[proposed confirmed].freeze
+
+  enum :status, STATUSES.index_by(&:itself), validate: true
 
   # Terms and heard forms share one right (GlossaryPolicy), for authorize,
   # policy and policy_scope alike.
   def self.policy_class
     GlossaryPolicy
   end
+
+  # The heard forms that work: confirmed, at a confirmed term. A proposal (at
+  # any term) and any form of a proposed or rejected term do not. Inside the
+  # tenant like every other query of this model.
+  scope :effective, -> { confirmed.joins(:glossary_term).merge(GlossaryTerm.confirmed) }
 
   before_validation :normalize_heard
 
