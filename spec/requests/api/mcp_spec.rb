@@ -863,6 +863,43 @@ RSpec.describe 'API MCP endpoint', type: :request do
   # M3b — write tools
   # ------------------------------------------------------------------
 
+  # The SDK runs every element of a JSON-RPC array, and the per-token throttle
+  # counts HTTP requests: one POST of a thousand create_ticket calls counted once.
+  # MCP 2025-06-18 dropped batching; the endpoint refuses it before any call runs.
+  describe 'a JSON-RPC batch' do
+    let(:call) do
+      { jsonrpc: '2.0', method: 'tools/call',
+        params: { name: 'create_ticket', arguments: { project_id: project.id, title: 'Aus dem Stapel' } } }
+    end
+
+    it 'is refused as one invalid request, and no call in it runs' do
+      body = [call.merge(id: 1), call.merge(id: 2)].to_json
+      answer = nil
+      expect do
+        answer = post_mcp(body, headers: auth_headers(write_pat.token))
+      end.not_to(change { count_without_tenant(Ticket) })
+
+      expect(response).to have_http_status(:ok)
+      expect(answer).to be_a(Hash)
+      expect(answer['id']).to be_nil
+      expect(answer.dig('error', 'code')).to eq(-32_600)
+      expect(answer.dig('error', 'data')).to match(/batch/i)
+    end
+
+    it 'is refused with one element and with leading whitespace too' do
+      expect do
+        post_mcp(" \n[#{call.merge(id: 1).to_json}]", headers: auth_headers(write_pat.token))
+      end.not_to(change { count_without_tenant(Ticket) })
+      expect(JSON.parse(response.body).dig('error', 'code')).to eq(-32_600)
+    end
+
+    it 'leaves a single request as it was' do
+      expect do
+        post_mcp(call.merge(id: 1).to_json, headers: auth_headers(write_pat.token))
+      end.to change { count_without_tenant(Ticket) }.by(1)
+    end
+  end
+
   describe 'tools/call create_ticket' do
     it 'creates a ticket via the write seam and returns its summary' do
       payload = nil
@@ -876,6 +913,22 @@ RSpec.describe 'API MCP endpoint', type: :request do
       expect(payload['number']).to be_present
       created = ActsAsTenant.with_tenant(organisation) { Ticket.find(payload['id']) }
       expect(created.creator_id).to eq(user.id)
+    end
+
+    # In dev and test the actor re-raises an unexpected error; in production it
+    # returns it with its message, which may name the database. Stubbed to pin
+    # the production branch: the tool answers a fixed text.
+    it 'answers an unexpected failure with a fixed text, not the exception message' do
+      failure = Actors::BaseActor::Result.new(
+        success: false, errors: ['PG::UniqueViolation: duplicate key value violates unique constraint "tickets_pkey"'],
+        code: :internal_error
+      )
+      allow(Actors::SaveTicket).to receive(:call).and_return(failure)
+
+      result = tool_result_as(write_pat, 'create_ticket', { project_id: project.id, title: 'Login bug' })
+
+      expect(result['isError']).to be(true)
+      expect(result.dig('content', 0, 'text')).to eq('create failed: unexpected error')
     end
 
     it 'rejects a blank title without creating anything' do

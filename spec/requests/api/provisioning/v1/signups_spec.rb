@@ -93,6 +93,17 @@ RSpec.describe 'POST /api/provisioning/v1/signups' do
       expect(response_error.fetch('code')).to eq('bad_request')
     end
 
+    # A body cut off mid-object raised ParseError, which the controller did not
+    # rescue: the exceptions app answered 400 with its own body, without the
+    # envelope the website branches on.
+    it 'answers a body that is no JSON with a bad request in the envelope' do
+      post '/api/provisioning/v1/signups', params: '{"signup": {', headers: headers
+
+      expect(response).to have_http_status(:bad_request)
+      expect(response_error.fetch('code')).to eq('bad_request')
+      expect(User.find_by(email: signup[:email])).to be_nil
+    end
+
     it 'answers a misshapen nested value with a bad request' do
       post_signup(payload: signup.merge(acquisition: %w[utm_source website]))
       expect(response).to have_http_status(:bad_request)

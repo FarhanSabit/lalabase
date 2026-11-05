@@ -32,6 +32,15 @@ starts (`db:prepare lalabase:data_backfills`). Without Docker, run
   show. An image that cannot be served shows as its alt text, one with a full address
   becomes a link. SVG is not shown yet. Limits: 5 MB per image, 200 images per set.
 
+### Fixed
+
+- Input that answered a 500 on `/api/v1` and MCP is answered now. The ticket list takes the
+  search together with a tag filter, and ignores a date bound with a year PostgreSQL cannot
+  store, like any other unusable one. A page no list has, or a page sent as a list, is a 400
+  on the ticket list and both time session lists, and invalid input in `list_tickets`. A
+  `time_session` that is no object is a 400.
+- The provisioning endpoint answers a body that is no JSON in its error envelope.
+
 ### Security
 
 - The search of the ticket list in `/api/v1` and in the MCP tool `list_tickets` (`q`) no
@@ -39,6 +48,14 @@ starts (`db:prepare lalabase:data_backfills`). Without Docker, run
   not read included, so a hit told the searcher what a private comment said. It now searches
   title and description, as `list_tickets` describes it. The search on the web pages was not
   affected.
+- `/api/mcp` refuses a JSON-RPC batch (an array of calls) before any call in it runs. Each
+  call was carried out, and the per-token rate limit counted the request once.
+- `create_ticket` and `create_meeting` over MCP answer an unexpected failure with a fixed
+  text instead of the exception message, as the other write tools do. `search_code_symbols`
+  no longer passes on the message of a credential or embedding error, which named internal
+  ids.
+- The code tools of the assistant (`search_code_symbols`, `get_symbol_details`) neutralise
+  code fences in the name and path of a symbol, which come from the repository.
 
 ### Upgrade notes
 

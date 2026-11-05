@@ -75,9 +75,23 @@ module Mcp
       @token = token
     end
 
+    # A JSON text whose first token is `[` (JSON allows space, tab, CR and LF before it).
+    # Refused since 2026-11-05 without a version bump: the tools and their schemas,
+    # which SERVER_VERSION names, did not change, and no client we know sends one.
+    BATCH = /\A[ \t\r\n]*\[/
+
+    BATCH_REFUSAL = JSON.generate(
+      jsonrpc: '2.0', id: nil,
+      error: { code: -32_600, message: 'Invalid Request', data: 'Batch requests are not supported' }
+    ).freeze
+
     # @param raw_request [String] a single JSON-RPC request body
     # @return [String, nil] JSON-RPC response string, or nil for a notification
     def handle_json(raw_request)
+      # One request per POST, as the endpoint has always said: the SDK would run
+      # every element of an array, and Rack::Attack counts the POST, not the calls.
+      return BATCH_REFUSAL if raw_request.to_s.match?(BATCH)
+
       with_sdk_error_codes(build_server.handle_json(raw_request))
     end
 

@@ -93,7 +93,7 @@ module Lalabase
         authorize!(context, intake.meeting_for_policy, :create?)
 
         result = intake.save
-        return Result.new(error: "create failed: #{Array(result.errors).join(', ')}") unless result.success?
+        return Result.new(error: create_failure(result)) unless result.success?
 
         Result.new(content: Meetings::Intake.summary(intake.meeting).to_json)
       end
@@ -107,6 +107,16 @@ module Lalabase
         Result.new(error: message, code: refusal.code, reason: refusal.reason)
       end
       private_class_method :refused
+
+      # An unexpected failure (BaseActor's :internal_error where it does not
+      # re-raise, i.e. in production) gets a fixed text: its message may name the
+      # database. A refused save keeps its messages, as post_comment does.
+      def self.create_failure(result)
+        return 'create failed: unexpected error' if result.code == :internal_error
+
+        "create failed: #{Array(result.errors).join(', ')}"
+      end
+      private_class_method :create_failure
     end
   end
 end

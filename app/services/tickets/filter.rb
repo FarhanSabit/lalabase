@@ -42,24 +42,22 @@ module Tickets
       end
     end
 
-    # A tag filter groups by ticket id, so .count returns a per-id Hash — its size
-    # is the distinct-ticket total. Ungrouped scopes return the integer directly.
-    # (Centralising this also fixes the controller, which previously returned the
-    # raw Hash as `total` when a tag filter was active.)
+    # The tag filter groups inside a subquery, so the scope stays ungrouped and
+    # .count is the integer. A grouped scope handed in by a caller still counts
+    # as its number of groups.
     def total(scope)
       counted = scope.count
       counted.is_a?(Hash) ? counted.size : counted
     end
 
+    # Raises ListPaging::InvalidArgument for a page no list has and for a value
+    # that is a list or a hash; the callers answer it as invalid input.
     def page
-      [@params[:page].to_i, 1].max
+      ListPaging.page(@params[:page])
     end
 
     def per_page
-      raw = @params[:per_page].to_i
-      return DEFAULT_PER_PAGE if raw <= 0
-
-      [raw, MAX_PER_PAGE].min
+      ListPaging.per_page(@params[:per_page], default: DEFAULT_PER_PAGE, max: MAX_PER_PAGE)
     end
 
     def paginate(scope)
@@ -82,28 +80,32 @@ module Tickets
       scope.joins(:ticket_assignments).where(ticket_assignments: { user_id: user_id })
     end
 
-    # AND semantics across multiple tags: GROUP + HAVING count = number of tags.
+    # AND semantics across multiple tags: the tickets that carry every tag named.
+    # Grouped in a subquery, not on the outer scope: the search adds a rank column
+    # to the outer query, and a GROUP BY there failed with PG::GroupingError (q plus
+    # tag answered a 500).
     def by_tag(scope)
       return scope if @params[:tag].blank?
 
       names = Array(@params[:tag]).map { |n| n.to_s.downcase.strip }.reject(&:blank?)
       return scope if names.empty?
 
-      scope.joins(taggings: :tag)
-           .where(taggings: { taggable_type: 'Ticket' })
-           .where(tags: { name: names })
-           .group('tickets.id')
-           .having('COUNT(DISTINCT tags.id) = ?', names.size)
+      tagged = Tagging.joins(:tag)
+                      .where(taggable_type: 'Ticket', tags: { name: names })
+                      .group(:taggable_id)
+                      .having('COUNT(DISTINCT tags.id) = ?', names.size)
+                      .select(:taggable_id)
+      scope.where(id: tagged)
     end
 
-    # An unparseable from/to is ignored rather than erroring. .to_s guards against
-    # a non-string value (e.g. a tampered array param) raising TypeError, which the
-    # ArgumentError rescue would not catch.
+    # A from/to that is no date PostgreSQL can store is ignored rather than
+    # erroring. TimeSessions::DateBound checks the four-digit form before parsing:
+    # Date.parse takes any year, and "999999999-01-01" answered a 500.
     def by_date_range(scope)
-      scope = scope.where('tickets.updated_at >= ?', Date.parse(@params[:from].to_s)) if @params[:from].present?
-      scope = scope.where('tickets.updated_at <= ?', Date.parse(@params[:to].to_s).end_of_day) if @params[:to].present?
-      scope
-    rescue ArgumentError
+      from = TimeSessions::DateBound.call(value: @params[:from])
+      to = TimeSessions::DateBound.call(value: @params[:to])
+      scope = scope.where(tickets: { updated_at: Date.parse(from).beginning_of_day.. }) if from
+      scope = scope.where(tickets: { updated_at: ..Date.parse(to).end_of_day }) if to
       scope
     end
   end

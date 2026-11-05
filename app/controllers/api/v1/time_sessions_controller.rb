@@ -99,6 +99,10 @@ module Api
 
       def session_params
         input = params.require(:time_session)
+        # require hands back a string or a list unchanged, and permit on it raised
+        # NoMethodError into a 500. The same guard as MeetingsController#meeting_input.
+        raise ActionController::ParameterMissing, :time_session unless input.is_a?(ActionController::Parameters)
+
         permitted = input.permit(
           :occurred_on, :duration_minutes, :duration_string,
           :description, :customer_description
@@ -123,15 +127,14 @@ module Api
         { page: page_param, per_page: per_page_param, total: total }
       end
 
+      # ListPaging::InvalidArgument (a page no list has, a list or a hash) answers
+      # 400 through BaseController.
       def page_param
-        [params[:page].to_i, 1].max
+        ListPaging.page(params[:page])
       end
 
       def per_page_param
-        raw = params[:per_page].to_i
-        return DEFAULT_PER_PAGE if raw <= 0
-
-        [raw, MAX_PER_PAGE].min
+        ListPaging.per_page(params[:per_page], default: DEFAULT_PER_PAGE, max: MAX_PER_PAGE)
       end
 
       # Serializer for the open-hours view: includes project + ticket inline,

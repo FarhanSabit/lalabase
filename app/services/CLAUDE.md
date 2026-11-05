@@ -225,6 +225,11 @@ Verzeichnis-Übersicht (Auswahl):
   `inbox_query.rb` + `serializer.rb`, der EINE Besitzer der Token-Inbox (Reichweite,
   Argument-Vertrag, Zeilen-JSON), geteilt von `GET /api/v1/notifications` und dem
   MCP-Werkzeug `list_notifications`
+* `list_paging.rb` (05.11.2026): `page`/`per_page` of the lenient token lists (ticket list of
+  REST and MCP via `Tickets::Filter`, the time session lists of `/api/v1`). A string that is no
+  number stays the default, as before; refused (`InvalidArgument`, REST 400, MCP invalid input)
+  are only a page above `MAX_PAGE` (its offset left bigint) and a list or a hash, which
+  raised into a 500. Inbox and knowledge keep their own strict rule.
 * `posts/` — `comment.rb` (REST R3a, 29.10.2026) is the ONE rule of a comment written through
   a token: the MCP tool `post_comment` and `POST /api/v1/tickets/:ticket_id/posts` call it.
   `parse` (format `html`/`plain`, valid UTF-8, no NUL in plain, `plain_text_body.rb`, empty

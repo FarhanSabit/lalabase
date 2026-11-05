@@ -99,4 +99,20 @@ RSpec.describe 'MCP create_meeting', :ci_guard, type: :request do
 
     expect(meeting_count).to eq(1)
   end
+
+  # In dev and test the actor re-raises an unexpected error; in production it
+  # returns it with its message, which may name the database. Stubbed to pin the
+  # production branch: the tool answers a fixed text.
+  it 'answers an unexpected failure with a fixed text, not the exception message' do
+    failure = Actors::BaseActor::Result.new(
+      success: false, errors: ['PG::UniqueViolation: duplicate key value violates unique constraint "meetings_pkey"'],
+      code: :internal_error
+    )
+    allow_any_instance_of(Actors::SaveMeeting).to receive(:call).and_return(failure)
+
+    result = call_tool(args(project_id: project.id))
+
+    expect(result['isError']).to be(true)
+    expect(result['content'].first['text']).to eq('create failed: unexpected error')
+  end
 end
