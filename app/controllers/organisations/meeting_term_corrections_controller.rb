@@ -55,6 +55,8 @@ module Organisations
       @dialog = build_dialog(heard: heard_param)
       return refused(notice: :recounted) if @dialog.recounted?
       return refused(errors: [mark_error_text(@dialog)]) unless @dialog.correctable?
+      # Everywhere only where the page shows every occurrence (the dialog offers no button otherwise).
+      return refused(errors: [t('views.organisations.meetings.term_correction.count.everywhere_hidden')]) if everywhere_hidden?
 
       actor = Actors::CorrectMeetingTerm.new(**correction_arguments)
       result = actor.call
@@ -156,9 +158,15 @@ module Organisations
     end
 
     def mark_error_text(dialog)
-      return t("views.organisations.meetings.term_correction.mark_errors.#{dialog.mark_error}") if dialog.mark_error
+      key = 'views.organisations.meetings.term_correction'
+      return t("#{key}.mark_errors.#{dialog.mark_error}", max: GlossaryTerm::MAX_LENGTH) if dialog.mark_error
+      return t("#{key}.count.ambiguous") if dialog.heard_error == :ambiguous
 
       t('services.actors.correct_meeting_term.place_gone')
+    end
+
+    def everywhere_hidden?
+      scalar_param(:scope) == 'everywhere' && !@dialog.everywhere?
     end
 
     def render_forbidden

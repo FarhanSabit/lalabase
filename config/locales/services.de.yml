@@ -69,9 +69,9 @@ de:
         stale_transcript: "Das Transkript hat sich inzwischen geändert."
         place_gone: "An der markierten Stelle steht diese Form nicht. Markiere das Wort im Transkript neu."
         speaker_not_found: "Diesen Sprecher gibt es in diesem Meeting nicht."
-        heard_invalid: "Die gehörte Form muss ein Wort oder mehrere Wörter in einer Zeile sein, höchstens 255 Zeichen."
+        heard_invalid: "Die gehörte Form muss ein Wort oder mehrere Wörter in einer Zeile sein, höchstens %{max} Zeichen."
         correct_blank: "Bitte die richtige Form eingeben."
-        correct_too_long: "Die richtige Form darf höchstens 255 Zeichen lang sein."
+        correct_too_long: "Die richtige Form darf höchstens %{max} Zeichen lang sein."
         same_form: "Die richtige Form ist dieselbe wie die gehörte."
         invalid_scope: "Bitte wählen: nur hier oder überall ersetzen."
       move_ticket:

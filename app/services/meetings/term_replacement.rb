@@ -30,9 +30,11 @@ module Meetings
     # What shows nothing (a zero-width space, a soft hyphen, a bidi mark: the
     # set GlossaryText drops) joins what stands around it, as the reader sees
     # it: "Lalabeis<zero-width space>Konto" reads as one word. The boundary
-    # looks past it, before the form up to two such characters (a look-behind
-    # has a fixed width), after it any number.
+    # looks past a run of up to MAX_INVISIBLE_RUN such characters, the same on
+    # both sides (a look-behind has a fixed width, so the run has a limit;
+    # a longer run counts as a boundary on both sides alike).
     INVISIBLE = GlossaryText::INVISIBLE.source
+    MAX_INVISIBLE_RUN = 3
     # Between the words of a form: horizontal whitespace only.
     WORD_GAP = '[[:blank:]]+'
 
@@ -75,12 +77,18 @@ module Meetings
     # given (one of #occurrences), and how many it replaced.
     def replace(with:, only: nil)
       targets = only.nil? ? occurrences : [own!(only)]
-      by_line = targets.group_by(&:line_index)
-      result = lines.each_with_index.map do |line, index|
-        hits = by_line[index]
-        hits ? replaced_line(line, hits, with) : line
-      end
-      Replaced.new(text: result.join("\n"), count: targets.size)
+      rewrite(targets.map { |hit| [hit, with] })
+    end
+
+    # The text with every occurrence replaced by what the block gives for it
+    # (Meetings::TranscriptMark puts a marker of its own in each one).
+    def replace_each
+      rewrite(occurrences.map { |hit| [hit, yield(hit)] })
+    end
+
+    # The stored text of one match, as it stands in its line.
+    def text_at(match)
+      lines[match.line_index].byteslice(match.byte_offset, match.byte_length)
     end
 
     # The occurrence that overlaps a marked span of one line, or nil.
@@ -137,9 +145,19 @@ module Meetings
 
     # One line with `with` in place of its hits, put together from the pieces
     # between them (in bytes, one pass).
-    def replaced_line(line, hits, with)
+    # pairs: [match, the text in its place], at most one per match.
+    def rewrite(pairs)
+      by_line = pairs.group_by { |hit, _with| hit.line_index }
+      result = lines.each_with_index.map do |line, index|
+        here = by_line[index]
+        here ? replaced_line(line, here) : line
+      end
+      Replaced.new(text: result.join("\n"), count: pairs.size)
+    end
+
+    def replaced_line(line, pairs)
       cursor = 0
-      result = hits.sort_by(&:byte_offset).each_with_object(+'') do |hit, changed|
+      result = pairs.sort_by { |hit, _with| hit.byte_offset }.each_with_object(+'') do |(hit, with), changed|
         changed << line.byteslice(cursor, hit.byte_offset - cursor) << with
         cursor = hit.byte_offset + hit.byte_length
       end
@@ -148,8 +166,8 @@ module Meetings
 
     def pattern
       body = @words.map { |word| Regexp.escape(word) }.join(WORD_GAP)
-      before = "(?<!#{WORD_CHARACTER})(?<!#{WORD_CHARACTER}#{INVISIBLE})(?<!#{WORD_CHARACTER}#{INVISIBLE}#{INVISIBLE})"
-      Regexp.new("#{before}#{body}(?!#{INVISIBLE}*#{WORD_CHARACTER})")
+      before = (0..MAX_INVISIBLE_RUN).map { |run| "(?<!#{WORD_CHARACTER}#{INVISIBLE * run})" }.join
+      Regexp.new("#{before}#{body}(?!#{INVISIBLE}{0,#{MAX_INVISIBLE_RUN}}#{WORD_CHARACTER})")
     end
 
     # The frontmatter's lines are no content: nobody sees or marks them. A

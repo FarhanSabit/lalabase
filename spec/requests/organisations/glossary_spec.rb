@@ -910,6 +910,18 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
       expect(row.text).to include(I18n.t("#{gs}.index.open_forms", count: 1))
     end
 
+    # Review round 2 of #121: the badge counts forms, not their proposals.
+    it 'counts open forms, not the proposals in them' do
+      create(:term_correction, organisation: organisation, glossary_term: term, heard: 'Lala Beis', status: 'proposed')
+      create(:term_correction, organisation: organisation, glossary_term: term, heard: 'lala bese', status: 'proposed')
+      sign_in viewer
+      get organisation_glossary_terms_path(organisation)
+
+      row = Nokogiri::HTML(response.body).css('[data-glossary-row]').find { |node| node.text.include?('Lalabase') }
+      expect(row.text).to include(I18n.t("#{gs}.index.open_forms", count: 2))
+      expect(row.text).not_to include(I18n.t("#{gs}.index.open_forms", count: 3))
+    end
+
     it 'shows the open form as a proposal in the lane, without buttons for a reader' do
       sign_in viewer
       group = open_group(lane_markup)

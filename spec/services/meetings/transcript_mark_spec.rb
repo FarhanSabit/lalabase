@@ -144,6 +144,87 @@ RSpec.describe Meetings::TranscriptMark do
     expect(result.place.to_h.values_at(:line_index, :char_offset)).to eq([0, 8])
   end
 
+  # Review round 2 of #121: the heard form can be changed in the dialog, and
+  # "everywhere" replaces every stored match. Both need the same proof as the
+  # mark: the changed form at the mark shows there, and every match that
+  # "everywhere" would replace shows on the page at a place of its own.
+  describe 'a changed heard form and "everywhere"' do
+    def mark_object(text, nth: 0, mark: 'Lalabeis')
+      described_class.new(transcript: text, render: render, participants: participants,
+                          **browser_mark(text, mark, nth: nth))
+    end
+
+    it 'finds the changed form at the mark, and says that everywhere would reach a place the page hides' do
+      text = "Anna: Lala beis heute.\nBen: siehe [Wiki](https://example.com/Lala) ok"
+      mark = mark_object(text, mark: 'Lala beis')
+
+      expect(mark.resolve).to be_success
+      expect(mark.place_of('Lala').place.to_h).to eq(line_index: 0, char_offset: 6, length: 4)
+      expect(mark.everywhere?('Lala')).to be(false)
+      expect(mark.everywhere?('Lala beis')).to be(true)
+    end
+
+    it 'says that everywhere would reach a place the page hides, also for the form as marked' do
+      text = "Ben: Lalabeis ist gut.\nAnna: siehe [Wiki](https://example.com/Lalabeis) ok"
+      mark = mark_object(text)
+
+      expect(mark.resolve).to be_success
+      expect(mark.everywhere?('Lalabeis')).to be(false)
+    end
+
+    it 'allows everywhere where the page shows every match, in a link text, bold and in a list as well' do
+      text = "Ben: [Lalabeis](https://example.com/wiki) und **Lalabeis**\n- Lalabeis\nAnna: Lalabeis."
+      mark = mark_object(text, nth: 1)
+
+      expect(mark.resolve).to be_success
+      expect(mark.everywhere?('Lalabeis')).to be(true)
+    end
+
+    # The page shows "Lala beis", the stored text holds "Lala *beis*": the
+    # changed form stands at the mark, but not as the page shows it.
+    it 'refuses a changed form whose place the page shows otherwise' do
+      text = "Anna: Lala *beis* heute.\n"
+      mark = mark_object(text, mark: 'Lala')
+      mark.resolve
+
+      expect(mark.place_of('Lala *beis*').error).to eq(:ambiguous)
+    end
+
+    it 'refuses a changed form that does not stand at the mark' do
+      text = "Anna: Lala beis heute.\nBen: Konto ok"
+      mark = mark_object(text, mark: 'Lala beis')
+      mark.resolve
+
+      expect(mark.place_of('Konto').error).to eq(:not_at_mark)
+      expect(mark.everywhere?('Konto')).to be(false)
+    end
+  end
+
+  # Review round 2 of #121: the proof compares the whole text, not only what
+  # stands before the marker.
+  it 'refuses when the page shows anything after the marker other than before' do
+    text = "Ben: Lalabeis ist gut.\n"
+    changed_after = lambda do |source|
+      html = ApplicationController.helpers.meeting_transcript_html(source, participants)
+      source.match?(/Q[0-9A-Za-z]{16}Q/) ? html.sub('gut.', 'gut, anders.') : html
+    end
+
+    result = described_class.resolve(transcript: text, render: changed_after, participants: participants,
+                                     **browser_mark(text, 'Lalabeis'))
+
+    expect(result.error).to eq(:ambiguous)
+  end
+
+  # Review round 2 of #121: where the 40 characters around the mark repeat,
+  # only the offset tells the places apart.
+  it 'tells places with the same context apart by the offset alone' do
+    text = Array.new(6) { 'Ben: Lalabeis ja' }.join("\n")
+
+    result = resolve(text, **browser_mark(text, 'Lalabeis', nth: 2))
+
+    expect(result.place.to_h.values_at(:line_index, :char_offset)).to eq([2, 5])
+  end
+
   it 'refuses a mark over a line break and a mark too long for the glossary' do
     two_lines = "Anna: eins Lala\nBeis zwei\n"
     long = "Anna: #{'x' * 300}\n"

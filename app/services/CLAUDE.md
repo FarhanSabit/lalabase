@@ -203,7 +203,10 @@ Verzeichnis-Übersicht (Auswahl):
   Seite aus derselben Darstellung (`MeetingsHelper#meeting_transcript_html`), n-ter Treffer dort =
   n-ter Treffer im Speicher. ⚠️ Gleiche Zahl ist kein Beweis (Link-Ziel versteckt, Entität erzeugt):
   der Treffer wird mit einer Marke an seiner Stelle neu dargestellt und nur genommen, wenn die Marke
-  genau an der Markierung steht (Review-Runde 1 von #121), sonst Ablehnung. `term_correction_dialog.rb`
+  genau an der Markierung steht (Review-Runde 1 von #121), sonst Ablehnung. Eine im Dialog geänderte
+  Form bekommt denselben Beweis (`#place_of`), und „überall“ gibt es nur, wenn die Seite mit je
+  einer eigenen Marke für JEDEN Treffer unverändert bleibt (`#everywhere?`, Runde 2): ein Treffer
+  im Link-Ziel lässt nur „nur hier“. `term_correction_dialog.rb`
   ist, was der Dialog zeigt (Stelle, Zahl, Sprecher, Digest), geteilt von `new`, `count`, `create`.
 * `people/` — `directory.rb`, das Lese-Objekt der Personenliste (seit 26.10.2026): Mitglieder
   über `MembershipPolicy::Scope` (dieselbe Reichweite wie die Mitgliederseite), dazu die

@@ -70,8 +70,8 @@ RSpec.describe 'Organisations::MeetingTermCorrections', :ci_guard, type: :reques
   end
 
   def correction_params(scope: 'everywhere', correct: 'Lalabase', heard: 'Lalabeis', speaker_id: ben.id, to_glossary: '1',
-                        with_digest: digest)
-    { modal_token: modal_token, mark: browser_mark, digest: with_digest, scope: scope,
+                        with_digest: digest, mark: nil)
+    { modal_token: modal_token, mark: mark || browser_mark, digest: with_digest, scope: scope,
       term_correction: { heard: heard, correct: correct, speaker_id: speaker_id, to_glossary: to_glossary } }
   end
 
@@ -215,6 +215,52 @@ RSpec.describe 'Organisations::MeetingTermCorrections', :ci_guard, type: :reques
       expect(response).to have_http_status(:ok)
       expect(TermCorrection.count).to eq(1)
     end
+  end
+
+  # Review round 2 of #121: "everywhere" replaces every stored match, so the
+  # page has to show each of them. A match the page hides (a link target)
+  # leaves only "only here", in the dialog and in the write.
+  describe 'a match the page does not show' do
+    let(:transcript) { "Anna: Wir testen Lalabeis heute.\nBen: siehe [Wiki](https://example.com/Lalabeis) ok" }
+
+    it 'offers only "only here", and says why' do
+      sign_in writer('manage_glossary')
+      get new_path(mark: browser_mark('Lalabeis', nth: 0)), headers: frame
+
+      expect(page_markup).to have_button(I18n.t("#{tc}.here"))
+      expect(page_markup).not_to have_button(I18n.t("#{tc}.everywhere", count: 2))
+      expect(page_markup).to have_text(I18n.t("#{tc}.count.everywhere_hidden"))
+    end
+
+    it 'refuses everywhere and writes nothing, and corrects only here' do
+      sign_in writer('manage_glossary')
+      post organisation_project_meeting_term_correction_path(organisation, project, meeting),
+           params: correction_params(mark: browser_mark('Lalabeis', nth: 0)), headers: stream
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(stream_markup('replace', "meeting-term-correction-modal-#{meeting.id}-#{modal_token}"))
+        .to have_text(I18n.t("#{tc}.count.everywhere_hidden"))
+      expect(meeting.reload.transcript).to eq(transcript)
+
+      post organisation_project_meeting_term_correction_path(organisation, project, meeting),
+           params: correction_params(scope: 'here', mark: browser_mark('Lalabeis', nth: 0)), headers: stream
+
+      expect(response).to have_http_status(:ok)
+      expect(meeting.reload.transcript).to eq("Anna: Wir testen Lalabase heute.\nBen: siehe [Wiki](https://example.com/Lalabeis) ok")
+    end
+  end
+
+  # Review round 2 of #121: the server reads the page through the meeting's
+  # participants. Bolding a speaker drops the space before the colon
+  # ("Anna : " shows as "Anna: "), so without them the text would differ and
+  # the mark would not be found.
+  it 'finds a mark behind a speaker label the page writes differently than the transcript' do
+    meeting.update_columns(transcript: "Anna : Wir nutzen Lalabeis heute.\n")
+    sign_in writer
+    get new_path(mark: browser_mark('Lalabeis', nth: 0)), headers: frame
+
+    expect(page_markup).to have_field('term_correction[heard]', with: 'Lalabeis')
+    expect(page_markup).to have_button(I18n.t("#{tc}.here"))
   end
 
   describe 'the count' do

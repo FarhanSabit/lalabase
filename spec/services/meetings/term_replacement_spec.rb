@@ -73,6 +73,14 @@ RSpec.describe Meetings::TermReplacement do
       expect(count("Lalabeis\u200E und \u200BLalabeis", 'Lalabeis')).to eq(2)
     end
 
+    # Review round 2 of #121: the same rule before the form as after it, and
+    # up to MAX_INVISIBLE_RUN characters that show nothing on either side.
+    it 'reads characters that show nothing before the form as part of the word too, up to the same run on both sides' do
+      expect(count("Konto\u200BLalabeis", 'Lalabeis')).to eq(0)
+      expect(count("Konto\u200B\u200B\u200BLalabeis und Lalabeis\u200B\u200B\u200BKonto", 'Lalabeis')).to eq(0)
+      expect(count("Wir \u200BLalabeis\u200B ok", 'Lalabeis')).to eq(1)
+    end
+
     it 'counts digits of every script as part of a word' do
       expect(count('Raum 12 und Raum 123', 'Raum 12')).to eq(1)
       expect(count("Lalabeis\u0663 und Lalabeis", 'Lalabeis')).to eq(1)

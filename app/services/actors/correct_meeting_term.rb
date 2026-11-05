@@ -15,7 +15,10 @@
 # * The place comes from the client (through Meetings::TranscriptMark) and is
 #   only taken where the heard form stands as an occurrence
 #   (Meetings::TermReplacement#at): never in a speaker label, never part of a
-#   longer word.
+#   longer word. That the page shows it there is the caller's proof
+#   (Meetings::TranscriptMark#place_of), as is, for "everywhere", that the
+#   page shows every occurrence this writes (#everywhere?, review round 2 of
+#   #121: a match in a link target changed unseen).
 # * The transcript is written through Actors::SaveMeeting (derived text,
 #   search, fragments as for an edit). On "everywhere" the AI summary gets the
 #   same replacement; it stays in either case (keep_summary: true, the one
@@ -88,7 +91,7 @@ module Actors
     attr_reader :current_user
 
     def refuse(code)
-      raise ActorError.new(I18n.t("services.actors.correct_meeting_term.#{code}"), code: code)
+      raise ActorError.new(I18n.t("services.actors.correct_meeting_term.#{code}", max: GlossaryTerm::MAX_LENGTH), code: code)
     end
 
     def check_forms

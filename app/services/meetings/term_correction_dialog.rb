@@ -42,25 +42,45 @@ module Meetings
       @client_digest.present? && @client_digest != digest
     end
 
-    # mark_error: nil, or why the mark has no place (Meetings::TranscriptMark's
-    # codes). place: the marked span in the stored transcript, or nil.
-    delegate :error, :place, to: :mark_result, prefix: false
-    alias mark_error error
+    # nil, or why the mark itself has no place (Meetings::TranscriptMark's
+    # codes): then the dialog offers no form at all.
+    def mark_error
+      mark_result.error
+    end
+
+    # nil, or why the heard form as typed has no place at the mark
+    # (not_at_mark, ambiguous): then the dialog offers no button.
+    def heard_error
+      heard_result&.error
+    end
+
+    # The place of the heard form at the mark in the stored transcript, proved
+    # on the page (Meetings::TranscriptMark#place_of), or nil.
+    def place
+      heard_result&.place
+    end
 
     def heard_blank?
       @heard.strip.empty?
     end
 
-    # The occurrence of the heard form at the mark, or nil: then nothing can
-    # be replaced (the form was changed into one that does not stand there).
+    # The occurrence of the heard form at that place, or nil: then nothing can
+    # be replaced.
     def occurrence
-      return if place.nil? || heard_blank?
+      return if place.nil?
 
       @occurrence ||= replacement.at(**place.to_h)
     end
 
     def correctable?
       !occurrence.nil?
+    end
+
+    # Whether "everywhere" may run: the page shows every occurrence of the
+    # heard form (Meetings::TranscriptMark#everywhere?). A match the page hides,
+    # a link target say, leaves only "only here".
+    def everywhere?
+      correctable? && transcript_mark.everywhere?(@heard)
     end
 
     delegate :count, to: :replacement
@@ -77,9 +97,19 @@ module Meetings
 
     private
 
+    def transcript_mark
+      @transcript_mark ||= TranscriptMark.new(transcript: @transcript, render: @render, participants: @participants,
+                                              **@mark.slice(:text, :before, :after, :offset))
+    end
+
     def mark_result
-      @mark_result ||= TranscriptMark.resolve(transcript: @transcript, render: @render,
-                                              participants: @participants, **@mark.slice(:text, :before, :after, :offset))
+      transcript_mark.resolve
+    end
+
+    def heard_result
+      return if mark_error || heard_blank?
+
+      @heard_result ||= transcript_mark.place_of(@heard)
     end
 
     def replacement
