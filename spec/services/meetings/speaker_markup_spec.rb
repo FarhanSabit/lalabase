@@ -120,4 +120,28 @@ RSpec.describe Meetings::SpeakerMarkup do
       expect(mark(text, ['Bert Bauer', 'Karl Krause'])).to eq(text)
     end
   end
+  # The label of one line (K4b): what Meetings::TermReplacement never replaces
+  # and reads the speaker from. The same participant list decides, in the plain
+  # and in the already bolded form.
+  describe '#label' do
+    def label(line, names = ['Samira Barati'])
+      described_class.new(text: '', participant_names: names).label(line)
+    end
+
+    it 'gives where a plain label ends and the name it gives' do
+      expect(label('Samira: Diese Tickets.').to_h).to eq(ends_at: 7, name: 'Samira')
+      expect(label('  Samira Barati (Speaker 2): Ja.').to_h).to eq(ends_at: 28, name: 'Samira Barati')
+    end
+
+    it 'reads a bolded label in both forms' do
+      expect(label('**Samira:** Ja.').to_h).to eq(ends_at: 11, name: 'Samira')
+      expect(label('**Samira**: Ja.').to_h).to eq(ends_at: 11, name: 'Samira')
+    end
+
+    it 'is nothing for prose before a colon, a bolded lead-in or a line without a colon' do
+      expect(label('Problem: Die Belege fehlen.')).to be_nil
+      expect(label('**Fazit:** Getränke bestellt.')).to be_nil
+      expect(label('Samira sagt ja.')).to be_nil
+    end
+  end
 end

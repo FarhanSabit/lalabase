@@ -34,6 +34,16 @@ module Meetings
     # rendered with its suffix intact, so nothing is lost on screen.
     DIARISATION_SUFFIX = /\s*\((?:(?:speaker|sprecher)\s*\d+|\?)\)\s*\z/i
 
+    # The label as the tools sometimes emit it, already bolded: "**Samira:**"
+    # or "**Samira**:". mark leaves such a line as it is; #label reads it,
+    # because the page shows it as a label too.
+    BOLD_SPEAKER_LINE = /\A(\s*)\*\*([^:*\n]{1,#{MAX_LABEL_LENGTH}}?)\s*(?::\*\*|\*\*\s*:)/
+
+    # A speaker label at the start of a line: where it ends (the character
+    # after its colon, and after the closing ** of a bolded one) and the name
+    # it gives, without a diarisation suffix.
+    Label = Data.define(:ends_at, :name)
+
     def self.call(...)
       new(...).call
     end
@@ -47,6 +57,17 @@ module Meetings
       return text if text.blank? || lookup.empty?
 
       text.each_line.map { |line| mark(line) }.join
+    end
+
+    # The speaker label at the start of one line, or nil: the rule mark bolds
+    # by, against the same participant list, so nothing counts as a label that
+    # the page does not show as one. Meetings::TermReplacement never replaces
+    # inside it and reads the speaker of a line from it (K4b).
+    def label(line)
+      match = SPEAKER_LINE.match(line) || BOLD_SPEAKER_LINE.match(line)
+      return if match.nil? || !speaker?(match[2])
+
+      Label.new(ends_at: match.end(0), name: match[2].sub(DIARISATION_SUFFIX, '').strip)
     end
 
     private
