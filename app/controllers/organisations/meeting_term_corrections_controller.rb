@@ -102,7 +102,7 @@ module Organisations
     def build_dialog(heard:)
       Meetings::TermCorrectionDialog.new(
         transcript: @meeting.transcript, participants: participants, mark: mark_param, heard: heard,
-        displayed_html: helpers.meeting_transcript_html(@meeting, participants), digest: scalar_param(:digest)
+        render: ->(text) { helpers.meeting_transcript_html(text, participants) }, digest: scalar_param(:digest)
       )
     end
 

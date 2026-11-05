@@ -198,9 +198,12 @@ Verzeichnis-Übersicht (Auswahl):
   und Ersetzen einer gehörten Form (ganze Wörter nach Unicode, NICHT `\b`; Fall wie markiert;
   mehrere Wörter nur innerhalb der Zeile; nie in der Sprecherbezeichnung, deren Regel
   `speaker_markup.rb#label` mit dem Fettsetzen teilt; nie im Frontmatter). `#occurrences` speist
-  Dialog und Ersetzung zugleich. `transcript_mark.rb` findet eine Markierung des Browsers im
-  GESPEICHERTEN Transkript: Text der Seite aus demselben HTML (`MeetingsHelper#meeting_transcript_html`),
-  n-ter Treffer dort = n-ter Treffer im Speicher, sonst Ablehnung. `term_correction_dialog.rb`
+  Dialog und Ersetzung zugleich; Unsichtbares (`GlossaryText::INVISIBLE`) verbindet wie ein Buchstabe.
+  `transcript_mark.rb` findet eine Markierung des Browsers im GESPEICHERTEN Transkript: Text der
+  Seite aus derselben Darstellung (`MeetingsHelper#meeting_transcript_html`), n-ter Treffer dort =
+  n-ter Treffer im Speicher. ⚠️ Gleiche Zahl ist kein Beweis (Link-Ziel versteckt, Entität erzeugt):
+  der Treffer wird mit einer Marke an seiner Stelle neu dargestellt und nur genommen, wenn die Marke
+  genau an der Markierung steht (Review-Runde 1 von #121), sonst Ablehnung. `term_correction_dialog.rb`
   ist, was der Dialog zeigt (Stelle, Zahl, Sprecher, Digest), geteilt von `new`, `count`, `create`.
 * `people/` — `directory.rb`, das Lese-Objekt der Personenliste (seit 26.10.2026): Mitglieder
   über `MembershipPolicy::Scope` (dieselbe Reichweite wie die Mitgliederseite), dazu die

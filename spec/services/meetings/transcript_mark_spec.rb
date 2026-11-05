@@ -15,13 +15,14 @@ RSpec.describe Meetings::TranscriptMark do
 
   let(:participants) { [participant('Anna Ananas'), participant('Ben Birne')] }
 
-  def displayed_html(transcript)
-    ApplicationController.helpers.meeting_transcript_html(Struct.new(:transcript).new(transcript), participants)
+  # The page's own rendering of a transcript text, as the controller hands it in.
+  def render
+    ->(text) { ApplicationController.helpers.meeting_transcript_html(text, participants) }
   end
 
   # The text the browser shows: what the content element of the page holds.
   def visible(transcript)
-    Nokogiri::HTML5.fragment(displayed_html(transcript)).text
+    Nokogiri::HTML5.fragment(render.call(transcript)).text
   end
 
   # What the browser sends for the nth (0-based) place of `mark` in the text
@@ -33,7 +34,7 @@ RSpec.describe Meetings::TranscriptMark do
   end
 
   def resolve(transcript, **mark)
-    described_class.resolve(transcript: transcript, displayed_html: displayed_html(transcript), participants: participants, **mark)
+    described_class.resolve(transcript: transcript, render: render, participants: participants, **mark)
   end
 
   let(:transcript) do
@@ -99,6 +100,48 @@ RSpec.describe Meetings::TranscriptMark do
     text = "Ben: [Seite](https://example.com/lalabeis) und lalabeis.\n"
 
     expect(resolve(text, **browser_mark(text, 'lalabeis')).error).to eq(:ambiguous)
+  end
+
+  # Review round 1 of #121: Markdown can hide one match (a link target, a
+  # reference definition, a tag the sanitizer drops) and show another (an
+  # entity, a link text right at the word). The counts agree, the order does
+  # not, and the n-th match was another word. The match is put back through the
+  # page's own rendering with a marker in its place; only where the marker
+  # shows at the mark with everything around it unchanged is it taken.
+  describe 'Markdown that hides one match and shows another' do
+    it 'refuses a mark the stored text holds elsewhere (entity shown, reference target hidden)' do
+      text = "Anna: &#76;alabeis ist neu.\nBen: Lalabeis ist gut.\n\n[x]: https://example.com/Lalabeis"
+
+      expect(resolve(text, **browser_mark(text, 'Lalabeis', nth: 0)).error).to eq(:ambiguous)
+      expect(resolve(text, **browser_mark(text, 'Lalabeis', nth: 1)).error).to eq(:ambiguous)
+    end
+
+    it 'refuses a mark that would land in a link target (target hidden, link text at the word shown)' do
+      text = "Anna: Siehe [Wiki](https://example.com/Lalabeis) und [Lala](https://example.com)beis heute.\nBen: Lalabeis ist gut."
+
+      expect(resolve(text, **browser_mark(text, 'Lalabeis', nth: 0)).error).to eq(:ambiguous)
+    end
+
+    it 'refuses a mark that would land in a tag the page drops' do
+      text = "Anna: <Lalabeis> und &#76;alabeis.\nBen: ok"
+
+      expect(resolve(text, **browser_mark(text, 'Lalabeis', nth: 0)).error).to eq(:ambiguous)
+    end
+
+    it 'still finds a word in a link text, a bold word and a word after an entity' do
+      text = "Ben: Siehe [Lalabeis](https://example.com/wiki) heute.\nAnna: **Lalabeis** &amp; Lalabeis."
+
+      places = (0..2).map { |nth| resolve(text, **browser_mark(text, 'Lalabeis', nth: nth)).place&.to_h&.values_at(:line_index, :char_offset) }
+      expect(places).to eq([[0, 12], [1, 8], [1, 25]])
+    end
+  end
+
+  it 'takes the context after the mark into account as well as the one before it' do
+    text = "Ben: ja Lalabeis heute\nBen: ja Lalabeis morgen\n"
+
+    result = resolve(text, text: 'Lalabeis', before: 'ja ', after: ' heute', offset: 0)
+
+    expect(result.place.to_h.values_at(:line_index, :char_offset)).to eq([0, 8])
   end
 
   it 'refuses a mark over a line break and a mark too long for the glossary' do

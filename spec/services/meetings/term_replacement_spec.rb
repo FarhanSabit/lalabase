@@ -64,6 +64,15 @@ RSpec.describe Meetings::TermReplacement do
       expect(count('Läuft das auf Version 2.0?', '2.0?')).to eq(1)
     end
 
+    # Review round 1 of #121: what shows nothing (GlossaryText::INVISIBLE: a
+    # zero-width space, a soft hyphen, a bidi mark) joins what stands around it,
+    # as the reader sees it and as the glossary compares it.
+    it 'reads characters that show nothing as part of the word around them' do
+      expect(count("Das Lalabeis\u200BKonto", 'Lalabeis')).to eq(0)
+      expect(count("Lala\u00ADbeis", 'Lala')).to eq(0)
+      expect(count("Lalabeis\u200E und \u200BLalabeis", 'Lalabeis')).to eq(2)
+    end
+
     it 'counts digits of every script as part of a word' do
       expect(count('Raum 12 und Raum 123', 'Raum 12')).to eq(1)
       expect(count("Lalabeis\u0663 und Lalabeis", 'Lalabeis')).to eq(1)

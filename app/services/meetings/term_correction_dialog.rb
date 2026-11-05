@@ -22,9 +22,10 @@ module Meetings
     # mark: { text:, before:, after:, offset: } as the browser sent it.
     # heard: the heard form as typed, nil for the first opening (the mark itself).
     # digest: the digest the browser brought (the page's, or the dialog's last count).
-    def initialize(transcript:, displayed_html:, participants:, mark:, heard:, digest:)
+    # render: the page's own rendering of a transcript text (see Meetings::TranscriptMark).
+    def initialize(transcript:, render:, participants:, mark:, heard:, digest:)
       @transcript = transcript.to_s
-      @displayed_html = displayed_html
+      @render = render
       @participants = participants
       @mark = mark
       @heard = heard.nil? ? mark[:text].to_s.strip : heard.to_s
@@ -77,7 +78,7 @@ module Meetings
     private
 
     def mark_result
-      @mark_result ||= TranscriptMark.resolve(transcript: @transcript, displayed_html: @displayed_html,
+      @mark_result ||= TranscriptMark.resolve(transcript: @transcript, render: @render,
                                               participants: @participants, **@mark.slice(:text, :before, :after, :offset))
     end
 

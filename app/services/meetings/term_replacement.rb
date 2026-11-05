@@ -27,6 +27,12 @@ module Meetings
   class TermReplacement
     # A letter (with its combining marks) or a digit of any script.
     WORD_CHARACTER = '[\p{L}\p{M}\p{N}]'
+    # What shows nothing (a zero-width space, a soft hyphen, a bidi mark: the
+    # set GlossaryText drops) joins what stands around it, as the reader sees
+    # it: "Lalabeis<zero-width space>Konto" reads as one word. The boundary
+    # looks past it, before the form up to two such characters (a look-behind
+    # has a fixed width), after it any number.
+    INVISIBLE = GlossaryText::INVISIBLE.source
     # Between the words of a form: horizontal whitespace only.
     WORD_GAP = '[[:blank:]]+'
 
@@ -142,7 +148,8 @@ module Meetings
 
     def pattern
       body = @words.map { |word| Regexp.escape(word) }.join(WORD_GAP)
-      Regexp.new("(?<!#{WORD_CHARACTER})#{body}(?!#{WORD_CHARACTER})")
+      before = "(?<!#{WORD_CHARACTER})(?<!#{WORD_CHARACTER}#{INVISIBLE})(?<!#{WORD_CHARACTER}#{INVISIBLE}#{INVISIBLE})"
+      Regexp.new("#{before}#{body}(?!#{INVISIBLE}*#{WORD_CHARACTER})")
     end
 
     # The frontmatter's lines are no content: nobody sees or marks them. A

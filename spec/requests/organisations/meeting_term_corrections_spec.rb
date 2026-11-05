@@ -53,7 +53,7 @@ RSpec.describe 'Organisations::MeetingTermCorrections', :ci_guard, type: :reques
 
   # What the browser sends for the nth place of `text` in the text the page shows.
   def browser_mark(text = 'Lalabeis', nth: 1)
-    html = ApplicationController.helpers.meeting_transcript_html(meeting.reload, meeting.meeting_participants.in_row_order.to_a)
+    html = ApplicationController.helpers.meeting_transcript_html(meeting.reload.transcript, meeting.meeting_participants.in_row_order.to_a)
     shown = Nokogiri::HTML5.fragment(html).text
     start = shown.to_enum(:scan, text).map { Regexp.last_match.begin(0) }.fetch(nth)
     { text: text, before: shown[[start - 40, 0].max...start], after: shown[start + text.length, 40], offset: start }
@@ -338,6 +338,22 @@ RSpec.describe 'Organisations::MeetingTermCorrections', :ci_guard, type: :reques
         expect(response).to have_http_status(:forbidden)
         expect(meeting.reload.transcript).to eq(transcript)
       end
+    end
+
+    # The area gate of ProjectController (every action here is a write) stands
+    # in front of Pundit: a reader stays out even where the policy would let
+    # them in (review round 1 of #121: nothing tested the gate on its own).
+    it 'keeps a reader out at the area gate, before the policy is asked' do
+      sign_in writer('manage_glossary', access: :read_only)
+      allow_any_instance_of(MeetingPolicy).to receive(:update?).and_return(true)
+
+      get new_path, headers: frame
+      expect(response).to have_http_status(:forbidden)
+      get count_path
+      expect(response).to have_http_status(:forbidden)
+      post_correction
+      expect(response).to have_http_status(:forbidden)
+      expect(meeting.reload.transcript).to eq(transcript)
     end
 
     it 'answers 403 in an archived project to a writer' do

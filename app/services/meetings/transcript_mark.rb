@@ -10,17 +10,25 @@
 # So the browser sends what the reader marked, up to CONTEXT_LENGTH
 # characters of the text the page shows before and after it, and how many
 # characters of that text stand before it. This class reads the same text out
-# of the same HTML (MeetingsHelper#meeting_transcript_html), finds the mark
-# there (the offset first, the context as its proof; else the one place with
-# that context), asks which whole-word match of the form it is, and takes the
-# match with the same number in the stored transcript
+# of the same rendering (MeetingsHelper#meeting_transcript_html), finds the
+# mark there (the offset first, the context as its proof; else the one place
+# with that context), asks which whole-word match of the form it is, and
+# takes the match with the same number in the stored transcript
 # (Meetings::TermReplacement#scan, the rule of counting and replacing).
+#
+# The same number is no proof. Markdown can hide one match (a link target, a
+# reference definition, a tag the sanitizer drops) and show another (an
+# entity, a link text right at the word): the counts agree, the order does
+# not (review round 1 of #121). So the match found is put back through the
+# page's own rendering with a marker in its place, and it is taken only when
+# the page then shows the marker exactly where the reader marked, with all
+# the rest of its text unchanged.
 #
 # It refuses rather than guesses:
 # * not_found: no place shows the mark with its context, or several do;
 # * not_a_word: the mark is part of a longer word;
 # * ambiguous: the page and the stored text hold the form a different number
-#   of times (Markdown hid some of it, a link target or an escaped sign);
+#   of times, or the match with the same number does not show at the mark;
 # * speaker_label: the mark stands in the speaker label of its line;
 # * line_break, too_long: no heard form at all.
 #
@@ -45,12 +53,13 @@ module Meetings
       new(**).resolve
     end
 
-    # transcript: as stored. displayed_html: what the page shows of it.
-    # participants: the meeting's (anything with a display_name). text,
-    # before, after: strings from the browser. offset: an Integer or nil.
-    def initialize(transcript:, displayed_html:, participants:, text:, before:, after:, offset:)
+    # transcript: as stored. render: what the page shows for a transcript
+    # text, as HTML (a callable; the caller hands in the page's own
+    # rendering). participants: the meeting's (anything with a display_name).
+    # text, before, after: strings from the browser. offset: an Integer or nil.
+    def initialize(transcript:, render:, participants:, text:, before:, after:, offset:)
       @transcript = transcript.to_s
-      @displayed_html = displayed_html.to_s
+      @render = render
       @participants = participants
       raw = text.to_s
       lead = raw[/\A[[:space:]]*/]
@@ -80,20 +89,35 @@ module Meetings
       ordinal = shown.index { |match| match.line_index == line_index && match.byte_offset == column }
       return refuse(:not_a_word) unless ordinal
 
-      stored = TermReplacement.new(text: @transcript, heard: @mark, participants: @participants).scan
-      return refuse(:ambiguous) unless stored.size == shown.size
+      stored = TermReplacement.new(text: @transcript, heard: @mark, participants: @participants)
+      return refuse(:ambiguous) unless stored.scan.size == shown.size
 
-      match = stored[ordinal]
+      match = stored.scan[ordinal]
       return refuse(:speaker_label) if match.in_label
+      return refuse(:ambiguous) unless shows_at_mark?(stored, match, start)
 
       Result.new(place: Place.new(line_index: match.line_index, char_offset: match.char_offset, length: match.length),
                  error: nil)
     end
 
+    # The proof of the number: the stored match, replaced by a marker and
+    # shown through the page's own rendering, shows the marker exactly at the
+    # mark, and every other character of the page as before. The marker is
+    # letters and digits only, so Markdown reads it as the word it replaces.
+    def shows_at_mark?(stored, match, start)
+      marker = "Q#{SecureRandom.alphanumeric(16)}Q"
+      shown = text_of(@render.call(stored.replace(with: marker, only: match).text))
+      shown == visible.byteslice(0, start) + marker + visible.byteslice(start + @mark.bytesize, visible.bytesize)
+    end
+
     # The text the content element of the page holds, as the browser reads it
     # (the text of every node, in order).
     def visible
-      @visible ||= Nokogiri::HTML5.fragment(@displayed_html).text
+      @visible ||= text_of(@render.call(@transcript))
+    end
+
+    def text_of(html)
+      Nokogiri::HTML5.fragment(html.to_s).text
     end
 
     # Where the mark starts in the text the page shows, in bytes, or nil.
