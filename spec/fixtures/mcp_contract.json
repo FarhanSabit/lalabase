@@ -1,9 +1,9 @@
 {
   "header": {
     "regenerate": "RAILS_ENV=test bin/rails mcp:contract",
-    "core_commit": "342bf6487429ef66ef582afd4f2aee945a6805a7",
+    "core_commit": "1b559aed3f6d4c198aa631095001125802a8f5cd",
     "core_dirty": false,
-    "contract_sha256": "7d8ba697a5e4d1dd561bd96f8b8b8d4b0a2603276cf391cd66a457233e68a903"
+    "contract_sha256": "7f1c42373ac9e2a150e1b17fd96d2a09c65ca6a63032d0c10b38f436bd92e3f9"
   },
   "contract": {
     "mcp": {
@@ -805,14 +805,11 @@
                       },
                       "page": {
                         "type": "integer",
-                        "minimum": 1,
-                        "description": "Page of terms, 1-based."
+                        "description": "Page of terms, from 1."
                       },
                       "per_page": {
                         "type": "integer",
-                        "minimum": 1,
-                        "maximum": 100,
-                        "description": "Terms per page (default 50)."
+                        "description": "Terms per page, from 1 to 100 (default 50)."
                       }
                     },
                     "required": [
@@ -5180,7 +5177,7 @@
                   "content": [
                     {
                       "type": "text",
-                      "text": "Invalid arguments: number at `/per_page` is greater than: 100"
+                      "text": "ungültiger Wert für per_page \"101\" (erwartet ist eine ganze Zahl von 1 bis 100)"
                     }
                   ],
                   "isError": true,
