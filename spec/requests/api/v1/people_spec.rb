@@ -177,8 +177,19 @@ RSpec.describe 'API V1 people', :ci_guard, type: :request do
       list(per_page: '9' * 5000)
 
       expect(response).to have_http_status(:bad_request)
-      expect(body['message']).to start_with('invalid per_page "999')
+      expect(body['message']).to start_with('ungültiger Wert für per_page "999')
       expect(body['message'].length).to be < 100
+    end
+
+    # One wording for every list that refuses a page value (ListPaging.strict_number), the
+    # glossary's, in the token owner's language.
+    it 'names the refused value in the language of the token owner' do
+      list(per_page: '101')
+      expect(body['message']).to eq('ungültiger Wert für per_page "101" (erwartet ist eine ganze Zahl von 1 bis 100)')
+
+      user.update!(language_preference: 'en')
+      list(page: '0')
+      expect(body['message']).to eq('invalid page "0" (expected a whole number from 1 to 100000)')
     end
 
     it 'answers a page past the end with no rows and the total' do
@@ -213,11 +224,13 @@ RSpec.describe 'API V1 people', :ci_guard, type: :request do
     end
 
     # A list or a nested value is no number and no text either: 400, never a 500 from code that
-    # expected a string, and the message names the parameter without Ruby's insides.
+    # expected a string, and the message names the parameter without Ruby's insides (read in
+    # English, where it starts with the parameter).
     { page: [['2'], { 'a' => '1' }], per_page: [['2'], { 'a' => '1' }], q: [['doris'], { 'a' => 'x' }] }
       .each do |name, values|
         values.each do |value|
           it "refuses #{name} given as a #{value.class.name.downcase} with invalid_input" do
+            user.update!(language_preference: 'en')
             list(name => value)
 
             expect(response).to have_http_status(:bad_request)

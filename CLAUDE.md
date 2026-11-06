@@ -834,6 +834,13 @@ feature by feature):
 * ⚠️ **A `rescue_from` handler runs outside the token owner's language**: the action's
   `around_action :with_token_owner_locale` has ended by then. A text built at the raise is right;
   one built in the handler needs `with_token_owner_locale { ... }` (`TermsController#glossary_forbidden`).
+* **One strict reading of a page value**: the lists that refuse a `page`/`per_page` they cannot
+  read (the glossary on both doors; over REST the people directory, knowledge and meetings) read it
+  through `ListPaging.strict_number`: a whole number from 1 to the maximum (as text digits only,
+  as a JSON number also `2.0`), absent or empty the default, one wording in the token owner's
+  language. Each door keeps its own error class and status (400 or 422). A new strict list uses it;
+  the inbox, the posts of a ticket and `list_projects` keep rules of their own (they clamp).
+  Guard: `spec/services/list_paging_spec.rb`.
 * **`GET /api/v1/me`** names `api_version` and `capabilities` from `Api::V1::Capabilities`,
   pinned against the routes both ways (`spec/requests/api/v1/capabilities_spec.rb`): a new
   endpoint adds its line there. Additive changes bump the minor.

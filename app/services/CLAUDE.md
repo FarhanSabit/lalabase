@@ -28,7 +28,9 @@ Verzeichnis-Übersicht (Auswahl):
   Serialisierung mit dem Link aus `Documentation::KnowledgeLink`. Ohne Suchwort listet es
   alles Lesbare (nur REST nutzt das, MCP verlangt `q`). `.options(args, strict:)`: MCP liest
   Unlesbares als Standard und klemmt `per_page`, REST (`strict: true`) lehnt ab
-  (`InvalidOption`, 422). Eine neue Such- oder Seitenregel gehört hierher, nicht in eine Hülle.
+  (`InvalidOption`, 422), Seitenwerte über `ListPaging.strict_number` (Regel und Text aller
+  strengen Listen). Eine neue Suchregel gehört hierher, eine neue strenge Seitenregel nach
+  `list_paging.rb`, keine in eine Hülle.
 * `time_sessions/` — Lese-Objekte der Zeitdomäne. `viewing_scope.rb` ist der EINE Besitzer der
   Regel „eigene oder alle Zeiten" (`:all`/`:own`/`:none` plus `#apply(relation)`), die
   `ProjectPolicy#area_access?(:time_sessions)` nicht ausdrücken kann (`can_view_own ||
@@ -262,7 +264,13 @@ Verzeichnis-Übersicht (Auswahl):
   REST and MCP via `Tickets::Filter`, the time session lists of `/api/v1`). A string that is no
   number stays the default, as before; refused (`InvalidArgument`, REST 400, MCP invalid input)
   are only a page above `MAX_PAGE` (its offset left bigint) and a list or a hash, which
-  raised into a 500. Inbox and knowledge keep their own strict rule.
+  raised into a 500. Since 06.11.2026 also the strict reading, `.strict_number`: a whole number
+  from 1 to max (text digits only; a JSON number also `2.0`), absent or empty the default,
+  anything else refused with one wording in DE and EN (`services.list_paging.invalid_number`,
+  the value quoted only in part). The glossary (`Glossary::Lookup`), the people directory over
+  REST and knowledge and meetings over REST (`Knowledge::Lookup`, `strict: true`) read through
+  it, each raising its own error class. The inbox, the posts of a ticket (`Tickets::Reading`)
+  and `list_projects` keep their own rules (they clamp).
 * `posts/` — `comment.rb` (REST R3a, 29.10.2026) is the ONE rule of a comment written through
   a token: the MCP tool `post_comment` and `POST /api/v1/tickets/:ticket_id/posts` call it.
   `parse` (format `html`/`plain`, valid UTF-8, no NUL in plain, `plain_text_body.rb`, empty
