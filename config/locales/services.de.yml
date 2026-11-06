@@ -128,6 +128,12 @@ de:
       # unknown, missing endpoint, invalid access), the raw English exception must
       # not end up in the user-visible summary_creation_error column.
       provider_error: "Der gewählte KI-Anbieter konnte keine Zusammenfassung erstellen. Bitte prüfen Sie Anbieter, Modell und Zugang in den KI-Einstellungen."
+    # The refusals of the glossary read through a token (Glossary::Lookup), on
+    # both doors: GET /api/v1/organisations/:id/terms and the MCP tool get_glossary.
+    glossary:
+      lookup:
+        forbidden: Sie dürfen das Glossar dieser Organisation nicht lesen.
+        invalid_number: "ungültiger Wert für %{name}%{shown} (erwartet ist eine ganze Zahl von 1 bis %{max})"
     meetings:
       intake:
         meeting_inbox_missing: Ohne Projekt braucht die Organisation ein Eingangsprojekt. Dort ist keines gesetzt.

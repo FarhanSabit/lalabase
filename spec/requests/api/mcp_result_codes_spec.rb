@@ -349,7 +349,9 @@ RSpec.describe 'MCP answers carry a machine field', :ci_guard, type: :request do
       ['find_people', -> { { organisation_id: organisation.id, kind: 'member' } }, /kind must be one of/, :direct],
       ['get_person', -> { { organisation_id: 'oops', id: 'person:x' } }, /invalid organisation_id/],
       ['get_person', -> { { organisation_id: organisation.id, id: ' ' } }, /id is required/],
-      ['get_person', -> { { organisation_id: organisation.id, id: 'abc' } }, /invalid id/]
+      ['get_person', -> { { organisation_id: organisation.id, id: 'abc' } }, /invalid id/],
+      ['get_glossary', -> { { organisation_id: ' ' } }, /organisation_id is required/],
+      ['get_glossary', -> { { organisation_id: organisation.id, query: 'lala' } }, /unknown arguments: query/]
     ]
 
     error_sites.each do |tool, arguments, text, mode|

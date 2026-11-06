@@ -21,8 +21,9 @@ module Api
       # comment's attachments (R7), a field and no capability: a client takes
       # its presence as the signal; 1.9.0 adds meetings.create and the field
       # meeting_inbox on projects.list; 1.10.0 adds meetings.list and meetings.show
-      # (R8).
-      API_VERSION = '1.10.0'
+      # (R8); 1.11.0 adds terms.list, the working terms of an organisation's
+      # glossary (K4c).
+      API_VERSION = '1.11.0'
 
       # name => [verb, path as the router spells it]
       ENDPOINTS = {
@@ -31,6 +32,7 @@ module Api
         'people.list' => ['GET', '/api/v1/organisations/:organisation_id/people'],
         'people.show' => ['GET', '/api/v1/organisations/:organisation_id/people/:id'],
         'meetings.create' => ['POST', '/api/v1/organisations/:organisation_id/meetings'],
+        'terms.list' => ['GET', '/api/v1/organisations/:organisation_id/terms'],
         'projects.list' => ['GET', '/api/v1/projects'],
         'projects.ticket_attribute_definitions' => ['GET', '/api/v1/projects/:id/ticket_attribute_definitions'],
         'knowledge.search' => ['GET', '/api/v1/projects/:project_id/knowledge'],

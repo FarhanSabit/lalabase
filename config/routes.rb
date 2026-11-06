@@ -953,6 +953,8 @@ Rails.application.routes.draw do
         # A meeting, under the organisation because the project may be missing
         # (it then lands in the organisation's inbox project).
         resources :meetings, only: %i[create]
+        # K4c: the glossary of one organisation (its working terms), read only.
+        resources :terms, only: %i[index]
       end
       get 'time_sessions/open', to: 'time_sessions#open'
       resources :projects, only: %i[index] do

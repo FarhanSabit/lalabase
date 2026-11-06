@@ -176,6 +176,23 @@ class PersonalAccessToken < ApplicationRecord
     link && OrganisationScope.new(organisation_id: link.organisation_id, all_projects: link.all_projects?)
   end
 
+  # Whether this token names the organisation (a link, or with all_organisations
+  # every organisation of its owner) while the owner's membership there is
+  # deactivated. Such an organisation is outside the reach (#organisation_scopes
+  # counts ACTIVE memberships only) and stays so: this opens nothing. It only lets
+  # a door refuse it as the missing right of an inactive member instead of
+  # answering "not found", for an organisation the holder knows anyway (K4c, the
+  # glossary's 403). A removed membership is no inactive membership: false.
+  # Tenant-free, like #organisation_scope_for.
+  def deactivated_member_of?(organisation_id)
+    return false if organisation_id.blank?
+
+    inactive = Membership.inactive.where(user_id: user_id, organisation_id: organisation_id)
+    return inactive.exists? if all_organisations?
+
+    personal_access_token_organisations.where(organisation_id: inactive.select(:organisation_id)).exists?
+  end
+
   # The project ids linked to this token within one organisation (the
   # selected-projects mode). Tenant-free, like #organisation_scopes.
   def linked_project_ids(organisation_id)

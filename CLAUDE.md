@@ -831,6 +831,9 @@ feature by feature):
   without decoding, so the action still applies its permissions and input validation.
   Existing JSON fingerprints stay unchanged. Every write route must be `idempotent`
   (`spec/architecture/api_v1_writes_idempotent_guard_spec.rb`).
+* ⚠️ **A `rescue_from` handler runs outside the token owner's language**: the action's
+  `around_action :with_token_owner_locale` has ended by then. A text built at the raise is right;
+  one built in the handler needs `with_token_owner_locale { ... }` (`TermsController#glossary_forbidden`).
 * **`GET /api/v1/me`** names `api_version` and `capabilities` from `Api::V1::Capabilities`,
   pinned against the routes both ways (`spec/requests/api/v1/capabilities_spec.rb`): a new
   endpoint adds its line there. Additive changes bump the minor.
@@ -937,6 +940,32 @@ missing one answer the same 404, as do a missing and an invisible person. The li
 by 50, at most 100; a value outside is a 400, never cut. Guards:
 `spec/requests/api/v1/people_spec.rb`, `spec/requests/api/mcp_people_spec.rb`,
 `spec/requests/api/people_parity_spec.rb` (REST and MCP answer the same rows).
+
+`GET /api/v1/organisations/:organisation_id/terms` (K4c, 2026-11-06, API 1.11.0, capability
+`terms.list`) and the MCP tool `get_glossary` (MCP 0.18.0, `:mcp` only) read an organisation's
+glossary through `Glossary::Lookup`, for a device that hands the terms to its speech recognition
+and replaces learnt wrong forms before it sends. Only what works: confirmed terms, and at them the
+heard forms of `TermCorrection.effective` (a confirmed term without one has an empty `heard`),
+grouped by the compared form with the spelling last heard, `count` the sum of `replaced_count`,
+`speakers` as refs of the people directory. The glossary right of the token's owner
+(`GlossaryPolicy`, an active membership) or 403 with `reason: glossary_forbidden` (MCP `refused`,
+the same reason and text). Unlike the people directory, a token limited to some projects is
+answered: every term, the heard forms of its projects only, and a form without a project only for
+a token that reaches every project. An organisation outside the token, a foreign, a missing and a
+malformed one answer the same 404 (MCP `not_found`, also for a malformed id); a member deactivated in
+an organisation the token names gets the 403 of the missing right instead (the reach still leaves that
+organisation out, `PersonalAccessToken#deactivated_member_of?` only words the refusal), a removed
+membership the 404; `project_id` puts the
+forms of its project first, outside the organisation or the token the same 404. `people` and
+`speakers` only with the people right (`PersonPolicy`), named as the directory names them to the
+reader; whom it does not list counts in `count` alone. No meeting, place or corrector in the
+answer. Pages by 50, at most 100, a whole number outside is a 400 (MCP `invalid_input`, the same text
+after the same checks: the bounds are the reader's, not the tool schema's). The types stay the schema's:
+a value of another type, `null` included, the MCP SDK refuses before any tool runs, in its own words,
+as for every tool; a whole number written as `2.0` is one (JSON Schema's integer). Guards:
+`spec/requests/api/v1/terms_spec.rb`, `spec/requests/api/mcp_glossary_spec.rb`,
+`spec/requests/api/glossary_parity_spec.rb` (REST and MCP answer the same),
+`spec/services/glossary/lookup_spec.rb`.
 
 `POST /api/v1/tickets/:ticket_id/posts` (REST R3a) writes by the rule the MCP tool
 `post_comment` writes by, `Posts::Comment`, through `Actors::SavePost` like the web form:

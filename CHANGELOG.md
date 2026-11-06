@@ -23,6 +23,12 @@ starts (`db:prepare lalabase:data_backfills`). Without Docker, run
 - The REST API reads meetings: `GET /api/v1/projects/:project_id/meetings` with search and
   pages, and `GET /api/v1/meetings/:id` with participants, summary, notes and transcript.
   API version 1.10.0.
+- The REST API and the MCP server read the glossary of an organisation:
+  `GET /api/v1/organisations/:organisation_id/terms` and the tool `get_glossary` give its
+  confirmed terms with the heard forms speech recognition wrote instead, how often and by
+  whom, in pages. A token limited to some projects gets every term, but the heard forms of
+  its projects only; speakers are named only with the right to the people directory.
+  API version 1.11.0, MCP 0.18.0.
 
 ### Changed
 

@@ -113,6 +113,7 @@ module McpContract
       doris_person: 91, ben_person: 92,
       kickoff_meeting: 101, review_meeting: 102, hidden_meeting: 103, internal_meeting: 104, foreign_meeting: 105,
       gone_meeting: 106, gone_user: 107, long_meeting: 108,
+      lalabase_term: 111, nordlicht_term: 112, proposed_term: 113,
       missing: 999
     }.transform_values { |n| format('00000000-0000-4000-8000-%012d', n) }.freeze
 
@@ -365,8 +366,74 @@ module McpContract
         # MCP 0.17 (R9), appended last: reads of the meeting world, which is made here,
         # earlier than the REST section made it before; that moves the meetings' own
         # timestamps there, nothing else.
-        'get_meeting' => get_meeting_calls
+        'get_meeting' => get_meeting_calls,
+        # MCP 0.18 (K4c), appended last: reads of the glossary world, made right before them.
+        'get_glossary' => get_glossary_calls
       }
+    end
+
+    # Spelled out, not a loop: each request from its own line (Prosopite).
+    def get_glossary_calls
+      glossary_world
+      nordlicht = id(:organisation)
+      {
+        'ok' => tool_call(:read, 'get_glossary', organisation_id: nordlicht),
+        # The internal project's heard form first, every term anyway.
+        'ok_project' => tool_call(:read, 'get_glossary', organisation_id: nordlicht, project_id: id(:internal)),
+        'ok_page' => tool_call(:read, 'get_glossary', organisation_id: nordlicht, page: 2, per_page: 1),
+        # Limited to the website: every term, the website's heard forms only.
+        'ok_project_token' => tool_call(:limited, 'get_glossary', organisation_id: nordlicht),
+        # Dora may read the glossary, not the people directory: nobody named.
+        'ok_without_people_right' => with_glossary_right_for_dora { tool_call(:dora, 'get_glossary', organisation_id: nordlicht) },
+        'refused' => tool_call(:dora, 'get_glossary', organisation_id: nordlicht),
+        # Carla's membership is deactivated; her token still names Nordlicht: the missing right, not "not found".
+        'refused_deactivated' => tool_call(:deactivated, 'get_glossary', organisation_id: nordlicht),
+        # Anna is no member there: outside the token, like a missing organisation.
+        'not_found' => tool_call(:read, 'get_glossary', organisation_id: id(:other_organisation)),
+        'not_found_malformed' => tool_call(:read, 'get_glossary', organisation_id: 'oops'),
+        'not_found_project' => tool_call(:read, 'get_glossary', organisation_id: nordlicht, project_id: id(:foreign_project)),
+        'invalid_input' => tool_call(:read, 'get_glossary', organisation_id: nordlicht, per_page: 101),
+        'invalid_input_missing_argument' => tool_call(:read, 'get_glossary')
+      }
+    end
+
+    # K4c: the glossary the get_glossary and terms answers read. Made once, right before the
+    # first of them, without `record`: no clock moves for anything recorded later. Anna reads it
+    # (the glossary right on the role she shares with Ben and Carla, beside the people right of
+    # people_world). Ben speaks as a member, Doris as a contact; one heard form has no project
+    # (its project was deleted); the proposals work nowhere and stay out of every answer.
+    def glossary_world
+      @glossary_world ||= begin
+        people_world
+        in_org do
+          create(:permission, role: Role.find(id(:role)), category: 'glossary', action: 'view_glossary', allowed: true)
+          lalabase = create(:glossary_term, id: id(:lalabase_term), organisation: @organisation, term: 'Lalabase',
+                                            category: 'product')
+          create(:glossary_term, id: id(:nordlicht_term), organisation: @organisation, term: 'Nordlicht', category: 'company')
+          proposal = create(:glossary_term, id: id(:proposed_term), organisation: @organisation, term: 'Zirbelholz',
+                                            status: 'proposed')
+          heard = lambda do |term, form, at, **attributes|
+            create(:term_correction, organisation: @organisation, glossary_term: term, heard: form, created_at: at, **attributes)
+          end
+          heard.call(lalabase, 'lala bass', START - 3.days, replaced_count: 3, project: @website, user: @ben)
+          heard.call(lalabase, 'Lala Bass', START - 2.days, replaced_count: 1, project: @website,
+                                                            person: Person.find(id(:doris_person)))
+          heard.call(lalabase, 'la la base', START - 1.day, replaced_count: 2, project: @internal)
+          heard.call(lalabase, 'lala basis', START - 4.days, replaced_count: 1)
+          heard.call(lalabase, 'lalabeis', START - 1.day, replaced_count: 9, project: @website, user: @ben, status: 'proposed')
+          heard.call(proposal, 'zirbel holz', START - 1.day, project: @website)
+        end
+        true
+      end
+    end
+
+    # Dora (guest role) holds the glossary right for the answer of the block and never the
+    # people right. Taken back right after it, so every refusal recorded later reads as before.
+    def with_glossary_right_for_dora
+      permission = in_org { create(:permission, role: Role.find(id(:guest_role)), category: 'glossary', action: 'view_glossary', allowed: true) }
+      yield
+    ensure
+      in_org { permission&.destroy! }
     end
 
     # Spelled out, not a loop: each request from its own line (Prosopite).
@@ -672,7 +739,29 @@ module McpContract
         'POST /api/v1/tickets/:id/changes' => rest_ticket_change_calls,
         # REST R8, appended last: reads only, over meetings made right before them.
         'GET /api/v1/projects/:project_id/meetings' => rest_meeting_list_calls,
-        'GET /api/v1/meetings/:id' => rest_meeting_show_calls
+        'GET /api/v1/meetings/:id' => rest_meeting_show_calls,
+        # K4c, appended last: reads only, over the glossary world of the MCP section.
+        'GET /api/v1/organisations/:organisation_id/terms' => rest_terms_calls
+      }
+    end
+
+    def rest_terms_calls
+      glossary_world
+      # Spelled out, not a loop: each request from its own line (Prosopite).
+      path = "/api/v1/organisations/#{id(:organisation)}/terms"
+      {
+        'ok' => rest_get(:read, path),
+        'ok_project' => rest_get(:read, "#{path}?project_id=#{id(:internal)}"),
+        'ok_page' => rest_get(:read, "#{path}?page=2&per_page=1"),
+        'ok_project_token' => rest_get(:limited, path),
+        'ok_without_people_right' => with_glossary_right_for_dora { rest_get(:dora, path) },
+        'forbidden' => rest_get(:dora, path),
+        'forbidden_deactivated' => rest_get(:deactivated, path),
+        'not_found' => rest_get(:read, "/api/v1/organisations/#{id(:other_organisation)}/terms"),
+        'not_found_malformed' => rest_get(:read, '/api/v1/organisations/oops/terms'),
+        'not_found_project' => rest_get(:read, "#{path}?project_id=#{id(:foreign_project)}"),
+        'invalid_input_per_page' => rest_get(:read, "#{path}?per_page=101"),
+        'unauthorized' => rest_get(nil, path)
       }
     end
 
