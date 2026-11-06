@@ -41,7 +41,7 @@ RSpec.describe 'Glossary on REST and MCP', :ci_guard, type: :request do
         ben_row = create(:person, organisation: organisation, user: ben, name: 'B. Alt')
 
         lalabase = create(:glossary_term, organisation: organisation, term: 'Lalabase', category: 'product')
-        create(:glossary_term, organisation: organisation, term: 'Nordlicht', category: 'company')
+        nordlicht = create(:glossary_term, organisation: organisation, term: 'Nordlicht', category: 'company')
         proposal = create(:glossary_term, :proposed, organisation: organisation, term: 'Zirbelholz')
         create(:glossary_term, organisation: organisation, term: 'Ahornweg', category: 'place')
         correction = ->(term, heard, **attributes) { create(:term_correction, organisation: organisation, glossary_term: term, heard: heard, **attributes) }
@@ -50,6 +50,9 @@ RSpec.describe 'Glossary on REST and MCP', :ci_guard, type: :request do
         correction.call(lalabase, 'lala bass', replaced_count: 2, project: project, created_at: 3.days.ago)
         correction.call(lalabase, 'la la base', replaced_count: 2, project: other_project, person: ben_row)
         correction.call(lalabase, 'lala basis', replaced_count: 1)
+        # A second term with forms and speakers of its own: one page reads both in the same queries.
+        correction.call(nordlicht, 'nord licht', replaced_count: 2, project: project, person: doris, created_at: 2.days.ago)
+        correction.call(nordlicht, 'nordlich', replaced_count: 1, project: other_project, user: ben, created_at: 1.day.ago)
         # Proposals: one at a confirmed term, one of a proposed term. Neither works anywhere.
         correction.call(lalabase, 'lalabeis', replaced_count: 9, project: project, status: 'proposed')
         correction.call(proposal, 'zirbel holz', project: project)
@@ -101,7 +104,7 @@ RSpec.describe 'Glossary on REST and MCP', :ci_guard, type: :request do
     limited = token(project_scopes: { organisation => [project] })
     _, body = rest(with: limited)
 
-    expect(body['data'].flat_map { |row| row['heard'] }.pluck('form')).to eq(['Lala Bass'])
+    expect(body['data'].flat_map { |row| row['heard'] }.pluck('form')).to eq(['Lala Bass', 'nord licht'])
     expect(mcp_data(mcp(with: limited))).to eq(body)
   end
 
