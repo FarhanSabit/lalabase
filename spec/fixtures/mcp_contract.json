@@ -1,9 +1,9 @@
 {
   "header": {
     "regenerate": "RAILS_ENV=test bin/rails mcp:contract",
-    "core_commit": "6fa510fb40060373db7b792973fd338c0b53478a",
+    "core_commit": "e1b3b680e7f4a14809e6b6d4c2fcf4c550e6bc9e",
     "core_dirty": false,
-    "contract_sha256": "ded1e122cf25eb26d2aded8e20dd0af8bd1cefe80609c25cdf8a0d2a5afbef83"
+    "contract_sha256": "fd693705980fbe78b4ba74435fdd56e7ac70355f9f48b84cf921bd2d4442f952"
   },
   "contract": {
     "mcp": {
@@ -6052,7 +6052,7 @@
             "body": {
               "error": "bad_request",
               "code": "invalid_input",
-              "message": "invalid per_page \"101\" (expected a whole number from 1 to 100)"
+              "message": "ungültiger Wert für per_page \"101\" (erwartet ist eine ganze Zahl von 1 bis 100)"
             }
           }
         },
@@ -7697,7 +7697,7 @@
             "body": {
               "error": "invalid_input",
               "code": "invalid_input",
-              "message": "per_page must be a whole number from 1 to 100"
+              "message": "ungültiger Wert für per_page \"101\" (erwartet ist eine ganze Zahl von 1 bis 100)"
             }
           }
         },
@@ -8534,7 +8534,7 @@
             "body": {
               "error": "invalid_input",
               "code": "invalid_input",
-              "message": "per_page must be a whole number from 1 to 100"
+              "message": "ungültiger Wert für per_page \"101\" (erwartet ist eine ganze Zahl von 1 bis 100)"
             }
           }
         },
@@ -8548,7 +8548,7 @@
             "body": {
               "error": "invalid_input",
               "code": "invalid_input",
-              "message": "page must be a whole number from 1 to 100000"
+              "message": "ungültiger Wert für page \"0\" (erwartet ist eine ganze Zahl von 1 bis 100000)"
             }
           }
         },
