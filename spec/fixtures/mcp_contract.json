@@ -1,9 +1,9 @@
 {
   "header": {
     "regenerate": "RAILS_ENV=test bin/rails mcp:contract",
-    "core_commit": "1b559aed3f6d4c198aa631095001125802a8f5cd",
+    "core_commit": "6fa510fb40060373db7b792973fd338c0b53478a",
     "core_dirty": false,
-    "contract_sha256": "7f1c42373ac9e2a150e1b17fd96d2a09c65ca6a63032d0c10b38f436bd92e3f9"
+    "contract_sha256": "ded1e122cf25eb26d2aded8e20dd0af8bd1cefe80609c25cdf8a0d2a5afbef83"
   },
   "contract": {
     "mcp": {
@@ -5054,6 +5054,40 @@
               }
             }
           },
+          "refused_deactivated": {
+            "token": "deactivated",
+            "request": {
+              "jsonrpc": "2.0",
+              "id": 1,
+              "method": "tools/call",
+              "params": {
+                "name": "get_glossary",
+                "arguments": {
+                  "organisation_id": "00000000-0000-4000-8000-000000000001"
+                }
+              }
+            },
+            "response": {
+              "status": 200,
+              "body": {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "result": {
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Sie dürfen das Glossar dieser Organisation nicht lesen."
+                    }
+                  ],
+                  "isError": true,
+                  "_meta": {
+                    "lalabase/code": "refused",
+                    "lalabase/reason": "glossary_forbidden"
+                  }
+                }
+              }
+            }
+          },
           "not_found": {
             "token": "read",
             "request": {
@@ -8989,6 +9023,21 @@
         },
         "forbidden": {
           "token": "dora",
+          "request": {
+            "path": "/api/v1/organisations/00000000-0000-4000-8000-000000000001/terms"
+          },
+          "response": {
+            "status": 403,
+            "body": {
+              "error": "forbidden",
+              "code": "forbidden",
+              "reason": "glossary_forbidden",
+              "message": "Sie dürfen das Glossar dieser Organisation nicht lesen."
+            }
+          }
+        },
+        "forbidden_deactivated": {
+          "token": "deactivated",
           "request": {
             "path": "/api/v1/organisations/00000000-0000-4000-8000-000000000001/terms"
           },
