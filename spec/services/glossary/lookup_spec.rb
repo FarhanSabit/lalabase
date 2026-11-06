@@ -376,6 +376,12 @@ RSpec.describe Glossary::Lookup, :ci_guard do
       expect(second[:meta]).to eq(page: 2, per_page: 2, total: 4)
     end
 
+    # Review round 3 of #124: JSON Schema counts 2.0 as an integer, so the MCP SDK lets it through as
+    # a Float; it is the whole number it names.
+    it 'takes a whole number written with a point (2.0) as that number' do
+      expect(lookup.read(page: 2.0, per_page: 3.0)[:meta]).to eq(page: 2, per_page: 3, total: 4)
+    end
+
     it 'takes page and per_page as text (REST) or as whole numbers (MCP)' do
       expect(lookup.read(page: '2', per_page: '3')[:data].pluck(:term)).to eq(%w[Nordlicht])
       expect(lookup.read(page: 2, per_page: 3)[:data].pluck(:term)).to eq(%w[Nordlicht])
@@ -403,7 +409,7 @@ RSpec.describe Glossary::Lookup, :ci_guard do
       expect { lookup.read(page: 'abc') }.to raise_error(described_class::InvalidArgument, /page "abc"/)
       expect { lookup.read(page: '-1') }.to raise_error(described_class::InvalidArgument)
       expect { lookup.read(page: '1.5') }.to raise_error(described_class::InvalidArgument)
-      expect { lookup.read(page: 1.0) }.to raise_error(described_class::InvalidArgument)
+      expect { lookup.read(page: 1.5) }.to raise_error(described_class::InvalidArgument, /page "1.5"/)
       expect { lookup.read(page: described_class::MAX_PAGE + 1) }.to raise_error(described_class::InvalidArgument)
     end
 

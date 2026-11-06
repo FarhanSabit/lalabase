@@ -52,7 +52,7 @@ Codebase-Verständnis.
   `per_page` are the reader's, not the schema's (no `minimum`/`maximum`): the SDK would refuse a value
   ahead of the right and in its own English, where REST answers after the right in the owner's language.
   The types stay the schema's: a value of another type (`null` included) the SDK refuses before the
-  tool, as it does for every tool.
+  tool, as it does for every tool; `2.0` passes as an integer, and the reader takes it as 2.
   On `:mcp` the same two names are twins (`McpFindPeople`, `McpGetPerson`, People S3b, MCP
   0.13.0), own classes because their schema requires `organisation_id` (E3). `scope_mode
   :token`; `PeopleTool.with_token_lookup` is their gate: only an organisation whose every

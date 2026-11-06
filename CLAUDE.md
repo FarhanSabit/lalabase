@@ -959,7 +959,7 @@ reader; whom it does not list counts in `count` alone. No meeting, place or corr
 answer. Pages by 50, at most 100, a whole number outside is a 400 (MCP `invalid_input`, the same text
 after the same checks: the bounds are the reader's, not the tool schema's). The types stay the schema's:
 a value of another type, `null` included, the MCP SDK refuses before any tool runs, in its own words,
-as for every tool. Guards:
+as for every tool; a whole number written as `2.0` is one (JSON Schema's integer). Guards:
 `spec/requests/api/v1/terms_spec.rb`, `spec/requests/api/mcp_glossary_spec.rb`,
 `spec/requests/api/glossary_parity_spec.rb` (REST and MCP answer the same),
 `spec/services/glossary/lookup_spec.rb`.

@@ -19,7 +19,8 @@ module Lalabase
     # the SDK would refuse a value before the tool runs, ahead of the right and in its own English,
     # where REST refuses after the right in the owner's language (review round 1 of #124). The types
     # stay the schema's: a value of another type, null included, the SDK refuses before the tool runs,
-    # as for every tool (review round 2).
+    # as for every tool (review round 2). A whole number written as 2.0 passes the schema as an
+    # integer, and the reader takes it as one (round 3).
     #
     # MCP only, no assistant twin: the assistant does not need the glossary today.
     class GetGlossary < Base

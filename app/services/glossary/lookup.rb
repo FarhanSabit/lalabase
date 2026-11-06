@@ -193,17 +193,19 @@ module Glossary
       id
     end
 
-    # A whole number from 1 to max, as text or as an Integer; absent or empty is
-    # nil (the default). A refused value is quoted back only when it is text or a
-    # number, and only its start.
+    # A whole number from 1 to max, as text (REST: digits only) or as a JSON
+    # number (MCP: an Integer, or a Float with a whole value, which JSON Schema
+    # counts as an integer: 2.0); absent or empty is nil (the default). A refused
+    # value is quoted back only when it is text or a number, and only its start.
     def whole_number(name, raw, max:)
       return nil if raw.nil? || raw == ''
 
       number = raw if raw.is_a?(Integer)
+      number = raw.to_i if raw.is_a?(Float) && raw.finite? && raw == raw.floor
       number = Integer(raw, 10) if raw.is_a?(String) && raw.match?(/\A\d+\z/)
       return number if number&.between?(1, max)
 
-      shown = raw.is_a?(String) || raw.is_a?(Integer) ? " #{raw.to_s.truncate(QUOTED_LENGTH).inspect}" : ''
+      shown = raw.is_a?(String) || raw.is_a?(Numeric) ? " #{raw.to_s.truncate(QUOTED_LENGTH).inspect}" : ''
       raise InvalidArgument, I18n.t('services.glossary.lookup.invalid_number', name: name, shown: shown, max: max)
     end
   end

@@ -166,6 +166,11 @@ RSpec.describe 'MCP get_glossary', :ci_guard, type: :request do
 
       expect(answer).to eq('data' => [], 'people' => [], 'meta' => { 'page' => 2, 'per_page' => 1, 'total' => 1 })
     end
+
+    # JSON Schema's integer takes 2.0, and so does the SDK; the tool reads it as 2 (review round 3 of #124).
+    it 'reads a whole number sent as 1.0 as that number' do
+      expect(data(glossary(page: 1.0, per_page: 50.0))['meta']).to eq('page' => 1, 'per_page' => 50, 'total' => 1)
+    end
   end
 
   describe 'refusals' do
