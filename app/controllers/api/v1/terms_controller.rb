@@ -17,16 +17,18 @@ module Api
     #   token the same 404, never ignored.
     # * Paging: 50 terms by default, at most 100, with the total; a value outside is a 400.
     class TermsController < BaseController
-      # Pundit asks the glossary right first; Refused answers the same right taken away
-      # between that check and the lookup's own.
+      # Refused comes from two places: Glossary::Lookup.for_token, before the tenant, for an
+      # inactive member of an organisation the token names; and the lookup's own check, for the
+      # right taken away between Pundit's check and it. Both are the same 403.
       rescue_from Pundit::NotAuthorizedError, Glossary::Lookup::Refused, with: :glossary_forbidden
       rescue_from Glossary::Lookup::InvalidArgument, with: :bad_request
       rescue_from Glossary::Lookup::NotFound, with: :not_found
 
       # GET /api/v1/organisations/:organisation_id/terms?project_id=&page=&per_page=
       #
-      # The reach, then the organisation's tenant, then the glossary right, the order of the
-      # people directory: an organisation outside the token tells nothing about itself.
+      # The reach (an inactive member of an organisation the token names is refused there, the
+      # one step the people directory does not have), then the organisation's tenant, then the
+      # glossary right: an organisation outside the token tells nothing about itself.
       def index
         lookup = Glossary::Lookup.for_token(token: current_token, viewer: current_user,
                                             organisation_id: params[:organisation_id])

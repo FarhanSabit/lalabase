@@ -152,6 +152,22 @@ RSpec.describe 'Glossary on REST and MCP', :ci_guard, type: :request do
     expect(result.dig('content', 0, 'text')).to eq(body['message'])
   end
 
+  # A token for all organisations has no link rows; it names every organisation of its owner, the
+  # deactivated one included (post-round check of #124: held at the doors, not only in the model).
+  it 'refuses a deactivated member with a token for all organisations on both alike' do
+    every = build(:personal_access_token, :all_organisations, user: anna).tap do |pat|
+      pat.token_hash = nil
+      pat.token_prefix = nil
+      pat.generate_token!
+    end
+    ActsAsTenant.with_tenant(organisation) { Membership.find_by!(user: anna, organisation: organisation).update!(active: false) }
+    status, body = rest(with: every)
+    result = mcp(with: every)
+
+    expect([status, body['reason']]).to eq([403, 'glossary_forbidden'])
+    expect(result['_meta']).to eq('lalabase/code' => 'refused', 'lalabase/reason' => 'glossary_forbidden')
+  end
+
   it 'answers an organisation outside the token and a project outside it as not found on both' do
     outside_status, = rest(organisation_id: other_organisation.id)
     outside = mcp(organisation_id: other_organisation.id)
