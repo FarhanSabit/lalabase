@@ -334,6 +334,16 @@ RSpec.describe Glossary::Lookup, :ci_guard do
       expect(tied.last[:speakers]).to eq([{ ref: "person:#{alma.id}", count: 2 }, { ref: "person:#{zeta.id}", count: 2 }])
     end
 
+    # Review round 2 of #124: "member:" sorts before "person:", so here the count and the ref give
+    # opposite orders, and Ben is heard first.
+    it 'lists the speakers of a form most heard first, before the order of their refs' do
+      heard(quell, 'quell sprecher', replaced: 1, project: project, user: ben)
+      heard(quell, 'quell sprecher', replaced: 5, project: project, person: alma)
+
+      expect(forms(lookup.read, quell).first[:speakers])
+        .to eq([{ ref: "person:#{alma.id}", count: 5 }, { ref: "member:#{ben.id}", count: 1 }])
+    end
+
     it 'lists the people by name, not in the order they were heard' do
       heard(quell, 'quell z', project: project, person: zeta)
       heard(quell, 'quell a', project: project, person: alma)
