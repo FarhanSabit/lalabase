@@ -1,4 +1,4 @@
-# Karte: app/services (Stand: 2026-11-05)
+# Karte: app/services (Stand: 2026-11-06)
 
 **Entry-Point-Konvention für NEUE Services: `Klass.call(**kwargs)`** (Klassenmethode; eine
 Instanz-`#call`-Implementierung dahinter ist erlaubt). Pflicht: mindestens 1 Kommentarzeile
@@ -14,7 +14,7 @@ Ausgenommene Subtrees mit eigenem Vertrag: `actors/`, `lalabase/tools/`).
 Einzel-`update!` ohne Side-Effects bleibt im Controller.
 
 * An actor writes and checks no rights. Exceptions lock first and authorize again under the lock (`AcceptTicketSuggestion`, `StartTicketSuggestionRun`, `CorrectMeetingTerm`).
-* Finding belongs to one object per domain (`Tickets::ReadableForToken`, `Tickets::RelationAccess`, `People::Lookup`); they share the question, not code. Where `nil` would drop a limit, the keyword is required.
+* Finding belongs to one object per domain (`Tickets::ReadableForToken`, `Tickets::RelationAccess`, `People::Lookup`, `Glossary::Lookup`); they share the question, not code. Where `nil` would drop a limit, the keyword is required.
 * The policy decides yes or no.
 * The caller words the answer (status, text, 404 form).
 * A guard holds where a mistake discloses data (`ticket_token_lookup_guard_spec.rb`, `ticket_relation_actor_callers_guard_spec.rb`).
@@ -208,6 +208,15 @@ Verzeichnis-Übersicht (Auswahl):
   einer eigenen Marke für JEDEN Treffer unverändert bleibt (`#everywhere?`, Runde 2): ein Treffer
   im Link-Ziel lässt nur „nur hier“. `term_correction_dialog.rb`
   ist, was der Dialog zeigt (Stelle, Zahl, Sprecher, Digest), geteilt von `new`, `count`, `create`.
+* `glossary/` — `term_lock.rb` (die Sperr-Reihenfolge jedes Glossar-Writes, siehe `actors/`) und
+  `lookup.rb` (`Glossary::Lookup`, K4c, 06.11.2026), das EINE Lesen des Glossars einer Organisation
+  für `GET /api/v1/organisations/:id/terms` und das MCP-Werkzeug `get_glossary`: Recht
+  (`#allowed?`, von `#read` noch einmal gefragt: `Refused`), `.for_token` (eine Organisation in
+  Reichweite, ihre Projekte als Grenze der gehörten Formen; nil für außerhalb, fehlend, kaputt), nur
+  Wirksames (bestätigte Begriffe, `TermCorrection.effective`), `project_id` nach vorn (`NotFound`
+  außerhalb), Sprecher nur mit dem Personenrecht über `People::Directory#entry_for_participant`,
+  Seiten (`InvalidArgument`). Setzt den Mandanten selbst. Eine neue Regel dieser Antwort gehört
+  hierher, nicht in eine der beiden Türen.
 * `people/` — `directory.rb`, das Lese-Objekt der Personenliste (seit 26.10.2026): Mitglieder
   über `MembershipPolicy::Scope` (dieselbe Reichweite wie die Mitgliederseite), dazu die
   Zeilen ohne aktives Mitglied als Kontakte; Suche in Ruby über `PersonName.normalize`.

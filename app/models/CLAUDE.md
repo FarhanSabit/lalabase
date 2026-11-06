@@ -1,4 +1,4 @@
-# Karte: app/models (Stand: 2026-11-05)
+# Karte: app/models (Stand: 2026-11-06)
 
 ~80 Modelle liegen flach in diesem Verzeichnis; Namespaces existieren nur für `admin/`,
 `knowledge/`, `overview/`, `smart_folders/`, `time_sessions/`, `user/`. Die Domänen-Zugehörigkeit ist am
@@ -121,7 +121,8 @@ Verzeichnis-Layout nicht ablesbar — diese Karte gruppiert sie:
   `proposed`/`confirmed`, Check `term_corrections_status_known`, Altbestand `confirmed`). Ohne
   `manage_glossary` entsteht sie als Vorschlag, auch an einem bestätigten Begriff. Wirksam ist
   nur `TermCorrection.effective` (bestätigte Form an bestätigtem Begriff): K4c und das Gerät lesen
-  dort, nie `term_corrections` direkt. ⚠️ `Meeting#invalidate_stale_summary` hat GENAU EINE
+  dort, nie `term_corrections` direkt. K4c (06.11.2026): dieser Leser ist `Glossary::Lookup`
+  (REST `/terms` und MCP `get_glossary`, Karte `app/services/CLAUDE.md`). ⚠️ `Meeting#invalidate_stale_summary` hat GENAU EINE
   Ausnahme: `keep_summary_for_next_save!` (eine Speicherung, eine Instanz), gesetzt nur von
   `Actors::SaveMeeting` mit `keep_summary: true`, das nur `Actors::CorrectMeetingTerm` übergibt
   (Wächter `spec/architecture/meeting_summary_exception_guard_spec.rb`). Nicht über
