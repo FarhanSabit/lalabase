@@ -234,7 +234,9 @@ Verzeichnis-Layout nicht ablesbar — diese Karte gruppiert sie:
 * **AI/Billing**: `ai_credential`, `ai_usage`, `system_setting`, `personal_access_token{,_organisation,_project}`
   (`personal_access_token/reach.rb` = der Token-Vertrag als Wertobjekt, gegen `#accessible_project?` gepinnt;
   welche Organisationen ein Token erreicht, beantwortet NUR `#organisation_scopes`, auch für
-  `all_organisations`, nie die Verknüpfungszeilen selbst),
+  `all_organisations`, nie die Verknüpfungszeilen selbst; `#deactivated_member_of?` (K4c) öffnet nichts,
+  es sagt einer Tür nur, dass eine genannte Organisation wegen deaktivierter Mitgliedschaft fehlt, damit
+  das Glossar sie als fehlendes Recht ablehnt, 403 statt 404),
   `content_embedding` (Sidecar-Vektor je Record je Raum), `embedding_space` (ein von der Org
   GEHALTENER Vektorraum: Tripel + verschlüsselter Credential-Snapshot; welcher davon die Suche
   bedient, sagt `organisations.active_embedding_space_id`),

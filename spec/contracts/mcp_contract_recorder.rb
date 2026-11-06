@@ -386,6 +386,8 @@ module McpContract
         # Dora may read the glossary, not the people directory: nobody named.
         'ok_without_people_right' => with_glossary_right_for_dora { tool_call(:dora, 'get_glossary', organisation_id: nordlicht) },
         'refused' => tool_call(:dora, 'get_glossary', organisation_id: nordlicht),
+        # Carla's membership is deactivated; her token still names Nordlicht: the missing right, not "not found".
+        'refused_deactivated' => tool_call(:deactivated, 'get_glossary', organisation_id: nordlicht),
         # Anna is no member there: outside the token, like a missing organisation.
         'not_found' => tool_call(:read, 'get_glossary', organisation_id: id(:other_organisation)),
         'not_found_malformed' => tool_call(:read, 'get_glossary', organisation_id: 'oops'),
@@ -754,6 +756,7 @@ module McpContract
         'ok_project_token' => rest_get(:limited, path),
         'ok_without_people_right' => with_glossary_right_for_dora { rest_get(:dora, path) },
         'forbidden' => rest_get(:dora, path),
+        'forbidden_deactivated' => rest_get(:deactivated, path),
         'not_found' => rest_get(:read, "/api/v1/organisations/#{id(:other_organisation)}/terms"),
         'not_found_malformed' => rest_get(:read, '/api/v1/organisations/oops/terms'),
         'not_found_project' => rest_get(:read, "#{path}?project_id=#{id(:foreign_project)}"),

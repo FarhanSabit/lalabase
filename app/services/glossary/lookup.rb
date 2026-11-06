@@ -10,7 +10,9 @@
 module Glossary
   # * Rights (E2): GlossaryPolicy.view_allowed? (#allowed?, asked again by #read
   #   before anything is read), which asks for an ACTIVE membership. The rows
-  #   come through the policy scope as well, so nothing is read without it.
+  #   come through the policy scope as well, so nothing is read without it. A
+  #   member deactivated in an organisation the token names is refused the same
+  #   way, by .for_token, though the reach no longer counts that organisation.
   # * What works (E3): confirmed terms only, and at them only the heard forms
   #   TermCorrection.effective names (confirmed at a confirmed term). A confirmed
   #   term without one comes with an empty heard list.
@@ -56,11 +58,22 @@ module Glossary
     # The lookup a Personal Access Token may open, or nil (E4): an organisation
     # the token reaches, with the token's projects as the limit of the heard
     # forms (PersonalAccessToken::Reach, nil = every project). An organisation
-    # outside the token (an inactive membership included), a missing one and a
-    # malformed id all answer nil, so a caller tells none of them apart.
-    def self.for_token(reach:, viewer:, organisation_id:)
+    # outside the token, a missing one and a malformed id all answer nil, so a
+    # caller tells none of them apart. One case is asked only when the reach says
+    # no: an organisation the token names where its owner's membership is
+    # deactivated is Refused, the missing right of an inactive member (E2: the
+    # right asks for an active membership), not "not found". Nothing is read
+    # there (PersonalAccessToken#deactivated_member_of?).
+    def self.for_token(token:, viewer:, organisation_id:)
       id = Lalabase::Uuid.dashed(organisation_id)
-      return nil if id.nil? || !reach.organisation?(id)
+      return nil if id.nil?
+
+      reach = token.reach
+      unless reach.organisation?(id)
+        raise Refused if token.deactivated_member_of?(id)
+
+        return nil
+      end
 
       organisation = Organisation.find_by(id: id)
       new(viewer: viewer, organisation: organisation, project_ids: reach.project_ids_for(id)) if organisation

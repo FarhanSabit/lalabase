@@ -176,11 +176,33 @@ RSpec.describe 'API V1 glossary terms', :ci_guard, type: :request do
       expect(terms(with: token(owner: nobody), per_page: 101)).to have_http_status(:forbidden)
     end
 
-    it 'answers a deactivated member like an organisation outside the token: the token reaches active memberships only' do
+    # The token keeps its link when the membership is deactivated, and stops reaching the
+    # organisation (PersonalAccessToken#organisation_scopes); the right asks for an active
+    # membership (E2), so the inactive member is refused, not told "not found".
+    it 'refuses a deactivated member with 403 glossary_forbidden, through the same token as before' do
       deactivated = token
       ActsAsTenant.with_tenant(organisation) { Membership.find_by!(user: anna, organisation: organisation).update!(active: false) }
 
-      expect(terms(with: deactivated)).to have_http_status(:not_found)
+      expect(terms(with: deactivated)).to have_http_status(:forbidden)
+      expect(body).to eq(forbidden_body('You may not read the glossary of this organisation.'))
+    end
+
+    it 'answers a removed membership like an organisation outside the token: the same 404' do
+      removed = token
+      Prosopite.pause do
+        ActsAsTenant.with_tenant(organisation) { Membership.find_by!(user: anna, organisation: organisation).destroy! }
+      end
+
+      expect(terms(with: removed)).to have_http_status(:not_found)
+      expect(body).to eq(not_found_body)
+    end
+
+    it 'answers a deactivated membership in an organisation the token does not name with the same 404' do
+      ActsAsTenant.with_tenant(other_organisation) do
+        Membership.find_by!(user: anna, organisation: other_organisation).update!(active: false)
+      end
+
+      expect(terms(organisation_id: other_organisation.id)).to have_http_status(:not_found)
       expect(body).to eq(not_found_body)
     end
 

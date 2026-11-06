@@ -219,6 +219,7 @@ jobs:
           spec/models/no_inline_embedding_columns_guard_spec.rb
           spec/models/personal_access_token/all_organisations_spec.rb
           spec/models/personal_access_token/reach_spec.rb
+          spec/models/personal_access_token/deactivated_member_spec.rb
           spec/models/prompt_persona_spec.rb
           spec/models/smart_folders/operator_literal_guard_spec.rb
           spec/models/smart_folders/date_presets_spec.rb

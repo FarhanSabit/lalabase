@@ -9,9 +9,10 @@ module Lalabase
     #
     # Token-scoped: the glossary is the organisation's, not a project's, so no project gate runs.
     # Glossary::Lookup.for_token is the gate: an organisation outside the token, a foreign, a
-    # missing and a malformed id all answer not_found, as REST answers its one 404 (E4); the
-    # call then runs under that organisation's tenant, asks the glossary right (refused with the
-    # reason glossary_forbidden, REST's 403) and marks authorize! for the D7 tripwire. A malformed
+    # missing and a malformed id all answer not_found, as REST answers its one 404 (E4); a member
+    # deactivated in an organisation the token names is refused (glossary_forbidden, REST's 403).
+    # The call then runs under that organisation's tenant, asks the glossary right (refused with
+    # the same reason) and marks authorize! for the D7 tripwire. A malformed
     # id is no invalid_input here, unlike the people twins: the two doors of one reader read one
     # id the same way (the reason of get_meeting, R9). project_id is the tool's own argument: it
     # reorders, it does not narrow, so it is not the dispatcher's filter (project_filter? false).
@@ -79,18 +80,21 @@ module Lalabase
       end
 
       def self.execute(args:, context:)
-        return Result.new(error: 'token context missing') unless token_wide?(context)
+        return Result.new(error: 'token context missing') unless token_wide?(context) && context.token
 
         args = symbolized(args)
         unknown = args.keys - ARGUMENTS
         return Result.invalid_input("unknown arguments: #{unknown.join(', ')}") if unknown.any?
         return Result.invalid_input('organisation_id is required') if args[:organisation_id].to_s.strip.empty?
 
-        lookup = Glossary::Lookup.for_token(reach: context.reach, viewer: context.actor,
+        lookup = Glossary::Lookup.for_token(token: context.token, viewer: context.actor,
                                             organisation_id: args[:organisation_id])
         return Result.new(error: ORGANISATION_NOT_REACHABLE, code: :not_found) if lookup.nil?
 
         ActsAsTenant.with_tenant(lookup.organisation) { read(lookup, args, context) }
+      rescue Glossary::Lookup::Refused
+        # A member deactivated in an organisation the token names (Glossary::Lookup.for_token).
+        refused
       end
 
       def self.read(lookup, args, context)

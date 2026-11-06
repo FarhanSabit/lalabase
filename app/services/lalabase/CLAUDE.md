@@ -46,7 +46,8 @@ Codebase-Verständnis.
   `GET /api/v1/organisations/:id/terms`. `scope_mode :token`; `Glossary::Lookup.for_token` is its
   gate: an organisation outside the token, a foreign, a missing and a malformed id are all
   `not_found`, as REST's one 404 (not `invalid_input` like the people twins: one reader, one
-  reading of the id). Then the tenant, the glossary right (`refused`, reason `glossary_forbidden`,
+  reading of the id); a member deactivated in an organisation the token names is `refused`
+  (`glossary_forbidden`), REST's 403. Then the tenant, the glossary right (`refused`, the same reason,
   REST's text) and `authorize!`. `project_id` is its own argument (it reorders, it does not narrow),
   so `project_filter?` stays false; an unknown argument is `invalid_input`. The bounds of `page` and
   `per_page` are the reader's, not the schema's (no `minimum`/`maximum`): the SDK would refuse a value

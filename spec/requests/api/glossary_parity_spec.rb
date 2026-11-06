@@ -141,6 +141,17 @@ RSpec.describe 'Glossary on REST and MCP', :ci_guard, type: :request do
     expect(result.dig('content', 0, 'text')).to eq(body['message'])
   end
 
+  it 'refuses a deactivated member on both with the reason glossary_forbidden and one text' do
+    deactivated = token
+    ActsAsTenant.with_tenant(organisation) { Membership.find_by!(user: anna, organisation: organisation).update!(active: false) }
+    status, body = rest(with: deactivated)
+    result = mcp(with: deactivated)
+
+    expect([status, body['reason']]).to eq([403, 'glossary_forbidden'])
+    expect(result['_meta']).to eq('lalabase/code' => 'refused', 'lalabase/reason' => 'glossary_forbidden')
+    expect(result.dig('content', 0, 'text')).to eq(body['message'])
+  end
+
   it 'answers an organisation outside the token and a project outside it as not found on both' do
     outside_status, = rest(organisation_id: other_organisation.id)
     outside = mcp(organisation_id: other_organisation.id)

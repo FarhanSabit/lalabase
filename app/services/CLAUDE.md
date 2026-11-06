@@ -212,7 +212,8 @@ Verzeichnis-Übersicht (Auswahl):
   `lookup.rb` (`Glossary::Lookup`, K4c, 06.11.2026), das EINE Lesen des Glossars einer Organisation
   für `GET /api/v1/organisations/:id/terms` und das MCP-Werkzeug `get_glossary`: Recht
   (`#allowed?`, von `#read` noch einmal gefragt: `Refused`), `.for_token` (eine Organisation in
-  Reichweite, ihre Projekte als Grenze der gehörten Formen; nil für außerhalb, fehlend, kaputt), nur
+  Reichweite, ihre Projekte als Grenze der gehörten Formen; nil für außerhalb, fehlend, kaputt;
+  `Refused` für ein deaktiviertes Mitglied einer Organisation, die der Token nennt), nur
   Wirksames (bestätigte Begriffe, `TermCorrection.effective`), `project_id` nach vorn (`NotFound`
   außerhalb), Sprecher nur mit dem Personenrecht über `People::Directory#entry_for_participant`,
   Seiten (`InvalidArgument`). Setzt den Mandanten selbst. Eine neue Regel dieser Antwort gehört

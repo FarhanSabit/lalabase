@@ -952,7 +952,10 @@ grouped by the compared form with the spelling last heard, `count` the sum of `r
 the same reason and text). Unlike the people directory, a token limited to some projects is
 answered: every term, the heard forms of its projects only, and a form without a project only for
 a token that reaches every project. An organisation outside the token, a foreign, a missing and a
-malformed one answer the same 404 (MCP `not_found`, also for a malformed id); `project_id` puts the
+malformed one answer the same 404 (MCP `not_found`, also for a malformed id); a member deactivated in
+an organisation the token names gets the 403 of the missing right instead (the reach still leaves that
+organisation out, `PersonalAccessToken#deactivated_member_of?` only words the refusal), a removed
+membership the 404; `project_id` puts the
 forms of its project first, outside the organisation or the token the same 404. `people` and
 `speakers` only with the people right (`PersonPolicy`), named as the directory names them to the
 reader; whom it does not list counts in `count` alone. No meeting, place or corrector in the

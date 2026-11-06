@@ -190,11 +190,22 @@ RSpec.describe 'MCP get_glossary', :ci_guard, type: :request do
         .to all(eq([{ 'lalabase/code' => 'not_found' }, 'Organisation not found or not accessible.']))
     end
 
-    it 'answers a deactivated member like an organisation outside the token' do
+    it 'refuses a deactivated member with the reason glossary_forbidden, as REST answers 403' do
       deactivated = token
       ActsAsTenant.with_tenant(organisation) { Membership.find_by!(user: anna, organisation: organisation).update!(active: false) }
 
-      expect(refusal(glossary(with: deactivated)).first).to eq('lalabase/code' => 'not_found')
+      expect(refusal(glossary(with: deactivated)))
+        .to eq([{ 'lalabase/code' => 'refused', 'lalabase/reason' => 'glossary_forbidden' },
+                'You may not read the glossary of this organisation.'])
+    end
+
+    it 'answers a removed membership like an organisation outside the token: not_found' do
+      removed = token
+      Prosopite.pause do
+        ActsAsTenant.with_tenant(organisation) { Membership.find_by!(user: anna, organisation: organisation).destroy! }
+      end
+
+      expect(refusal(glossary(with: removed)).first).to eq('lalabase/code' => 'not_found')
     end
 
     it 'answers a project_id outside the organisation, outside the token, missing or malformed alike: not_found' do

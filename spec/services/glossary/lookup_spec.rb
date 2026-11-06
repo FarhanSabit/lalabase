@@ -100,12 +100,13 @@ RSpec.describe Glossary::Lookup, :ci_guard do
       create(:personal_access_token, user: user, organisations: organisations, project_scopes: project_scopes)
     end
 
-    def for_token(reach, organisation_id = organisation.id)
-      described_class.for_token(reach: reach, viewer: reader, organisation_id: organisation_id)
+    # A fresh instance, as the next request would load it: the reach is memoised per instance.
+    def for_token(pat, organisation_id = organisation.id)
+      described_class.for_token(token: PersonalAccessToken.find(pat.id), viewer: reader, organisation_id: organisation_id)
     end
 
     it 'opens an organisation the token reaches in every project, with no project limit' do
-      found = for_token(token.reach)
+      found = for_token(token)
 
       expect(found.organisation).to eq(organisation)
       expect(found.read[:data].pluck(:term)).to eq(%w[Lalabase Nordlicht])
@@ -113,7 +114,7 @@ RSpec.describe Glossary::Lookup, :ci_guard do
     end
 
     it 'opens an organisation the token reaches in some projects, with those projects as the limit (E4)' do
-      found = for_token(token(project_scopes: { organisation => [project] }).reach)
+      found = for_token(token(project_scopes: { organisation => [project] }))
 
       expect(found.read[:data].pluck(:term)).to eq(%w[Lalabase Nordlicht])
       expect(forms(found.read).pluck(:form)).to eq(['Lala Bass', 'lala bus'])
@@ -125,27 +126,46 @@ RSpec.describe Glossary::Lookup, :ci_guard do
         create(:permission, role: role, category: 'glossary', action: 'view_glossary', allowed: true)
         create(:membership, user: reader, organisation: other_organisation, role: role)
       end
-      reach = token.reach
+      pat = token
 
-      expect(for_token(reach, other_organisation.id)).to be_nil
-      expect(for_token(reach, SecureRandom.uuid)).to be_nil
-      expect(for_token(reach, 'oops')).to be_nil
-      expect(for_token(reach, '')).to be_nil
-      expect(for_token(reach, nil)).to be_nil
+      expect(for_token(pat, other_organisation.id)).to be_nil
+      expect(for_token(pat, SecureRandom.uuid)).to be_nil
+      expect(for_token(pat, 'oops')).to be_nil
+      expect(for_token(pat, '')).to be_nil
+      expect(for_token(pat, nil)).to be_nil
     end
 
-    it 'answers nil once the membership is deactivated: the token reaches only active memberships' do
+    # The reach counts active memberships only, and the right asks for one (E2): an inactive member
+    # of an organisation the token names is refused as without the right, not told "not found".
+    it 'refuses a deactivated member of an organisation the token names, before it reads a term' do
       pat = token
       Membership.find_by!(user: reader, organisation: organisation).update!(active: false)
 
-      expect(for_token(PersonalAccessToken.find(pat.id).reach)).to be_nil
+      statements = capture_sql { expect { for_token(pat) }.to raise_error(described_class::Refused) }
+      expect(statements.grep(/glossary_terms|term_corrections/)).to be_empty
+    end
+
+    it 'answers nil for a deactivated membership in an organisation the token does not name' do
+      ActsAsTenant.with_tenant(other_organisation) do
+        create(:membership, user: reader, organisation: other_organisation, role: create(:role, organisation: other_organisation),
+                            active: false)
+      end
+
+      expect(for_token(token, other_organisation.id)).to be_nil
+    end
+
+    it 'answers nil once the membership is removed: no membership is no inactive member' do
+      pat = token
+      Prosopite.pause { Membership.find_by!(user: reader, organisation: organisation).destroy! }
+
+      expect(for_token(pat)).to be_nil
     end
 
     it 'reads an id in the spelling the uuid column takes, upper case or without dashes' do
-      reach = token.reach
+      pat = token
 
-      expect(for_token(reach, organisation.id.upcase).organisation).to eq(organisation)
-      expect(for_token(reach, organisation.id.delete('-')).organisation).to eq(organisation)
+      expect(for_token(pat, organisation.id.upcase).organisation).to eq(organisation)
+      expect(for_token(pat, organisation.id.delete('-')).organisation).to eq(organisation)
     end
   end
 

@@ -11,7 +11,8 @@ module Api
     #   malformed id answer the same 404. A token limited to some projects gets every term,
     #   but the heard forms of its projects only.
     # * Rights (E2): the glossary right of the token's owner (GlossaryPolicy, an active
-    #   membership), 403 with the reason glossary_forbidden without it. A read token suffices.
+    #   membership), 403 with the reason glossary_forbidden without it, also for a member
+    #   deactivated in an organisation the token names. A read token suffices.
     # * project_id (E5): that project's heard forms first; outside the organisation or the
     #   token the same 404, never ignored.
     # * Paging: 50 terms by default, at most 100, with the total; a value outside is a 400.
@@ -27,7 +28,7 @@ module Api
       # The reach, then the organisation's tenant, then the glossary right, the order of the
       # people directory: an organisation outside the token tells nothing about itself.
       def index
-        lookup = Glossary::Lookup.for_token(reach: current_token.reach, viewer: current_user,
+        lookup = Glossary::Lookup.for_token(token: current_token, viewer: current_user,
                                             organisation_id: params[:organisation_id])
         raise ActiveRecord::RecordNotFound if lookup.nil?
 
