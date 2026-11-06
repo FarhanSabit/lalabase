@@ -1,82 +1,124 @@
+/* Mirror of lalabase-website, app/assets/stylesheets/landing_tokens.css (05.11.2026): the public
+   pages and these sign-in pages are one design (doc/design/DESIGN.md there), and a
+   visitor steps from one into the other. Keep the two files identical; a change
+   there is one copy here. */
 /*
- * Shared visual tokens for public landing and authentication pages.
+ * Shared visual tokens for the public pages and the authentication pages.
+ *
+ * "Brutalism light" since 05.11.2026 (doc/design/DESIGN.md): taken from the app, not
+ * from a personal brand. One accent, the lime of the logo; 2px black borders; hard
+ * shadows without blur, always to the bottom right; Archivo for headings, Inter for
+ * text, JetBrains Mono for labels. The guide names Space Mono first and allows the
+ * app's JetBrains Mono; we take the app's, so the step from the website into the app
+ * carries no change of face.
  *
  * Keep these declarations under .lp so they cannot affect application pages.
  */
 
 .lp {
-  --lp-paper: #F5F2EB;
-  --lp-paper-muted: #EDE8DC;
-  --lp-line: #DCD6C8;
-  /* The surface that carries content such as cards, tables, and product windows. Pure
-     white is intentionally the only palette color that does not come from the paper
-     tone. It keeps a card distinct from the band beneath it.
-
-     Before 21 August 2026, `#fff` appeared as an unnamed literal in twenty places with
-     no rule for when to use it. Identical cards consequently differed between the
-     comparison and chapter pages. */
-  --lp-white: #fff;
-  --lp-line-light: #E4DFD2;
-  --lp-border-strong: #C9C2B2;
-  --lp-ink: #14161A;
-  --lp-text-2: #4A4E57;
-  --lp-text-3: #6B6F79;
-  --lp-text-4: #8A8F99;
-  /* Signal orange for illustrations. It illustrates and marks rather than acting as
-     an interactive accent; see CLAUDE.md. */
-  --lp-signal: #E4552B;
-  --lp-accent: #2B4BD9;
-  --lp-accent-hover: #2340C2;
-  --lp-accent-bg: #F4F6FF;
-  --lp-accent-border: #C7D2F7;
+  /* ---------- Palette ----------
+     ONE accent. Lime never carries text (black on lime measures 15.4:1, white on lime
+     1.3:1): it fills, it underlines, it throws a shadow. Status colours exist only
+     inside the schematic app window, where they are the app's own. */
+  --lp-paper: #FBFAF7;        /* page ground, warm off-white */
+  --lp-paper-muted: #F4F4F1;  /* set-off surface: app sidebar, before/after stage, "fairly first" band */
+  /* The surface that carries content: cards, tables, navigation, product windows.
+     Named because it is the one colour with a rule attached (spec/assets/
+     landing_scales_guard_spec.rb): a card is white, the ground under it is not. */
+  --lp-white: #FFFFFF;
+  --lp-line: #D4D4CF;         /* fine rules INSIDE cards and tables */
+  --lp-line-light: #E4E4DF;   /* the finest rule, rows of the schematic app window */
+  --lp-border-strong: #6B6F79; /* dashed outlines: "depends on you", optional steps */
+  --lp-ink: #14161A;          /* text, primary buttons, dark bands, footer */
+  --lp-black: #000000;        /* borders and hard shadows */
+  --lp-text-2: #3A3D42;       /* running text */
+  --lp-text-3: #5B5F66;       /* labels and meta text, 6.1:1 on paper */
+  --lp-accent: #BEF264;       /* = the logo tile (Tailwind lime-300) */
+  --lp-accent-tint: #F3FBE3;  /* the Lalabase column of a comparison table */
   --lp-on-dark: #F5F2EB;
-  --lp-on-dark-2: #A7ADBA;
+  --lp-on-dark-2: #C9CCD1;
+
+  --lp-status-new: #3B82F6;
+  --lp-status-wip: #F59E0B;
+  --lp-status-done: #22C55E;
+
+  /* ---------- Borders and shadows ----------
+     Shadows are hard (blur 0), go to the bottom right and are black. Three exceptions:
+     the primary button throws lime; on a dark ground the shadow is lime or off-white,
+     because black would vanish there; and whatever SHOWS the product -- the app
+     window, the mocks, the screenshots -- throws a wide grey one. Cards and windows are
+     both white with a black frame, and without it a screenshot read as one more info
+     box (decided with the owner on 05.11.2026, against the guide's "always black").
+     WHERE a shadow stands at all is the guide's "Hervorhebungen staffeln": only where
+     the eye should go first; cards and secondary buttons are flat at rest. */
+  --lp-border: 2px solid var(--lp-black);
+  --lp-border-fine: 1.5px solid var(--lp-line);
+  --lp-shadow-s: 3px 3px 0 var(--lp-black);
+  --lp-shadow-m: 4px 4px 0 var(--lp-black);
+  --lp-shadow-card: 5px 5px 0 var(--lp-black);
+  --lp-shadow-l: 8px 8px 0 var(--lp-black);
+  --lp-shadow-primary: 4px 4px 0 var(--lp-accent);
+  --lp-shadow-window: 10px 10px 0 var(--lp-line);
+
+  /* ---------- Faces ---------- */
+  --lp-font-display: 'Archivo', system-ui, sans-serif;
+  --lp-font-body: 'Inter var', 'Inter', system-ui, sans-serif;
+  --lp-font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
   /* ---------- Heading scale ----------
      Five levels carry one meaning each, replacing the thirteen sizes that had
-     accumulated by 21 August 2026 (62/58/56/54/46/42/40/38/34/30/24/21/15).
+     accumulated by 21 August 2026. The guide sets the headings fluid (clamp); the
+     ladder keeps three steps instead, because a level that is defined at every
+     breakpoint can be checked, and a clamp per heading is the hand-written size the
+     guard exists to stop.
+
+     The guide's 72px for the homepage h1 is the size its draft was drawn at; in the
+     hero's text column "Frag dein Projekt." measures 629px at 72px against 599px of
+     column. The lines are the statement, so the size gives way, not the breaks: 64px
+     keeps each on one line (559px, the highlighted second line 543px).
 
      The media queries at the end of the file assign each level again. A heading tied
      to a level therefore scales on mobile without its own rule. Add a sixth level only
      after checking that none of the five existing meanings fits. */
-  --lp-fs-hero: 62px;      /* the homepage h1 */
-  --lp-fs-display: 54px;   /* h1 for a chapter landing page */
-  --lp-fs-title: 42px;     /* h1 for a detail page and the largest h2 */
-  --lp-fs-section: 34px;   /* h2 inside a band */
-  --lp-fs-sub: 24px;       /* heading inside a card or column */
+  --lp-fs-hero: 64px;      /* the homepage h1 */
+  --lp-fs-display: 58px;   /* h1 of a landing page: comparison, features, pricing */
+  --lp-fs-title: 50px;     /* h1 of a detail page and the section h2 */
+  --lp-fs-section: 42px;   /* h2 of a comparison block, a chapter or a band in a band */
+  --lp-fs-sub: 26px;       /* heading inside a card head or a column */
   /* Card titles stay outside the responsive heading scale. A card becomes narrower
      on a phone, but the same card should not also become smaller. */
-  --lp-fs-card: 17px;
+  --lp-fs-card: 21px;
 
   /* ---------- Band spacing ----------
-     Five levels replace the eleven vertical padding values that had accumulated for
-     the same purpose by 21 August 2026.
-
-     `hero` has a separate meaning: the page header is intentionally compact on phones
-     so content starts above the fold. Horizontal spacing has one value on .lp-in rather
-     than one value per band. */
-  --lp-gutter: 56px;
+     Sections are separated by space and by their numbered label, no longer by a
+     change of ground: the bands keep one ground, and the rhythm comes from here.
+     Horizontal spacing has one value on .lp-in rather than one value per band. */
+  --lp-gutter: 24px;
   --lp-band-xs: 24px;    /* bars and breadcrumbs */
   --lp-band-sm: 48px;    /* indexes, card grids, and chapter bars */
-  --lp-band-md: 72px;    /* standard band */
-  --lp-band-lg: 80px;    /* closing band */
-  --lp-band-hero: 66px;  /* page header */
+  --lp-band-md: 72px;    /* standard section */
+  --lp-band-lg: 96px;    /* closing band */
+  --lp-band-hero: 80px;  /* page header */
 
-  /* ---------- Rounding and card dimensions ----------
-     Four radii each carry one meaning. Small elements inside mock windows keep their
-     own values because they belong to the illustration and scale with it. */
-  --lp-r-control: 7px;   /* input or toggle */
-  --lp-r-card: 8px;      /* card */
-  --lp-r-frame: 10px;    /* frame around a table, window, or menu */
-  --lp-r-pill: 20px;     /* pill */
+  /* ---------- Corners ----------
+     Three radii, one meaning each. 4px is the logo tile, and every control and badge
+     takes it from there. Small values inside the schematic windows keep their own,
+     because they belong to the drawing and scale with it. */
+  --lp-r-control: 4px;   /* button, badge, input, toggle */
+  --lp-r-card: 8px;      /* card, table frame, window */
+  --lp-r-frame: 10px;    /* closing block, hero block */
 
   /* Card padding differs only between a card in a grid and a standalone panel. */
-  --lp-pad-card: 22px;   /* card in a grid */
-  --lp-pad-panel: 26px;  /* standalone card or prose panel */
+  --lp-pad-card: 24px;   /* card in a grid */
+  --lp-pad-panel: 28px;  /* standalone card or prose panel */
 
   background: var(--lp-paper);
   color: var(--lp-ink);
-  font-family: 'Archivo', sans-serif;
+  font-family: var(--lp-font-body);
+  /* Unitless, so every size computes its own. The body carries Tailwind's text-base,
+     whose line-height is a fixed 1.5rem: inherited as 24px, it spread every small
+     label and note to twice its height. */
+  line-height: 1.5;
   min-height: 100vh;
 }
 
@@ -84,34 +126,36 @@
    breakpoints from landing.css rather than new ones. */
 @media (max-width: 1279px) {
   .lp {
-    --lp-fs-hero: 52px;
-    --lp-fs-display: 46px;
-    --lp-fs-title: 36px;
-    --lp-fs-section: 30px;
-    --lp-fs-sub: 22px;
+    --lp-fs-hero: 54px;
+    --lp-fs-display: 48px;
+    --lp-fs-title: 42px;
+    --lp-fs-section: 36px;
+    --lp-fs-sub: 24px;
 
-    --lp-gutter: 40px;
+    --lp-gutter: 24px;
     --lp-band-xs: 22px;
     --lp-band-sm: 44px;
-    --lp-band-md: 56px;
-    --lp-band-lg: 64px;
-    --lp-band-hero: 52px;
+    --lp-band-md: 64px;
+    --lp-band-lg: 80px;
+    --lp-band-hero: 64px;
   }
 }
 
 @media (max-width: 767px) {
   .lp {
-    --lp-fs-hero: 33px;
-    --lp-fs-display: 31px;
-    --lp-fs-title: 28px;
-    --lp-fs-section: 24px;
-    --lp-fs-sub: 20px;
+    /* 36px: "Frag dein Projekt." measures 314px there, the highlighted "Nicht fünf
+       Tools." 308px, and a 360px phone leaves 320px of column. */
+    --lp-fs-hero: 36px;
+    --lp-fs-display: 34px;
+    --lp-fs-title: 30px;
+    --lp-fs-section: 26px;
+    --lp-fs-sub: 22px;
 
-    --lp-gutter: 18px;
+    --lp-gutter: 20px;
     --lp-band-xs: 18px;
     --lp-band-sm: 36px;
-    --lp-band-md: 44px;
+    --lp-band-md: 48px;
     --lp-band-lg: 56px;
-    --lp-band-hero: 24px;
+    --lp-band-hero: 32px;
   }
 }
