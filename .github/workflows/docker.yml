@@ -27,6 +27,7 @@ on:
       - 'Gemfile'
       - 'Gemfile.lock'
       - 'package.json'
+      - 'app/assets/**'
       - 'config/**'
       - 'lib/**'
       - 'bin/**'

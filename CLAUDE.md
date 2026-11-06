@@ -91,7 +91,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   pushes it. `compose.yml` pulls the release in its `image:` line, which `script/release
   prepare` writes and `publish` holds against the version (guard: `changelog_guard_spec.rb`);
   never edit that line by hand. `.github/workflows/docker.yml` builds from the checkout
-  (`compose.build.yml`) and boots the stack, only for PRs touching the image or `config/`.
+  (`compose.build.yml`) and boots the stack, only for PRs touching the image, `config/` or `app/assets/`.
   Every production setting that
   names a host goes through `Lalabase::InstanceSettings`; without `LALABASE_HOST` it returns our
   servers' values unchanged (pinned by `spec/config/instance_settings_spec.rb`).
