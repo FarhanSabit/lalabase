@@ -151,11 +151,27 @@ RSpec.describe 'Glossary on REST and MCP', :ci_guard, type: :request do
     expect([outside['_meta'], project_result['_meta']]).to all(eq('lalabase/code' => 'not_found'))
   end
 
-  it 'refuses a page value outside its bounds as invalid input on both' do
+  # The bounds are the reader's on both doors, not the MCP schema's: the same words, in the token
+  # owner's language, and the same order of the checks (review round 1 of #124).
+  it 'refuses a page value outside its bounds as invalid input on both, with one text' do
     status, body = rest(per_page: 101)
     result = mcp(per_page: 101)
 
     expect([status, body['code']]).to eq([400, 'invalid_input'])
     expect(result['_meta']).to eq('lalabase/code' => 'invalid_input')
+    expect(result.dig('content', 0, 'text')).to eq(body['message'])
+    expect(body['message']).to eq('invalid per_page "101" (expected a whole number from 1 to 100)')
+  end
+
+  it 'asks the right and the reach before a page value on both' do
+    refused = token(owner: nobody)
+    status, = rest(with: refused, per_page: 101)
+    result = mcp(with: refused, per_page: 0)
+    outside_status, = rest(organisation_id: other_organisation.id, page: 0)
+    outside = mcp(organisation_id: other_organisation.id, page: 0)
+
+    expect([status, outside_status]).to eq([403, 404])
+    expect(result['_meta']).to eq('lalabase/code' => 'refused', 'lalabase/reason' => 'glossary_forbidden')
+    expect(outside['_meta']).to eq('lalabase/code' => 'not_found')
   end
 end

@@ -956,7 +956,8 @@ malformed one answer the same 404 (MCP `not_found`, also for a malformed id); `p
 forms of its project first, outside the organisation or the token the same 404. `people` and
 `speakers` only with the people right (`PersonPolicy`), named as the directory names them to the
 reader; whom it does not list counts in `count` alone. No meeting, place or corrector in the
-answer. Pages by 50, at most 100, a value outside is a 400. Guards:
+answer. Pages by 50, at most 100, a value outside is a 400 (MCP `invalid_input`, the same text and
+after the same checks: the bounds are the reader's, not the tool schema's). Guards:
 `spec/requests/api/v1/terms_spec.rb`, `spec/requests/api/mcp_glossary_spec.rb`,
 `spec/requests/api/glossary_parity_spec.rb` (REST and MCP answer the same),
 `spec/services/glossary/lookup_spec.rb`.

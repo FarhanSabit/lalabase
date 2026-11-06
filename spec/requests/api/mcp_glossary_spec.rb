@@ -107,14 +107,16 @@ RSpec.describe 'MCP get_glossary', :ci_guard, type: :request do
       expect(tools.pluck('name').last(2)).to eq(%w[get_meeting get_glossary])
     end
 
-    # A read on a token: the organisation always, the project only as an order, pages with their
-    # bounds; no project_id injected as a gate and no idempotency key.
+    # A read on a token: the organisation always, the project only as an order, pages; no project_id
+    # injected as a gate and no idempotency key. The bounds of the pages are named, not enforced by
+    # the schema: the reader refuses them after the right, as REST does (review round 1 of #124).
     it 'takes the organisation, a project to put first and pages' do
       schema = tools.find { |tool| tool['name'] == 'get_glossary' }['inputSchema']
 
       expect(schema['properties'].keys).to eq(%w[organisation_id project_id page per_page])
       expect(schema['required']).to eq(['organisation_id'])
-      expect(schema.dig('properties', 'per_page')).to include('type' => 'integer', 'minimum' => 1, 'maximum' => 100)
+      expect(schema.dig('properties', 'per_page')).to eq('type' => 'integer', 'description' => 'Terms per page, from 1 to 100 (default 50).')
+      expect(schema.dig('properties', 'page').keys).to eq(%w[type description])
       expect(schema.dig('properties', 'project_id', 'description')).to match(/come first/)
     end
   end
@@ -211,6 +213,7 @@ RSpec.describe 'MCP get_glossary', :ci_guard, type: :request do
       unknown = refusal(glossary(query: 'lala'))
 
       expect([too_many, page_zero, as_text]).to all(eq('lalabase/code' => 'invalid_input'))
+      expect(text(glossary(per_page: 101))).to eq('invalid per_page "101" (expected a whole number from 1 to 100)')
       expect(blank).to eq([{ 'lalabase/code' => 'invalid_input' }, 'organisation_id is required'])
       expect(unknown).to eq([{ 'lalabase/code' => 'invalid_input' }, 'unknown arguments: query'])
     end

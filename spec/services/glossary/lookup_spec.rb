@@ -316,6 +316,42 @@ RSpec.describe Glossary::Lookup, :ci_guard do
     end
   end
 
+  # Review round 1 of #124: every rule of the order, with rows made against the expected order, so a
+  # missing or a turned sort cannot pass on the order the database happens to hand them out in. The
+  # two ids of Alma and Zeta sort the other way round when read backwards.
+  describe 'the order of the answer' do
+    let(:quell) { create(:glossary_term, organisation: organisation, term: 'Quellwort') }
+    let(:zeta) { create(:person, id: '00000000-0000-4000-8000-0000000000b1', organisation: organisation, name: 'Zeta Zander') }
+    let(:alma) { create(:person, id: '00000000-0000-4000-8000-0000000000a9', organisation: organisation, name: 'Alma Abel') }
+
+    it 'breaks a tie of forms by the compared form, and a tie of speakers by ref' do
+      heard(quell, 'kalbe', replaced: 2, project: project, person: zeta)
+      heard(quell, 'kalbe', replaced: 2, project: project, person: alma)
+      heard(quell, 'kalb x', replaced: 4, project: project)
+
+      tied = forms(lookup.read, quell)
+      expect(tied.pluck(:form)).to eq(['kalb x', 'kalbe'])
+      expect(tied.last[:speakers]).to eq([{ ref: "person:#{alma.id}", count: 2 }, { ref: "person:#{zeta.id}", count: 2 }])
+    end
+
+    it 'lists the people by name, not in the order they were heard' do
+      heard(quell, 'quell z', project: project, person: zeta)
+      heard(quell, 'quell a', project: project, person: alma)
+
+      expect(lookup.read[:people].pluck(:name))
+        .to eq(['Alma Abel', 'Ben Beispiel', 'Doris Dienstleister', 'Erika Muster', 'Zeta Zander'])
+    end
+
+    it 'puts first a form heard in project_id that was heard in another project too' do
+      heard(quell, 'quell viel', replaced: 5, project: other_project)
+      heard(quell, 'quell mix', replaced: 1, project: other_project)
+      heard(quell, 'quell mix', replaced: 1, project: project)
+
+      expect(forms(lookup.read, quell).pluck(:form)).to eq(['quell viel', 'quell mix'])
+      expect(forms(lookup.read(project_id: project.id), quell).pluck(:form)).to eq(['quell mix', 'quell viel'])
+    end
+  end
+
   describe 'pages' do
     before do
       %w[Birkenweg Eschenhof].each { |word| create(:glossary_term, organisation: organisation, term: word) }

@@ -15,6 +15,9 @@ module Lalabase
     # id is no invalid_input here, unlike the people twins: the two doors of one reader read one
     # id the same way (the reason of get_meeting, R9). project_id is the tool's own argument: it
     # reorders, it does not narrow, so it is not the dispatcher's filter (project_filter? false).
+    # The bounds of page and per_page are the reader's, not the schema's (no minimum, no maximum):
+    # the SDK would refuse a value before the tool runs, ahead of the right and in its own English,
+    # where REST refuses after the right in the owner's language (review round 1 of #124).
     #
     # MCP only, no assistant twin: the assistant does not need the glossary today.
     class GetGlossary < Base
@@ -63,9 +66,10 @@ module Lalabase
             project_id: { type: 'string',
                           description: 'Optional. UUID of a project of that organisation whose heard forms ' \
                                        'come first in each term.' },
-            page: { type: 'integer', minimum: 1, description: 'Page of terms, 1-based.' },
-            per_page: { type: 'integer', minimum: 1, maximum: Glossary::Lookup::MAX_PER_PAGE,
-                        description: "Terms per page (default #{Glossary::Lookup::DEFAULT_PER_PAGE})." }
+            page: { type: 'integer', description: 'Page of terms, from 1.' },
+            per_page: { type: 'integer',
+                        description: "Terms per page, from 1 to #{Glossary::Lookup::MAX_PER_PAGE} " \
+                                     "(default #{Glossary::Lookup::DEFAULT_PER_PAGE})." }
           },
           required: ['organisation_id']
         }

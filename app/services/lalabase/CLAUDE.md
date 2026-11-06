@@ -48,7 +48,9 @@ Codebase-Verständnis.
   `not_found`, as REST's one 404 (not `invalid_input` like the people twins: one reader, one
   reading of the id). Then the tenant, the glossary right (`refused`, reason `glossary_forbidden`,
   REST's text) and `authorize!`. `project_id` is its own argument (it reorders, it does not narrow),
-  so `project_filter?` stays false; an unknown argument is `invalid_input`.
+  so `project_filter?` stays false; an unknown argument is `invalid_input`. The bounds of `page` and
+  `per_page` are the reader's, not the schema's (no `minimum`/`maximum`): the SDK would refuse a value
+  ahead of the right and in its own English, where REST answers after the right in the owner's language.
   On `:mcp` the same two names are twins (`McpFindPeople`, `McpGetPerson`, People S3b, MCP
   0.13.0), own classes because their schema requires `organisation_id` (E3). `scope_mode
   :token`; `PeopleTool.with_token_lookup` is their gate: only an organisation whose every
