@@ -35,8 +35,6 @@ module Glossary
     MAX_PER_PAGE = 100
     # Far beyond any glossary, so an absurd page number is refused rather than skipped to.
     MAX_PAGE = 100_000
-    # How much of a refused value a message quotes back.
-    QUOTED_LENGTH = 20
     # The machine word of a refusal for want of the glossary right, on both doors.
     FORBIDDEN_REASON = 'glossary_forbidden'
 
@@ -99,8 +97,8 @@ module Glossary
     def read(project_id: nil, page: nil, per_page: nil)
       raise Refused unless allowed?
 
-      page = whole_number(:page, page, max: MAX_PAGE) || 1
-      per_page = whole_number(:per_page, per_page, max: MAX_PER_PAGE) || DEFAULT_PER_PAGE
+      page = paging(:page, page, default: 1, max: MAX_PAGE)
+      per_page = paging(:per_page, per_page, default: DEFAULT_PER_PAGE, max: MAX_PER_PAGE)
       ActsAsTenant.with_tenant(@organisation) do
         first = first_project_id(project_id)
         terms = Pundit.policy_scope!(@viewer, GlossaryTerm).confirmed
@@ -206,20 +204,13 @@ module Glossary
       id
     end
 
-    # A whole number from 1 to max, as text (REST: digits only) or as a JSON
-    # number (MCP: an Integer, or a Float with a whole value, which JSON Schema
-    # counts as an integer: 2.0); absent or empty is nil (the default). A refused
-    # value is quoted back only when it is text or a number, and only its start.
-    def whole_number(name, raw, max:)
-      return nil if raw.nil? || raw == ''
-
-      number = raw if raw.is_a?(Integer)
-      number = raw.to_i if raw.is_a?(Float) && raw.finite? && raw == raw.floor
-      number = Integer(raw, 10) if raw.is_a?(String) && raw.match?(/\A\d+\z/)
-      return number if number&.between?(1, max)
-
-      shown = raw.is_a?(String) || raw.is_a?(Numeric) ? " #{raw.to_s.truncate(QUOTED_LENGTH).inspect}" : ''
-      raise InvalidArgument, I18n.t('services.glossary.lookup.invalid_number', name: name, shown: shown, max: max)
+    # A page value read the strict way (ListPaging.strict_number, the rule and the
+    # wording of every list that refuses one), refused as this lookup's
+    # InvalidArgument, which both doors answer.
+    def paging(name, value, default:, max:)
+      ListPaging.strict_number(value, name: name, default: default, max: max)
+    rescue ListPaging::InvalidArgument => e
+      raise InvalidArgument, e.message
     end
   end
 end

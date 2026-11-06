@@ -186,6 +186,18 @@ RSpec.describe 'REST meetings', :ci_guard, type: :request do
         end
       end
 
+      # One wording for every list that refuses a page value (ListPaging.strict_number), the
+      # glossary's, in the token owner's language.
+      it 'names the refused value in the language of the token owner' do
+        list('?per_page=101')
+        expect(response.parsed_body['message'])
+          .to eq('ungültiger Wert für per_page "101" (erwartet ist eine ganze Zahl von 1 bis 100)')
+
+        reader.update!(language_preference: 'en')
+        list('?page=0')
+        expect(response.parsed_body['message']).to eq('invalid page "0" (expected a whole number from 1 to 100000)')
+      end
+
       ['q=a%00b', 'q[]=a'].each do |query|
         it "refuses #{query} with 422" do
           expect(list("?#{query}")).to have_http_status(:unprocessable_content)

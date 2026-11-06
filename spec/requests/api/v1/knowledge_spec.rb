@@ -273,6 +273,20 @@ RSpec.describe 'REST knowledge', :ci_guard, type: :request do
       expect_invalid_input(/per_page/)
     end
 
+    # One wording for every list that refuses a page value (ListPaging.strict_number), the
+    # glossary's, in the token owner's language.
+    it 'names the refused value in the language of the token owner' do
+      token = token_for(reader)
+      get_json(reader, { per_page: '101' }, token: token)
+      expect_invalid_input(/per_page/)
+      expect(response.parsed_body['message'])
+        .to eq('ungültiger Wert für per_page "101" (erwartet ist eine ganze Zahl von 1 bis 100)')
+
+      reader.update!(language_preference: 'en')
+      get_json(reader, { page: '0' }, token: token)
+      expect(response.parsed_body['message']).to eq('invalid page "0" (expected a whole number from 1 to 100000)')
+    end
+
     it 'refuses a NUL in q, which would otherwise reach the database' do
       get "/api/v1/projects/#{project.id}/knowledge?q=a%00b", headers: { 'Authorization' => "Bearer #{token_for(reader)}" }
       expect_invalid_input(/q/)

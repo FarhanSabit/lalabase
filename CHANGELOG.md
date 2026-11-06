@@ -39,6 +39,11 @@ starts (`db:prepare lalabase:data_backfills`). Without Docker, run
   becomes a link. SVG is not shown yet. Limits: 5 MB per image, 200 images per set.
 - The assistant's time report over a whole organisation reads the rights once and sums in
   one query, instead of three queries and a sum for every project.
+- The REST API refuses a `page` or `per_page` it cannot read with the same wording on every
+  list that refuses one (people, knowledge, meetings and the glossary), in the language of
+  the token's owner and naming the refused value. Before, people, knowledge and meetings
+  answered in English only, in two different wordings. Status codes and error codes stay as
+  they were.
 
 ### Fixed
 

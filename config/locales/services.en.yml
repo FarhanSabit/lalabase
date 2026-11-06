@@ -128,12 +128,15 @@ en:
       # unknown, missing endpoint, invalid access), the raw English exception must
       # not end up in the user-visible summary_creation_error column.
       provider_error: "The selected AI provider could not create a summary. Please check provider, model and access in the AI settings."
-    # The refusals of the glossary read through a token (Glossary::Lookup), on
+    # The refusal of the glossary read through a token (Glossary::Lookup), on
     # both doors: GET /api/v1/organisations/:id/terms and the MCP tool get_glossary.
     glossary:
       lookup:
         forbidden: You may not read the glossary of this organisation.
-        invalid_number: "invalid %{name}%{shown} (expected a whole number from 1 to %{max})"
+    # A page or per_page the strict lists refuse (ListPaging.strict_number): the
+    # glossary, and over /api/v1 the people directory and the knowledge and meetings lists.
+    list_paging:
+      invalid_number: "invalid %{name}%{shown} (expected a whole number from 1 to %{max})"
     meetings:
       intake:
         meeting_inbox_missing: Without a project the organisation needs an inbox project, and none is set.

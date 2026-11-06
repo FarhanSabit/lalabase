@@ -25,7 +25,6 @@ module Knowledge
     # Bounds LIMIT page * per_page of each arm (the reasoning of Tickets::Reading::MAX_PAGE).
     MAX_PAGE = 100_000
     SEARCH_MODE = 'title_only'
-    WHOLE_NUMBER = /\A[0-9]+\z/
 
     Options = Struct.new(:query, :type, :page, :per_page, keyword_init: true)
     class InvalidOption < ArgumentError; end
@@ -41,8 +40,8 @@ module Knowledge
 
     # Reads the options of a lookup. An unknown type is refused on both surfaces. Page and
     # per_page differ by surface: MCP has always read garbage as the default and clamped a
-    # large per_page (`strict: false`); REST refuses what it cannot read (`strict: true`),
-    # where an absent or empty value still means the default.
+    # large per_page (`strict: false`); REST refuses what it cannot read (`strict: true`,
+    # ListPaging.strict_number), where an absent or empty value still means the default.
     #
     # @param args [Hash] symbol keys q, type, page, per_page
     # @raise [InvalidOption] with a message naming the argument
@@ -103,14 +102,11 @@ module Knowledge
     end
     private_class_method :type_arg
 
+    # The rule and the wording of every list that refuses a page value, refused as InvalidOption.
     def self.strict_number(value, name, default, max)
-      return default if value.nil? || value == ''
-
-      text = value.is_a?(Integer) ? value.to_s : value
-      valid = text.is_a?(String) && text.match?(WHOLE_NUMBER) && text.to_i.between?(1, max)
-      raise InvalidOption, "#{name} must be a whole number from 1 to #{max}" unless valid
-
-      text.to_i
+      ListPaging.strict_number(value, name: name, default: default, max: max)
+    rescue ListPaging::InvalidArgument => e
+      raise InvalidOption, e.message
     end
     private_class_method :strict_number
 
