@@ -131,7 +131,7 @@
 /* ---------- language switch ---------- */
 /* Moved here from landing.css on 21.09.2026. The sign-up page renders the switch
    too (static/_language_switch), and its layout loads auth.css, not landing.css:
-   from the W5 switch until that day lalabase.com showed an unstyled "DE / EN" in
+   from the W5 switch until that day the public site showed an unstyled "DE / EN" in
    the middle of the sign-up top row. Guard: spec/system/signup_form_chrome_spec.rb.
 
    A segmented control since the redesign: one 2px frame, the current language filled
@@ -170,7 +170,7 @@
 /* ---------- bot trap ---------- */
 /* shared/_bot_trap_fields. This rule lived in the core's views.css and did not
    come along when the sign-up form moved here (W3.4): the trap was VISIBLE on
-   lalabase.com until 21.09.2026. That is not cosmetic -- a password manager or
+   the public site until 21.09.2026. That is not cosmetic -- a password manager or
    autofill fills a visible input, and the trap answers a filled field with a
    pretended success, so a real customer is told they signed up and no account
    exists.
