@@ -59,7 +59,9 @@ module Mcp
     # and meeting_inbox on the rows of list_projects.
     # 0.17 = get_meeting: one meeting whole behind the token, its summary, notes and
     # transcript in pages, by the gate of GET /api/v1/meetings/:id (Meetings::Readable).
-    SERVER_VERSION = '0.17.0'
+    # 0.18 = get_glossary: the confirmed terms of an organisation with their confirmed
+    # heard forms, by the reader of GET /api/v1/organisations/:id/terms (Glossary::Lookup).
+    SERVER_VERSION = '0.18.0'
 
     # MCP surface — sourced from the single tool registry (D6): the :mcp set is the
     # ONE definition of this surface, so a registry refactor can't drift it (R3);

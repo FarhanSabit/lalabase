@@ -82,8 +82,8 @@ RSpec.describe 'MCP get_meeting', :ci_guard, type: :request do
   describe 'tools/list' do
     let(:tools) { rpc('tools/list', {}, pat: token_for(reader)).dig('result', 'tools') }
 
-    it 'offers get_meeting last, so the order of every tool before it holds' do
-      expect(tools.pluck('name').last(2)).to eq(%w[create_meeting get_meeting])
+    it 'offers get_meeting after create_meeting, so the order of every tool before it holds' do
+      expect(tools.pluck('name').last(3)).to eq(%w[create_meeting get_meeting get_glossary])
     end
 
     it 'takes the meeting, a part and an offset, and says how to page' do

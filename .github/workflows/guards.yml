@@ -265,6 +265,7 @@ jobs:
           spec/requests/api/mcp_list_projects_spec.rb
           spec/requests/api/mcp_create_meeting_spec.rb
           spec/requests/api/mcp_get_meeting_spec.rb
+          spec/requests/api/mcp_glossary_spec.rb
           spec/requests/api/v1/projects_listing_spec.rb
           spec/requests/api/mcp_idempotency_key_bound_spec.rb
           spec/requests/api/ticket_list_search_private_comments_spec.rb
@@ -310,6 +311,7 @@ jobs:
           spec/requests/api/v1/meetings_spec.rb
           spec/requests/api/v1/meetings_read_spec.rb
           spec/requests/api/people_parity_spec.rb
+          spec/requests/api/glossary_parity_spec.rb
           spec/requests/api/v1/post_comment_format_spec.rb
           spec/requests/api/v1/ticket_changes_spec.rb
           spec/requests/api/v1/ticket_changes_concurrency_spec.rb

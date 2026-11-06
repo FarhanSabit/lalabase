@@ -149,7 +149,12 @@ module Lalabase
         # A meeting with its transcript, token-scoped because the project may be
         # missing (it then lands in the inbox). Appended for the same reason.
         CreateMeeting,
-        McpGetMeeting
+        McpGetMeeting,
+        # K4c: the working terms of an organisation's glossary, for a device that
+        # hands them to its speech recognition. A token-scoped read through the
+        # reader of GET /api/v1/organisations/:id/terms, no assistant twin.
+        # Appended for the same reason.
+        GetGlossary
       ].freeze
 
       # Sets whose tools reach the LLM tool loop. The guard-spec enforces the

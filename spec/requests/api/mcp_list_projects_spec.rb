@@ -62,8 +62,8 @@ RSpec.describe 'MCP list_organisations and list_projects', :ci_guard, type: :req
       post '/api/mcp', params: { jsonrpc: '2.0', id: 1, method: 'tools/list' }.to_json,
                        headers: { 'Authorization' => "Bearer #{pat.token}", 'CONTENT_TYPE' => 'application/json' }
 
-      expect(response.parsed_body.dig('result', 'tools').pluck('name').last(4))
-        .to eq(%w[list_organisations list_projects create_meeting get_meeting])
+      expect(response.parsed_body.dig('result', 'tools').pluck('name').last(5))
+        .to eq(%w[list_organisations list_projects create_meeting get_meeting get_glossary])
     end
 
     it 'points the project_id of a project tool at list_projects' do
