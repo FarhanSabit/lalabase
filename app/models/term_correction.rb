@@ -25,6 +25,11 @@
 # term_corrections_status_known holds the two values). What works is a
 # confirmed row at a confirmed term: .effective, the one reader K4c and the
 # device (M4) go through.
+#
+# Every row also says where it came from (origin, K5b): a correction in a
+# meeting, a proposal of the glossary extraction or an import; rows written
+# before K5b came from meetings (the column's default, held by the check
+# constraint term_corrections_origin_known), and .effective does not read it.
 class TermCorrection < ApplicationRecord
   # The references to rows of an organisation, declared BEFORE acts_as_tenant:
   # acts_as_tenant 1.0.1 checks the tenant only of references declared before
@@ -46,6 +51,7 @@ class TermCorrection < ApplicationRecord
 
   DIGEST_FORMAT = /\A\h{64}\z/
   STATUSES = %w[proposed confirmed].freeze
+  ORIGINS = %w[meeting extraction import].freeze
 
   enum :status, STATUSES.index_by(&:itself), validate: true
 
@@ -64,6 +70,7 @@ class TermCorrection < ApplicationRecord
 
   validates :heard, presence: true, length: { maximum: GlossaryTerm::MAX_LENGTH }
   validates :normalized_heard, presence: true
+  validates :origin, inclusion: { in: ORIGINS }
   validates :replaced_count, numericality: { only_integer: true, greater_than_or_equal_to: 1 }
   validates :line_index, :char_offset, numericality: { only_integer: true, greater_than_or_equal_to: 0 }, allow_nil: true
   validates :transcript_digest, format: { with: DIGEST_FORMAT }, allow_nil: true

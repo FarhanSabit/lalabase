@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_08_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_08_100300) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -714,6 +714,68 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_08_100000) do
     t.index ["fragmentable_type", "fragmentable_id"], name: "index_fragments_on_fragmentable"
     t.index ["organisation_id"], name: "index_fragments_on_organisation_id"
     t.index ["version_token"], name: "index_fragments_on_version_token"
+  end
+
+  create_table "glossary_extraction_runs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "organisation_id", null: false
+    t.uuid "started_by_id"
+    t.string "job_id", null: false
+    t.string "status", default: "queued", null: false
+    t.jsonb "scope", default: {}, null: false
+    t.jsonb "stats", default: {}, null: false
+    t.string "error_code"
+    t.datetime "finished_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["job_id"], name: "index_glossary_extraction_runs_on_job_id", unique: true
+    t.index ["organisation_id"], name: "index_glossary_extraction_runs_on_organisation_id"
+    t.index ["organisation_id"], name: "one_active_glossary_extraction_run", unique: true, where: "((status)::text = ANY ((ARRAY['queued'::character varying, 'running'::character varying])::text[]))"
+    t.index ["started_by_id"], name: "index_glossary_extraction_runs_on_started_by_id"
+    t.check_constraint "status::text = ANY (ARRAY['queued'::character varying, 'running'::character varying, 'succeeded'::character varying, 'failed'::character varying]::text[])", name: "glossary_extraction_runs_status_known"
+  end
+
+  create_table "glossary_proposal_sources", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "organisation_id", null: false
+    t.uuid "glossary_proposal_id", null: false
+    t.string "source_type", null: false
+    t.uuid "source_id", null: false
+    t.uuid "project_id"
+    t.string "snippet", limit: 240, default: "", null: false
+    t.integer "occurrences", default: 1, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["glossary_proposal_id", "source_type", "source_id"], name: "index_glossary_proposal_sources_on_proposal_and_source", unique: true
+    t.index ["organisation_id"], name: "index_glossary_proposal_sources_on_organisation_id"
+    t.index ["project_id"], name: "index_glossary_proposal_sources_on_project_id"
+    t.index ["source_type", "source_id"], name: "index_glossary_proposal_sources_on_source_type_and_source_id"
+    t.check_constraint "occurrences >= 1", name: "glossary_proposal_sources_occurrences_positive"
+    t.check_constraint "source_type::text = ANY (ARRAY['Ticket'::character varying, 'Post'::character varying, 'TicketDocument'::character varying, 'PostDocument'::character varying, 'Note'::character varying, 'DocumentVersion'::character varying]::text[])", name: "glossary_proposal_sources_source_type_known"
+  end
+
+  create_table "glossary_proposals", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "organisation_id", null: false
+    t.uuid "glossary_extraction_run_id"
+    t.string "term", limit: 255, null: false
+    t.string "normalized_term", null: false
+    t.string "category"
+    t.jsonb "variants", default: [], null: false
+    t.string "hint", limit: 160, default: "", null: false
+    t.integer "occurrences", default: 0, null: false
+    t.string "status", default: "open", null: false
+    t.uuid "glossary_term_id"
+    t.uuid "decided_by_id"
+    t.datetime "decided_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["decided_by_id"], name: "index_glossary_proposals_on_decided_by_id"
+    t.index ["glossary_extraction_run_id"], name: "index_glossary_proposals_on_glossary_extraction_run_id"
+    t.index ["glossary_term_id"], name: "index_glossary_proposals_on_glossary_term_id"
+    t.index ["organisation_id", "normalized_term"], name: "index_glossary_proposals_on_org_and_normalized_term", unique: true
+    t.index ["organisation_id", "status"], name: "index_glossary_proposals_on_organisation_id_and_status"
+    t.check_constraint "\nCASE\n    WHEN jsonb_typeof(variants) = 'array'::text THEN jsonb_array_length(variants) <= 10 AND NOT jsonb_path_exists(variants, 'strict $[*]?(@.type() != \"string\")'::jsonpath)\n    ELSE false\nEND", name: "glossary_proposals_variants_shape"
+    t.check_constraint "category IS NULL OR (category::text = ANY (ARRAY['person'::character varying, 'company'::character varying, 'product'::character varying, 'place'::character varying, 'domain'::character varying, 'foreign'::character varying]::text[]))", name: "glossary_proposals_category_known"
+    t.check_constraint "occurrences >= 0", name: "glossary_proposals_occurrences_not_negative"
+    t.check_constraint "status::text = ANY (ARRAY['open'::character varying, 'accepted'::character varying, 'dismissed'::character varying]::text[])", name: "glossary_proposals_status_known"
   end
 
   create_table "glossary_terms", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1728,6 +1790,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_08_100000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "status", default: "confirmed", null: false
+    t.string "origin", default: "meeting", null: false
     t.index ["corrected_by_id"], name: "index_term_corrections_on_corrected_by_id"
     t.index ["glossary_term_id", "normalized_heard"], name: "index_term_corrections_on_term_and_heard"
     t.index ["meeting_id"], name: "index_term_corrections_on_meeting_id"
@@ -1736,6 +1799,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_08_100000) do
     t.index ["project_id"], name: "index_term_corrections_on_project_id"
     t.index ["user_id"], name: "index_term_corrections_on_user_id"
     t.check_constraint "num_nonnulls(person_id, user_id) <= 1", name: "term_corrections_one_speaker"
+    t.check_constraint "origin::text = ANY (ARRAY['meeting'::character varying, 'extraction'::character varying, 'import'::character varying]::text[])", name: "term_corrections_origin_known"
     t.check_constraint "status::text = ANY (ARRAY['proposed'::character varying::text, 'confirmed'::character varying::text])", name: "term_corrections_status_known"
   end
 
@@ -2137,6 +2201,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_08_100000) do
   add_foreign_key "embedding_spaces", "organisations", on_delete: :cascade
   add_foreign_key "founder_signups", "accounts"
   add_foreign_key "fragments", "organisations"
+  add_foreign_key "glossary_extraction_runs", "organisations", on_delete: :cascade
+  add_foreign_key "glossary_extraction_runs", "users", column: "started_by_id", on_delete: :nullify
+  add_foreign_key "glossary_proposal_sources", "glossary_proposals", on_delete: :cascade
+  add_foreign_key "glossary_proposal_sources", "organisations", on_delete: :cascade
+  add_foreign_key "glossary_proposal_sources", "projects", on_delete: :nullify
+  add_foreign_key "glossary_proposals", "glossary_extraction_runs", on_delete: :nullify
+  add_foreign_key "glossary_proposals", "glossary_terms", on_delete: :nullify
+  add_foreign_key "glossary_proposals", "organisations", on_delete: :cascade
+  add_foreign_key "glossary_proposals", "users", column: "decided_by_id", on_delete: :nullify
   add_foreign_key "glossary_terms", "organisations", on_delete: :cascade
   add_foreign_key "glossary_terms", "users", column: "created_by_id", on_delete: :nullify
   add_foreign_key "imported_objects", "organisations"

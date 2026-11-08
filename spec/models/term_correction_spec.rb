@@ -84,6 +84,57 @@ RSpec.describe TermCorrection, :ci_guard, type: :model do
     end
   end
 
+  # Where a heard form came from (K5b): a correction in a meeting, a proposal
+  # of the glossary extraction, or an import. Rows written before K5b came
+  # from meetings (the column's default).
+  describe 'the origin' do
+    it 'is meeting unless set, the origin of every row before K5b' do
+      expect(described_class.new.origin).to eq('meeting')
+      expect(create(:term_correction, organisation: organisation, glossary_term: term).origin).to eq('meeting')
+    end
+
+    it 'is meeting for a row the database fills without it' do
+      inserted = described_class.insert_all!(
+        [{ organisation_id: organisation.id, glossary_term_id: term.id, heard: 'zor bel', normalized_heard: 'zor bel' }],
+        returning: %w[origin]
+      )
+
+      expect(inserted.rows).to eq([['meeting']])
+    end
+
+    it 'knows meeting, extraction and import, nothing else' do
+      Prosopite.pause do
+        described_class::ORIGINS.each do |origin|
+          expect(build(:term_correction, organisation: organisation, glossary_term: term, origin: origin)).to be_valid
+        end
+      end
+      expect(described_class::ORIGINS).to eq(%w[meeting extraction import])
+
+      unknown = build(:term_correction, organisation: organisation, glossary_term: term, origin: 'guess')
+      expect(unknown).not_to be_valid
+      expect(unknown.errors.details[:origin]).to include(a_hash_including(error: :inclusion))
+      expect(build(:term_correction, organisation: organisation, glossary_term: term, origin: nil)).not_to be_valid
+    end
+
+    it 'stores every known origin in the database' do
+      correction = create(:term_correction, organisation: organisation, glossary_term: term)
+
+      Prosopite.pause do
+        described_class::ORIGINS.each do |origin|
+          described_class.where(id: correction.id).update_all(origin: origin)
+          expect(correction.reload.origin).to eq(origin)
+        end
+      end
+    end
+
+    it 'is held by the database too' do
+      correction = create(:term_correction, organisation: organisation, glossary_term: term)
+
+      expect { described_class.where(id: correction.id).update_all(origin: 'guess') }
+        .to raise_error(ActiveRecord::StatementInvalid, /term_corrections_origin_known/)
+    end
+  end
+
   # What K4c and the device (M4) read: a confirmed form at a confirmed term.
   # A proposal at a confirmed term and a confirmed form at a proposed or a
   # rejected term do not work anywhere yet.
@@ -98,6 +149,17 @@ RSpec.describe TermCorrection, :ci_guard, type: :model do
       create(:term_correction, organisation: organisation, glossary_term: rejected_term, heard: 'ahorn sirup')
 
       expect(described_class.effective).to contain_exactly(effective)
+    end
+
+    # The origin does not decide what works: only the two statuses do.
+    it 'reads the origin nowhere: a confirmed form from the extraction works at a confirmed term only' do
+      extracted = create(:term_correction, organisation: organisation, glossary_term: term, heard: 'zorbel hub',
+                                           origin: 'extraction')
+      create(:term_correction, organisation: organisation, glossary_term: proposed_term, heard: 'zorbel wub',
+                               origin: 'extraction')
+      imported = create(:term_correction, organisation: organisation, glossary_term: term, heard: 'quar nix', origin: 'import')
+
+      expect(described_class.effective).to contain_exactly(extracted, imported)
     end
 
     it 'stays inside the tenant' do
