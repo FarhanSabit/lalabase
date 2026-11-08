@@ -26,7 +26,7 @@ module Neo
       # border, 8 px radius) and a hard offset shadow, 2 px at rest, 3 px on
       # hover, none when pressed while the button sinks into its own shadow.
       # Off: the selected surface, the edge, faint text, no shadow, no pointer.
-      # One primary surface per visible area; no other element carries the
+      # One primary surface per visible area; no other button carries the
       # ink edge or the offset shadow. Soft shadows stay with layers and modals.
       PRIMARY = 'bg-btn-primary text-ink font-semibold border border-ink ' \
                 'shadow-press hover:shadow-press-hover ' \
