@@ -3,13 +3,17 @@
 # app/services/actors/import_glossary_terms.rb
 #
 # Imports many terms into the glossary of an organisation at once (K5), from
-# the text of a textarea: one line per term, "Term" or "Term;Category". The
+# the text of a textarea: one line per term, "Term" or "Term;Category", or
+# term and category in two columns of a spreadsheet (a tab between them). The
 # controller refuses a user without view_glossary before this runs; the actor
 # checks no right, it only asks GlossaryPolicy which status a new term gets.
 #
-# * Each line is cleaned (GlossaryText.clean) and split at its first ";": the
-#   term on the left, the category on the right, each cleaned again. A line
-#   that is blank then is skipped; the others keep their number in the input.
+# * A line ends at CR LF, or at one of LF, CR, VT, FF, NEL, U+2028 and U+2029
+#   (a paste from a word processor carries those). A line that is blank once
+#   cleaned (GlossaryText.clean) is skipped; the others keep their number in
+#   the input. Each is split at its first ";" or tab, whichever comes first,
+#   and only then cleaned, since cleaning turns a tab into a space: the term
+#   on the left, the category on the right.
 #   More than MAX_LINES lines that are not blank, or none at all, refuse the
 #   whole import before anything is read or written, in a dry run too.
 # * The category is a key of GlossaryTerm::CATEGORIES or its display name in
@@ -36,6 +40,11 @@
 # * One transaction for the whole import. A dry run takes the same path and
 #   rolls it back at the end, as Subscriptions::OrganisationMove does: the
 #   preview shows the numbers of the real import, not a guess at them.
+# * All of it under the tenant of the organisation (ActsAsTenant.with_tenant,
+#   as Glossary::Lookup reads), whatever tenant the caller has set. Under
+#   another one the tenant scope hid the terms of the glossary, acts_as_tenant
+#   wrote the new ones into that tenant, and the role GlossaryPolicy reads was
+#   looked up there (review round 2 of #128).
 #
 # The outcome is #report, read after a successful #call: a Line for every line
 # that is not blank, in the order of the input, and the counts. A Line names
@@ -57,8 +66,13 @@ module Actors
     VERDICTS = %i[new existing rejected duplicate invalid].freeze
     COUNTS = (VERDICTS + %i[created proposed categorized]).freeze
 
-    # How a textarea ends a line: CR LF, or one of the two alone.
-    LINE_BREAK = /\r\n|\r|\n/
+    # How a line ends: CR LF, as a textarea sends it, or one of LF, VT, FF,
+    # CR, NEL, U+2028 and U+2029 alone (a manual line break of a word
+    # processor is a VT).
+    LINE_BREAK = /\r\n|[\n\v\f\r\u0085\u2028\u2029]/
+    # What parts the term from its category: a ";" or a tab (two columns of a
+    # spreadsheet), whichever comes first in the line.
+    SEPARATOR = /[;\t]/
     CATEGORY_SCOPE = 'views.organisations.glossary.categories'
 
     # One line while it is imported; the report keeps a Line of it. form is
@@ -82,14 +96,17 @@ module Actors
       @organisation
     end
 
+    # Under the tenant of the organisation, never the caller's (header).
     def perform
-      lines = read_lines
-      # requires_new: true is load-bearing. BaseActor#call runs this in a
-      # transaction already; a block that joins it swallows the Rollback
-      # without rolling anything back, and the dry run would write.
-      ActiveRecord::Base.transaction(requires_new: true) do
-        @report = import(lines)
-        raise ActiveRecord::Rollback if @dry_run
+      ActsAsTenant.with_tenant(@organisation) do
+        lines = read_lines
+        # requires_new: true is load-bearing. BaseActor#call runs this in a
+        # transaction already; a block that joins it swallows the Rollback
+        # without rolling anything back, and the dry run would write.
+        ActiveRecord::Base.transaction(requires_new: true) do
+          @report = import(lines)
+          raise ActiveRecord::Rollback if @dry_run
+        end
       end
     end
 
@@ -101,16 +118,16 @@ module Actors
       raise ActorError.new(I18n.t("controllers.glossary.import.#{code}", max: MAX_LINES), code: code)
     end
 
-    # [number, text] of every line that is not blank once cleaned. Stops at
-    # the first line over the limit: a long paste is not cleaned to its end.
+    # [number, line] of every line that is not blank once cleaned, the line
+    # as it came: row_of splits it before it cleans it. Stops at the first
+    # line over the limit: a long paste is not cleaned to its end.
     def read_lines
       lines = []
       @text.split(LINE_BREAK).each.with_index(1) do |raw, number|
-        text = GlossaryText.clean(raw)
-        next if text.empty?
+        next if GlossaryText.clean(raw).empty?
 
         refuse(:too_many_lines) if lines.size == MAX_LINES
-        lines << [number, text]
+        lines << [number, raw]
       end
       refuse(:empty) if lines.empty?
       lines
@@ -118,15 +135,18 @@ module Actors
 
     # categorize before create_terms: the lock order (header).
     def import(lines)
-      rows = lines.map { |number, text| row_of(number, text) }
+      rows = lines.map { |number, raw| row_of(number, raw) }
       classify(rows.reject { |row| row.verdict == :invalid })
       categorize(rows) if manage?
       create_terms(rows.select { |row| row.verdict == :new })
       report_of(rows)
     end
 
-    def row_of(number, text)
-      term, category = text.split(';', 2).map { |part| GlossaryText.clean(part) }
+    # Split first, then clean each part: cleaning turns a tab into a space,
+    # and two columns of a spreadsheet came in as one term.
+    def row_of(number, raw)
+      text = GlossaryText.clean(raw)
+      term, category = raw.split(SEPARATOR, 2).map { |part| GlossaryText.clean(part) }
       return Row.new(number: number, text: text, verdict: :invalid) if term.empty? || term.length > GlossaryTerm::MAX_LENGTH
 
       Row.new(number: number, text: text, term: term, form: GlossaryText.normalize(term), category: category_of(category))

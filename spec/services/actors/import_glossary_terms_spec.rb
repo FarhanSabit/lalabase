@@ -3,10 +3,11 @@
 require 'rails_helper'
 
 # Importing many glossary terms at once from the text of a textarea (K5): one
-# line per term, "Term" or "Term;Category". A new term is confirmed with
-# manage_glossary and proposed with only view_glossary; a term the glossary
-# already has is skipped and keeps its status; a dry run reports the same
-# numbers and writes nothing. Invented words and names only.
+# line per term, "Term" or "Term;Category", or a tab between term and
+# category. A new term is confirmed with manage_glossary and proposed with
+# only view_glossary; a term the glossary already has is skipped and keeps
+# its status; a dry run reports the same numbers and writes nothing.
+# Invented words and names only.
 RSpec.describe Actors::ImportGlossaryTerms, :ci_guard, type: :service do
   let(:organisation) { create(:organisation) }
   let(:other_organisation) { create(:organisation) }
@@ -101,6 +102,33 @@ RSpec.describe Actors::ImportGlossaryTerms, :ci_guard, type: :service do
           described_class::Line.new(number: 4, text: 'Quarnix Hub', term: 'Quarnix Hub', category: nil,
                                     category_applied: false, verdict: :new, existing_status: nil)
         ]
+      )
+    end
+
+    # Review round 2 of #128: two columns of a spreadsheet. Cleaning turns a
+    # tab into a space, so a line is split before it is cleaned. The first
+    # ";" or tab wins, and the rest of the line is the category.
+    it 'takes a tab between term and category like a semicolon, whichever comes first' do
+      actor = importer("Zorbel\tperson\nWub\t\tproduct\nQuarnix\tplace;x\nZorbel-Hub;company\tx\nQuarnix-Hub\t")
+
+      expect(actor.call).to be_success
+      expect(actor.report.lines.map { |line| [line.number, line.term, line.category] }).to eq(
+        [[1, 'Zorbel', 'person'], [2, 'Wub', 'product'], [3, 'Quarnix', nil], [4, 'Zorbel-Hub', nil], [5, 'Quarnix-Hub', nil]]
+      )
+      expect(terms_of(organisation).order(:normalized_term).pluck(:term, :category)).to eq(
+        [['Quarnix', nil], ['Quarnix-Hub', nil], %w[Wub product], %w[Zorbel person], ['Zorbel-Hub', nil]]
+      )
+    end
+
+    # Pasted from a word processor: a manual line break (VT), a page break
+    # (FF), NEL and the Unicode line and paragraph separators each end a line,
+    # as CR and LF do; CR LF stays one break.
+    it 'ends a line at VT, FF, NEL, U+2028 and U+2029 as at CR and LF' do
+      actor = importer("Zorbel\vWub\fQuarnix\u0085Zorbel-Hub\u2028Wub-Hub\u2029Quarnix-Hub\r\nZorbel 7")
+
+      expect(actor.call).to be_success
+      expect(actor.report.lines.map { |line| [line.number, line.term] }).to eq(
+        [[1, 'Zorbel'], [2, 'Wub'], [3, 'Quarnix'], [4, 'Zorbel-Hub'], [5, 'Wub-Hub'], [6, 'Quarnix-Hub'], [7, 'Zorbel 7']]
       )
     end
   end
@@ -220,6 +248,22 @@ RSpec.describe Actors::ImportGlossaryTerms, :ci_guard, type: :service do
       expect(actor.report.lines.map(&:category)).to eq(expected)
       expect(terms_of(organisation).order(:normalized_term).pluck(:category)).to eq(expected)
       expect(actor.report.counts).to eq(counts(new: 8, created: 8))
+    end
+
+    # The keys go first: a display name that reads like the key of another
+    # category never takes that key over. Here both names of foreign read
+    # "Product". foreign is the last category and English the last language,
+    # so its name is the last one read: if a later name won, this one would.
+    it 'is the category of a key, also where the display name of another one reads like it' do
+      allow(I18n).to receive(:t).and_wrap_original do |original, key = nil, **options|
+        stubbed = key == 'foreign' && options[:scope] == described_class::CATEGORY_SCOPE
+        stubbed ? 'Product' : original.call(key, **options)
+      end
+      actor = importer("Zorbel;product\nWub;PRODUCT")
+
+      expect(actor.call).to be_success
+      expect(I18n).to have_received(:t).with('foreign', hash_including(scope: described_class::CATEGORY_SCOPE)).at_least(:once)
+      expect(actor.report.lines.map(&:category)).to eq(%w[product product])
     end
   end
 
@@ -385,19 +429,51 @@ RSpec.describe Actors::ImportGlossaryTerms, :ci_guard, type: :service do
         .to eq('id' => foreign.id, 'term' => 'Zorbel', 'category' => nil, 'lock_version' => 0)
     end
 
-    # The current tenant above hides the other organisation's term by itself;
-    # without one, only the actor's own filter keeps it out.
+    # A tenant hides the other organisation's term by itself: the one set
+    # above, and the one the actor sets for itself ('with a foreign tenant
+    # set'). With no current tenant and the actor's own left out, only its
+    # own organisation filter keeps the term out.
     it 'is kept out by the actor itself, without a current tenant' do
       foreign = ActsAsTenant.with_tenant(other_organisation) do
         create(:glossary_term, organisation: other_organisation, term: 'Zorbel')
       end
       actor = importer('zorbel;product')
+      allow(ActsAsTenant).to receive(:with_tenant).and_wrap_original do |_original, _tenant, &block|
+        block.call
+      end
 
       expect(ActsAsTenant.without_tenant { actor.call }).to be_success
       expect(actor.report.lines.map(&:verdict)).to eq([:new])
       expect(terms_of(organisation).pluck(:term, :category)).to eq([%w[zorbel product]])
       expect(terms_of(other_organisation).sole.slice(:id, :term, :category, :lock_version))
         .to eq('id' => foreign.id, 'term' => 'Zorbel', 'category' => nil, 'lock_version' => 0)
+    end
+  end
+
+  # Review round 2 of #128: the caller's tenant does not move the import. Under
+  # another tenant the scope hid Zorbel, acts_as_tenant wrote the new terms into
+  # that tenant, and the manager's role was read there, so they came in as
+  # proposals.
+  describe 'with a foreign tenant set' do
+    it 'imports into the given organisation as its member, leaves the other one untouched and gives the tenant back' do
+      create(:glossary_term, organisation: organisation, term: 'Zorbel')
+      foreign = ActsAsTenant.with_tenant(other_organisation) do
+        create(:glossary_term, organisation: other_organisation, term: 'Quarnix')
+      end
+      actor = importer("Zorbel;product\nWub")
+      tenant_after = nil
+
+      result = ActsAsTenant.with_tenant(other_organisation) do
+        actor.call.tap { tenant_after = ActsAsTenant.current_tenant }
+      end
+
+      expect(result).to be_success
+      expect(actor.report.lines.map { |line| [line.term, line.verdict, line.category_applied] })
+        .to eq([['Zorbel', :existing, true], ['Wub', :new, false]])
+      expect(terms_of(organisation).order(:normalized_term).pluck(:term, :category, :status, :created_by_id))
+        .to eq([['Wub', nil, 'confirmed', manager.id], ['Zorbel', 'product', 'confirmed', nil]])
+      expect(terms_of(other_organisation).pluck(:id, :term, :category, :lock_version)).to eq([[foreign.id, 'Quarnix', nil, 0]])
+      expect(tenant_after).to eq(other_organisation)
     end
   end
 end

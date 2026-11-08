@@ -165,7 +165,7 @@ de:
           open: "Liste importieren"
           title: "Liste importieren"
           text_label: "Begriffe"
-          hint: "Ein Begriff pro Zeile, optional mit Kategorie: Begriff;Kategorie"
+          hint: "Ein Begriff pro Zeile, optional mit Kategorie: Begriff;Kategorie oder Begriff und Kategorie durch einen Tabulator getrennt"
           categories: "Kategorien: %{names}"
           limit: "Höchstens %{max} Zeilen auf einmal."
           proposals: "Neue Begriffe werden als Vorschläge angelegt, nicht bestätigt. Bestätigen kann sie, wer das Glossar pflegt."

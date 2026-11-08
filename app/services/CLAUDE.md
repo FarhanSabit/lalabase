@@ -193,6 +193,9 @@ Verzeichnis-Übersicht (Auswahl):
   ihrer Form: der Import wartet nie auf eine Begriffssperre, während er Index-Einträge neuer Begriffe hält
   (andersherum Deadlock mit einer Umbenennung, Review-Runde 1 von #128). `Line#category_applied` sagt, ob die
   Kategorie einer Zeile ankommt; nur dann zeigt die Prüfung sie. `#report` liest der Aufrufer nach `.new(...).call`.
+  Läuft ganz unter dem Mandanten seiner Organisation (`ActsAsTenant.with_tenant`, wie `Glossary::Lookup`), egal
+  welchen der Aufrufer gesetzt hat. Trennt Begriff und Kategorie am ersten `;` oder Tabulator, vor dem Bereinigen;
+  eine Zeile endet auch an VT, FF, NEL, U+2028 und U+2029 (Review-Runde 2 von #128).
   Registrierung (Website-Schnitt W2, 15.09.2026): `create_signup` ist die EINE
   Selbst-Registrierung für das Formular und später den Provisioning-Endpunkt. Tier 2: Sprache
   und tenant-freier Rahmen umschließen den ganzen Lauf (die Bestätigungsmail rendert beim

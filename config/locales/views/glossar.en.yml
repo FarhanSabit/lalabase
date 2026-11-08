@@ -165,7 +165,7 @@ en:
           open: "Import list"
           title: "Import list"
           text_label: "Terms"
-          hint: "One term per line, with a category if you like: Term;Category"
+          hint: "One term per line, with a category if you like: Term;Category or term and category separated by a tab"
           categories: "Categories: %{names}"
           limit: "At most %{max} lines at once."
           proposals: "New terms come in as proposals, not confirmed. Someone who keeps the glossary can confirm them."
