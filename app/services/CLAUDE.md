@@ -188,8 +188,11 @@ Verzeichnis-Übersicht (Auswahl):
   Doppelte nach `GlossaryText.normalize`, vorhandene Begriffe jedes Status übersprungen (verworfene bleiben
   verworfen); mit `manage_glossary` bestätigt, sonst Vorschlag (`GlossaryPolicy.manage_allowed?`, wie K4b).
   Der Trockenlauf der Vorschau ist derselbe Code in einem Savepoint, der zurückgerollt wird
-  (`requires_new: true` trägt das). Neue Begriffe in der Reihenfolge ihrer Form, Kategorien unter
-  Zeilensperre nach ID; `#report` liest der Aufrufer nach `.new(...).call`.
+  (`requires_new: true` trägt das). Erst die Kategorien vorhandener Begriffe unter
+  Zeilensperre (EINE Abfrage nach ID, unter der Sperre neu gelesen), DANN neue Begriffe in der Reihenfolge
+  ihrer Form: der Import wartet nie auf eine Begriffssperre, während er Index-Einträge neuer Begriffe hält
+  (andersherum Deadlock mit einer Umbenennung, Review-Runde 1 von #128). `Line#category_applied` sagt, ob die
+  Kategorie einer Zeile ankommt; nur dann zeigt die Prüfung sie. `#report` liest der Aufrufer nach `.new(...).call`.
   Registrierung (Website-Schnitt W2, 15.09.2026): `create_signup` ist die EINE
   Selbst-Registrierung für das Formular und später den Provisioning-Endpunkt. Tier 2: Sprache
   und tenant-freier Rahmen umschließen den ganzen Lauf (die Bestätigungsmail rendert beim

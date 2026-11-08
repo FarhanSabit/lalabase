@@ -256,8 +256,10 @@ module Organisations
       redirect_to index_path(term_id: @term.id), status: :see_other, alert: t('controllers.glossary.merge.no_target')
     end
 
-    # expect, as in term_params: an import that is no hash answers 400. A
-    # text that is no string reaches the actor as none (refused as empty).
+    # expect, as in term_params: an import that is no hash, and a text that is
+    # an array, a hash or missing, answer 400 before the actor runs. Only a
+    # string reaches it, or nil for a key sent without a value; the actor
+    # refuses an empty text (422).
     def import_text
       params.expect(import: [:text])[:text]
     end

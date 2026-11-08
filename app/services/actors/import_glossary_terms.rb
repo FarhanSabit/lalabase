@@ -26,18 +26,29 @@
 #   Actors::CorrectMeetingTerm decides (GlossaryPolicy.manage_allowed?), and
 #   remembers who imported it. One that someone else created at the same
 #   moment counts as existing, and the import goes on.
+# * The one lock order of the glossary writes (Glossary::TermLock: the term
+#   row first). The terms that get a category are locked before the first
+#   new term is inserted, so the import never waits for the lock of a term
+#   while it holds the index entries of its new terms. The other way round
+#   it deadlocked with a rename of such a term into one of the new spellings
+#   (review round 1 of #128). A term found only at its insert (created at
+#   the same moment) is therefore not locked, and keeps the category it has.
 # * One transaction for the whole import. A dry run takes the same path and
 #   rolls it back at the end, as Subscriptions::OrganisationMove does: the
 #   preview shows the numbers of the real import, not a guess at them.
 #
 # The outcome is #report, read after a successful #call: a Line for every line
-# that is not blank, in the order of the input, and the counts.
+# that is not blank, in the order of the input, and the counts. A Line names
+# the category of its line (category) and whether the import gives it to the
+# term (category_applied): true for a new term, and for a term the glossary
+# has without one, with manage_glossary; false for a duplicate line, a term
+# that keeps its own category and a term found only at its insert.
 module Actors
   class ImportGlossaryTerms < BaseActor
     MAX_LINES = 500
 
     Report = Data.define(:lines, :counts)
-    Line = Data.define(:number, :text, :term, :category, :verdict, :existing_status)
+    Line = Data.define(:number, :text, :term, :category, :category_applied, :verdict, :existing_status)
 
     # The verdict of a line, then what the import did: :new counts the terms
     # written (in a dry run: that would be written), :created and :proposed
@@ -105,11 +116,12 @@ module Actors
       lines
     end
 
+    # categorize before create_terms: the lock order (header).
     def import(lines)
       rows = lines.map { |number, text| row_of(number, text) }
       classify(rows.reject { |row| row.verdict == :invalid })
-      create_terms(rows.select { |row| row.verdict == :new })
       categorize(rows) if manage?
+      create_terms(rows.select { |row| row.verdict == :new })
       report_of(rows)
     end
 
@@ -176,10 +188,11 @@ module Actors
       terms.find_by!(normalized_term: row.form)
     end
 
-    # With manage_glossary only. The terms are locked in one statement in the
-    # order of their ids (as Actors::MergeGlossaryTerms locks) and read again
-    # under the lock: a term that got a category in the meantime keeps it,
-    # and one deleted in the meantime is left out.
+    # With manage_glossary only, before the first insert (the lock order in
+    # the header). The terms are locked in one statement in the order of
+    # their ids (as Actors::MergeGlossaryTerms locks) and read again under the
+    # lock: a term that got a category in the meantime keeps it, and one
+    # deleted in the meantime is left out.
     def categorize(rows)
       wanted = rows.select { |row| row.existing && row.category && row.existing.category.nil? }
       return if wanted.empty?
@@ -201,10 +214,18 @@ module Actors
       counts[manage? ? :created : :proposed] = counts[:new]
       counts[:categorized] = rows.count(&:categorized)
       lines = rows.map do |row|
-        Line.new(number: row.number, text: row.text, term: row.term, category: row.category, verdict: row.verdict,
-                 existing_status: row.existing&.status)
+        Line.new(number: row.number, text: row.text, term: row.term, category: row.category,
+                 category_applied: category_applied?(row), verdict: row.verdict, existing_status: row.existing&.status)
       end
       Report.new(lines: lines.freeze, counts: counts.freeze)
+    end
+
+    # The term has the category of its line through this import: a new term
+    # written with it, or a term the glossary has that got it (categorize).
+    def category_applied?(row)
+      return false if row.category.nil?
+
+      row.verdict == :new || row.categorized == true
     end
 
     # A key, or a display name in a language of the app; anything else is nil.

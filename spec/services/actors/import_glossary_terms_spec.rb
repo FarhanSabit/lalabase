@@ -70,6 +70,7 @@ RSpec.describe Actors::ImportGlossaryTerms, :ci_guard, type: :service do
       expect(actor.call).to be_success
       expect(terms_of(organisation).order(:normalized_term).pluck(:term, :category, :status, :created_by_id))
         .to eq([['Wub', nil, 'proposed', viewer.id], ['Zorbel', 'product', 'proposed', viewer.id]])
+      expect(actor.report.lines.map(&:category_applied)).to eq([true, false])
       expect(actor.report.counts).to eq(counts(new: 2, proposed: 2))
     end
 
@@ -94,11 +95,11 @@ RSpec.describe Actors::ImportGlossaryTerms, :ci_guard, type: :service do
       expect(actor.report.lines).to eq(
         [
           described_class::Line.new(number: 1, text: 'Zorbel ; product', term: 'Zorbel', category: 'product',
-                                    verdict: :new, existing_status: nil),
+                                    category_applied: true, verdict: :new, existing_status: nil),
           described_class::Line.new(number: 3, text: 'Wub;company;x', term: 'Wub', category: nil,
-                                    verdict: :new, existing_status: nil),
+                                    category_applied: false, verdict: :new, existing_status: nil),
           described_class::Line.new(number: 4, text: 'Quarnix Hub', term: 'Quarnix Hub', category: nil,
-                                    verdict: :new, existing_status: nil)
+                                    category_applied: false, verdict: :new, existing_status: nil)
         ]
       )
     end
@@ -148,9 +149,10 @@ RSpec.describe Actors::ImportGlossaryTerms, :ci_guard, type: :service do
       expect(actor.call).to be_success
       expect(terms_of(organisation).order(:normalized_term).pluck(:term, :category))
         .to eq([['Wub', nil], ['ZorBel Hub', 'product']])
-      expect(actor.report.lines.map { |line| [line.number, line.term, line.verdict] }).to eq(
-        [[1, 'ZorBel Hub', :new], [2, 'zorbel hub', :duplicate], [3, 'Zorbel Hub', :duplicate],
-         [4, 'Zorbel Hub', :duplicate], [5, 'Wub', :new]]
+      # The category of a duplicate line is dropped (line 3).
+      expect(actor.report.lines.map { |line| [line.number, line.term, line.verdict, line.category_applied] }).to eq(
+        [[1, 'ZorBel Hub', :new, true], [2, 'zorbel hub', :duplicate, false], [3, 'Zorbel Hub', :duplicate, false],
+         [4, 'Zorbel Hub', :duplicate, false], [5, 'Wub', :new, false]]
       )
       expect(actor.report.counts).to eq(counts(new: 2, created: 2, duplicate: 3))
     end
@@ -184,6 +186,7 @@ RSpec.describe Actors::ImportGlossaryTerms, :ci_guard, type: :service do
       # A category a term has stays; a rejected term stays rejected.
       expect(terms_of(organisation).order(:normalized_term).pluck(:term, :category, :status))
         .to eq([%w[Quarnix place rejected], %w[Wub company confirmed], %w[Zorbel product confirmed]])
+      expect(actor.report.lines.map(&:category_applied)).to eq([true, false, true])
       expect(actor.report.counts).to eq(counts(existing: 2, rejected: 1, categorized: 2))
     end
 
@@ -193,6 +196,7 @@ RSpec.describe Actors::ImportGlossaryTerms, :ci_guard, type: :service do
 
       expect(actor.call).to be_success
       expect(term.reload.slice(:category, :lock_version)).to eq('category' => nil, 'lock_version' => 0)
+      expect(actor.report.lines.map(&:category_applied)).to eq([false])
       expect(actor.report.counts).to eq(counts(existing: 1))
     end
   end
@@ -281,6 +285,90 @@ RSpec.describe Actors::ImportGlossaryTerms, :ci_guard, type: :service do
       expect(terms_of(organisation).find_by(normalized_term: 'wub').id).to eq(other.id)
       expect(actor.report.counts).to eq(counts(existing: 1, new: 1, created: 1))
     end
+
+    # Found only at its insert, after the locks (the lock order): it is not
+    # locked, so it keeps the category it has and the line's is dropped.
+    it 'keeps its own category, without the one of the line' do
+      other = create(:glossary_term, organisation: organisation, term: 'Wub')
+      allow_any_instance_of(described_class).to receive(:existing_terms).and_return({})
+      actor = importer("Wub;product\nZorbel;place")
+
+      expect(actor.call).to be_success
+      expect(actor.report.lines.map { |line| [line.term, line.verdict, line.category_applied] })
+        .to eq([['Wub', :existing, false], ['Zorbel', :new, true]])
+      expect(other.reload.slice(:category, :lock_version)).to eq('category' => nil, 'lock_version' => 0)
+      expect(actor.report.counts).to eq(counts(existing: 1, new: 1, created: 1))
+    end
+  end
+
+  # Review round 1 of #128: the one lock order of the glossary writes
+  # (Glossary::TermLock, the term row first). An import that inserted its new
+  # terms first held their index entries while it waited for the lock of a
+  # term it gives a category; a rename of that term into one of the new
+  # spellings waited for such an entry, and PostgreSQL aborted one of the two.
+  # The same case with two connections is the last group of this file.
+  describe 'the lock order' do
+    it 'locks the terms it gives a category in one statement by id, before it inserts a new term' do
+      create(:glossary_term, organisation: organisation, term: 'Zorbel')
+      create(:glossary_term, organisation: organisation, term: 'Quarnix')
+      statements = []
+      callback = ->(*, payload) { statements << payload[:sql] }
+
+      ActiveSupport::Notifications.subscribed(callback, 'sql.active_record') do
+        expect(importer("Wub\nZorbel;product\nQuarnix;place").call).to be_success
+      end
+
+      locking = ->(sql) { sql.include?('FROM "glossary_terms"') && sql.include?('FOR UPDATE') }
+      lock = statements.index(&locking)
+      insert = statements.index { |sql| sql.start_with?('INSERT INTO "glossary_terms"') }
+      expect(statements.count(&locking)).to eq(1)
+      expect(statements[lock]).to include('ORDER BY "glossary_terms"."id" ASC')
+      expect(insert).not_to be_nil
+      expect(lock).to be < insert
+    end
+
+    # Two imports of overlapping lists then wait for each other at their first
+    # common term, instead of each holding a term the other one waits for. The
+    # lines are in neither that order nor the order of their spelling.
+    it 'inserts the new terms in the order of their compared form, not of the lines' do
+      inserted = []
+      callback = lambda do |*, payload|
+        next unless payload[:sql].start_with?('INSERT INTO "glossary_terms"')
+
+        inserted << payload[:binds].find { |bind| bind.name == 'normalized_term' }.value_for_database
+      end
+
+      ActiveSupport::Notifications.subscribed(callback, 'sql.active_record') do
+        expect(importer("Zorbel\nWub\nQuarnix-Hub\nquarnix").call).to be_success
+      end
+
+      expect(inserted).to eq(%w[quarnix quarnix-hub wub zorbel])
+    end
+  end
+
+  # Someone changes a term between the read of the glossary and the lock that
+  # gives it a category: the import works on the row as it is stored under
+  # the lock. Quarnix shows that the other terms still get theirs.
+  describe 'a term changed by someone else before the lock' do
+    it 'keeps a category set in the meantime and leaves out a term deleted in the meantime' do
+      changed = create(:glossary_term, organisation: organisation, term: 'Zorbel')
+      deleted = create(:glossary_term, organisation: organisation, term: 'Wub')
+      create(:glossary_term, organisation: organisation, term: 'Quarnix')
+      actor = importer("Zorbel;product\nWub;product\nQuarnix;place")
+      # Right after the read of the glossary, the last statement before the lock.
+      allow(actor).to receive(:existing_terms).and_wrap_original do |original, *arguments|
+        original.call(*arguments).tap do
+          GlossaryTerm.where(id: changed.id).update_all(category: 'company')
+          GlossaryTerm.where(id: deleted.id).delete_all
+        end
+      end
+
+      expect(actor.call).to be_success
+      expect(terms_of(organisation).order(:normalized_term).pluck(:term, :category))
+        .to eq([%w[Quarnix place], %w[Zorbel company]])
+      expect(actor.report.lines.map(&:category_applied)).to eq([false, false, true])
+      expect(actor.report.counts).to eq(counts(existing: 3, categorized: 1))
+    end
   end
 
   describe 'another organisation' do
@@ -296,5 +384,98 @@ RSpec.describe Actors::ImportGlossaryTerms, :ci_guard, type: :service do
       expect(terms_of(other_organisation).sole.slice(:id, :term, :category, :lock_version))
         .to eq('id' => foreign.id, 'term' => 'Zorbel', 'category' => nil, 'lock_version' => 0)
     end
+
+    # The current tenant above hides the other organisation's term by itself;
+    # without one, only the actor's own filter keeps it out.
+    it 'is kept out by the actor itself, without a current tenant' do
+      foreign = ActsAsTenant.with_tenant(other_organisation) do
+        create(:glossary_term, organisation: other_organisation, term: 'Zorbel')
+      end
+      actor = importer('zorbel;product')
+
+      expect(ActsAsTenant.without_tenant { actor.call }).to be_success
+      expect(actor.report.lines.map(&:verdict)).to eq([:new])
+      expect(terms_of(organisation).pluck(:term, :category)).to eq([%w[zorbel product]])
+      expect(terms_of(other_organisation).sole.slice(:id, :term, :category, :lock_version))
+        .to eq('id' => foreign.id, 'term' => 'Zorbel', 'category' => nil, 'lock_version' => 0)
+    end
+  end
+end
+
+# Review round 1 of #128, with two connections and committed rows: a rename of
+# Wub to Quarnix holds the row lock of Wub (Glossary::TermLock) while an
+# import of "Quarnix" and "Wub;product" runs. With its inserts first, the
+# import held the index entry of Quarnix and waited for Wub, the rename waited
+# for that entry, and PostgreSQL aborted one of the two
+# (ActiveRecord::Deadlocked). With its locks first, the import waits for the
+# rename and goes on. A group of its own: the before hook of the group above
+# creates its organisation inside the transaction this group has to leave.
+RSpec.describe Actors::ImportGlossaryTerms, 'beside a rename of one of its terms', type: :service do
+  self.use_transactional_tests = false
+
+  before do
+    DatabaseCleaner.clean
+    DatabaseCleaner.strategy = :truncation
+    DatabaseCleaner.start
+    Prosopite.pause
+  end
+
+  after do
+    Prosopite.resume
+    ActsAsTenant.current_tenant = nil
+  end
+
+  # A deadlock is the answer of the thread, so the example names it.
+  def in_thread(organisation, &block)
+    Thread.new do
+      ActiveRecord::Base.connection_pool.with_connection { ActsAsTenant.with_tenant(organisation, &block) }
+    rescue ActiveRecord::Deadlocked => e
+      e
+    end
+  end
+
+  def wait_for_lock_waiter
+    Timeout.timeout(10) do
+      sleep 0.01 until ActiveRecord::Base.connection.select_value(
+        "SELECT count(*) FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND datname = current_database()"
+      ).to_i.positive?
+    end
+  end
+
+  it 'waits for the rename instead of deadlocking with it' do
+    organisation = create(:organisation)
+    ActsAsTenant.current_tenant = organisation
+    role = create(:role, organisation: organisation)
+    create(:permission, role: role, category: 'glossary', action: 'manage_glossary', allowed: true)
+    manager = create(:user, first_name: 'Anna', last_name: 'Beispiel')
+    create(:membership, user: manager, organisation: organisation, role: role)
+    wub = create(:glossary_term, organisation: organisation, term: 'Wub')
+    import = described_class.new(organisation: organisation, text: "Quarnix\nWub;product", current_user: manager)
+    held = Queue.new
+    release = Queue.new
+    # The rename stops right after its lock, until the import waits for a lock.
+    allow(Glossary::TermLock).to receive(:call).and_wrap_original do |original, **arguments|
+      original.call(**arguments).tap do
+        held << true
+        release.pop
+      end
+    end
+
+    renaming = in_thread(organisation) do
+      Actors::SaveGlossaryTerm.call(organisation: organisation, params: { term: 'Quarnix' }, current_user: manager, id: wub.id)
+    end
+    Timeout.timeout(10) { held.pop }
+    importing = in_thread(organisation) { import.call }
+    wait_for_lock_waiter
+    release << true
+    answers = [renaming.value, importing.value]
+
+    expect(answers.grep(ActiveRecord::Deadlocked).map(&:message)).to eq([])
+    expect(answers).to all(be_success)
+    expect(import.report.lines.map(&:verdict)).to eq(%i[existing existing])
+    expect(GlossaryTerm.where(organisation_id: organisation.id).pluck(:id, :term)).to eq([[wub.id, 'Quarnix']])
+  ensure
+    release&.push(true)
+    [renaming, importing].compact.each { |thread| thread.join(5) || thread.kill }
   end
 end

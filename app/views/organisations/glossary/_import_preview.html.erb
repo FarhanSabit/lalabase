@@ -3,10 +3,14 @@
     of Actors::ImportGlossaryTerms; nothing is saved yet. The counts on top,
     then a row for every line that is not blank, by its number in the list:
     the spelling (a line without a term shows its text, cut), the category
-    and the verdict. The text travels on in a hidden field: "Importieren"
-    sends it to the import, which leaves the frame (_top); "Liste ändern"
-    sends it back to the textarea in this frame, with the text kept. Without
-    manage_glossary the new terms come in as proposals, and the lane says so. %>
+    and the verdict. The category shows only where the import gives it to
+    the term (Line#category_applied); a category it drops (a duplicate line,
+    a term that keeps its own, a term the glossary has without
+    manage_glossary) shows nothing. The text travels on in a hidden field:
+    "Importieren" sends it to the import, which leaves the frame (_top);
+    "Liste ändern" sends it back to the textarea in this frame, with the
+    text kept. Without manage_glossary the new terms come in as proposals,
+    and the lane says so. %>
 <% counts = report.counts %>
 <% cancel_url = organisation_glossary_terms_path(@current_organisation, list_state) %>
 <div class="people-form-wrap" data-glossary-import-preview>
@@ -54,7 +58,7 @@
             <td class="break-all py-1.5 pr-3 text-heading">
               <%= line.term || truncate(line.text, length: GlossaryHelper::IMPORT_LINE_SHOWN, omission: '…') %>
             </td>
-            <td class="py-1.5 pr-3 text-cream-600"><%= glossary_category_name(line.category) if line.category %></td>
+            <td class="py-1.5 pr-3 text-cream-600"><%= glossary_category_name(line.category) if line.category_applied %></td>
             <td class="py-1.5 <%= line.verdict == :new ? 'text-heading' : 'text-cream-600' %>">
               <%= t("views.organisations.glossary.import.verdicts.#{line.verdict}") %>
             </td>

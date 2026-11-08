@@ -248,6 +248,37 @@ RSpec.describe 'Organisations::Glossary import', :ci_guard, type: :request do
     end
   end
 
+  # The column shows a category only where the import gives it to the term: a
+  # new term, or a term the glossary has without one (with manage_glossary).
+  # A category the import drops shows nothing.
+  describe 'the category column of the check' do
+    it 'shows nothing for a term that keeps its own category' do
+      create(:glossary_term, organisation: organisation, term: 'Wub', category: 'company')
+      sign_in manager
+
+      check_list('Wub;product')
+
+      expect(checked_lines).to eq([['1', 'Wub', '', verdict(:existing)]])
+    end
+
+    it 'shows nothing for a duplicate line' do
+      sign_in manager
+
+      check_list("Zorbel;company\nzorbel;product")
+
+      expect(checked_lines).to eq([['1', 'Zorbel', category_name('company'), verdict(:new)], ['2', 'zorbel', '', verdict(:duplicate)]])
+    end
+
+    it 'shows nothing for a term the glossary has with view_glossary only, and the category of a new term' do
+      create(:glossary_term, organisation: organisation, term: 'Zorbel')
+      sign_in viewer
+
+      check_list("zorbel;product\nWub;company")
+
+      expect(checked_lines).to eq([['1', 'zorbel', '', verdict(:existing)], ['2', 'Wub', category_name('company'), verdict(:new)]])
+    end
+  end
+
   describe 'the import with manage_glossary' do
     before { sign_in manager }
 
@@ -370,10 +401,28 @@ RSpec.describe 'Organisations::Glossary import', :ci_guard, type: :request do
       expect(terms).to be_empty
     end
 
-    it 'answers a request without the import with 400 and writes nothing' do
-      post import_organisation_glossary_terms_path(organisation), params: { import: 'Zorbel' }
+    # params.expect: none of these reaches the actor.
+    {
+      'an import that is no hash' => { import: 'Zorbel' },
+      'a text that is a list' => { import: { text: ['Zorbel'] } },
+      'a text that is a hash' => { import: { text: { term: 'Zorbel' } } },
+      'an import without a text' => { import: { term: 'Zorbel' } }
+    }.each do |shape, params|
+      it "answers 400 to #{shape} and writes nothing" do
+        post import_organisation_glossary_terms_path(organisation), params: params
 
-      expect(response).to have_http_status(:bad_request)
+        expect(response).to have_http_status(:bad_request)
+        expect(terms).to be_empty
+      end
+    end
+
+    # A key without a value comes as nil, which the actor reads as an empty text.
+    it 'refuses a text sent without a value as empty' do
+      post import_organisation_glossary_terms_path(organisation), params: 'import[text]',
+                                                                  headers: { 'CONTENT_TYPE' => 'application/x-www-form-urlencoded' }
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(page.at_css('.glossary-content [role="alert"]').text.squish).to eq(I18n.t("#{ci}.empty"))
       expect(terms).to be_empty
     end
   end
