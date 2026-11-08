@@ -30,6 +30,35 @@ de:
           success: "Gehörte Form bestätigt."
         reject:
           success: "Vorschlag verworfen."
+      # The import of a pasted list (K5, Actors::ImportGlossaryTerms): the
+      # refusals of the actor, then the notice, built from the counts that are
+      # not zero.
+      import:
+        too_many_lines: "Höchstens %{max} Zeilen auf einmal. Teile die Liste bitte auf."
+        empty: "Trage mindestens einen Begriff ein, einen pro Zeile."
+        success: "Liste importiert: %{summary}."
+        counts:
+          created:
+            one: "1 Begriff angelegt"
+            other: "%{count} Begriffe angelegt"
+          proposed:
+            one: "1 Vorschlag angelegt"
+            other: "%{count} Vorschläge angelegt"
+          categorized:
+            one: "1 Kategorie ergänzt"
+            other: "%{count} Kategorien ergänzt"
+          existing:
+            one: "1 schon vorhanden"
+            other: "%{count} schon vorhanden"
+          rejected:
+            one: "1 verworfen, bleibt verworfen"
+            other: "%{count} verworfen, bleiben verworfen"
+          duplicate:
+            one: "1 doppelt in der Liste"
+            other: "%{count} doppelt in der Liste"
+          invalid:
+            one: "1 ungültige Zeile"
+            other: "%{count} ungültige Zeilen"
   views:
     organisations:
       glossary:
@@ -130,3 +159,49 @@ de:
           no_category: "Keine Kategorie"
           save: "Speichern"
           cancel: "Abbrechen"
+        # The import of a pasted list (K5): the button in the head of the list,
+        # the textarea in the lane (?new=import) and the check of the list.
+        import:
+          open: "Liste importieren"
+          title: "Liste importieren"
+          text_label: "Begriffe"
+          hint: "Ein Begriff pro Zeile, optional mit Kategorie: Begriff;Kategorie"
+          categories: "Kategorien: %{names}"
+          limit: "Höchstens %{max} Zeilen auf einmal."
+          proposals: "Neue Begriffe werden als Vorschläge angelegt, nicht bestätigt. Bestätigen kann sie, wer das Glossar pflegt."
+          check: "Prüfen"
+          cancel: "Abbrechen"
+          preview_title: "Liste prüfen"
+          preview_hint: "Noch ist nichts gespeichert. So würde der Import die Liste übernehmen:"
+          submit: "Importieren"
+          back: "Liste ändern"
+          columns:
+            line: "Zeile"
+            term: "Begriff"
+            category: "Kategorie"
+            verdict: "Ergebnis"
+          verdicts:
+            new: "neu"
+            existing: "schon vorhanden"
+            duplicate: "doppelt in der Liste"
+            invalid: "ungültig"
+            rejected: "verworfen, bleibt verworfen"
+          counts:
+            new:
+              one: "1 neuer Begriff"
+              other: "%{count} neue Begriffe"
+            existing:
+              one: "1 schon vorhanden"
+              other: "%{count} schon vorhanden"
+            duplicate:
+              one: "1 doppelt in der Liste"
+              other: "%{count} doppelt in der Liste"
+            invalid:
+              one: "1 ungültige Zeile"
+              other: "%{count} ungültige Zeilen"
+            rejected:
+              one: "1 verworfen, bleibt verworfen"
+              other: "%{count} verworfen, bleiben verworfen"
+            categorized:
+              one: "1 bekommt eine Kategorie"
+              other: "%{count} bekommen eine Kategorie"

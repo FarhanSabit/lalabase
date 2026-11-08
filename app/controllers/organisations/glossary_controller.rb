@@ -4,7 +4,8 @@
 # (TermCorrection). One page with a lane, the shape of the people directory
 # (PeopleController): the terms on the left, a term or the form in the lane
 # frame on the right. The address carries the lane state, ?term_id= for a
-# term and ?new=term for the form, and the filters (LIST_PARAMS).
+# term, ?new=term for the form and ?new=import for the import of a pasted
+# list, and the filters (LIST_PARAMS).
 #
 # show, new and edit answer the lane frame (a row click, the "+",
 # "Bearbeiten"); a full visit of them lands on the index with the same lane
@@ -15,6 +16,14 @@
 # (K4b, E3: a correction in a meeting without manage_glossary) is confirmed or
 # rejected here, form by form. A refused save
 # renders the index with the form and its reason (422).
+#
+# The import (K5, Actors::ImportGlossaryTerms) is open to every reader of the
+# glossary; the actor decides that new terms are confirmed with
+# manage_glossary and proposed without. Its check runs in the lane frame as a
+# dry run (a POST: the actor writes in a savepoint and rolls it back), the
+# import leaves the frame and lands on the list with the counts as its notice.
+# A refused list (empty, too many lines) shows the textarea again with the
+# text kept and the reason (422).
 #
 # Rights: GlossaryPolicy (view_glossary / manage_glossary, account admins
 # without a row). A denial answers 403, as on the people page: the page and
@@ -31,15 +40,27 @@ module Organisations
     DETAIL_FRAME_ID = 'glossary_term_display_frame'
     LIST_FRAME_ID = 'glossary_results'
     NEW_STATE = 'term'
+    IMPORT_STATE = 'import'
     # The filters the address, the lane's forms and the writes carry along.
     LIST_PARAMS = %w[project_id category status].freeze
+    # The parts of the notice after an import, in this order, each only when
+    # it is not zero (the counts of Actors::ImportGlossaryTerms#report).
+    IMPORT_NOTICE_COUNTS = %i[created proposed categorized existing rejected duplicate invalid].freeze
+
+    # What the import lane shows: the text so far and, once checked, the
+    # report of the dry run.
+    ImportDraft = Data.define(:text, :report) do
+      def initialize(text:, report: nil)
+        super
+      end
+    end
 
     rescue_from Pundit::NotAuthorizedError, with: :render_forbidden
 
     # Every action: the lane frames render the phone layout too, and only the
     # address knows which one.
     before_action :set_viewport_mode
-    before_action :set_term, except: %i[index new create]
+    before_action :set_term, except: %i[index new create import_preview import]
 
     def index
       authorize GlossaryTerm
@@ -49,6 +70,7 @@ module Organisations
       load_list
       @lane_term = selected_term
       @form_term = new_term if @lane_term.nil? && new_term_requested?
+      @import = ImportDraft.new(text: '') if @lane_term.nil? && import_requested?
     end
 
     def show
@@ -133,6 +155,38 @@ module Organisations
       decide_heard_form(Actors::RejectHeardForm, notice: 'controllers.glossary.heard_form.reject.success')
     end
 
+    # The check of a pasted list, in the lane frame: the import as a dry run,
+    # nothing written. With edit (the way back from the check) the textarea
+    # again, the text kept.
+    def import_preview
+      authorize GlossaryTerm, :index?
+      text = import_text
+      return render_frame(:import, import: ImportDraft.new(text: text)) if params[:edit].present?
+
+      actor = import_actor(text, dry_run: true)
+      result = actor.call
+      if result.success?
+        render_frame(:import_preview, import: ImportDraft.new(text: text, report: actor.report))
+      else
+        render_frame(:import, import: ImportDraft.new(text: text), message: result.errors.to_sentence,
+                              status: :unprocessable_content)
+      end
+    end
+
+    # The import of the checked list; it leaves the frame and lands on the
+    # list, the counts in the notice.
+    def import
+      authorize GlossaryTerm, :index?
+      text = import_text
+      actor = import_actor(text, dry_run: false)
+      result = actor.call
+      if result.success?
+        redirect_to index_path, status: :see_other, notice: import_notice(actor.report.counts)
+      else
+        render_refused_import(text, result)
+      end
+    end
+
     private
 
     # The write right first (403 before the correction is looked up), then
@@ -202,6 +256,42 @@ module Organisations
       redirect_to index_path(term_id: @term.id), status: :see_other, alert: t('controllers.glossary.merge.no_target')
     end
 
+    # expect, as in term_params: an import that is no hash answers 400. A
+    # text that is no string reaches the actor as none (refused as empty).
+    def import_text
+      params.expect(import: [:text])[:text]
+    end
+
+    def import_actor(text, dry_run:)
+      Actors::ImportGlossaryTerms.new(organisation: current_organisation, text: text, current_user: current_user,
+                                      dry_run: dry_run)
+    end
+
+    # "Liste importiert: 23 Begriffe angelegt, 4 schon vorhanden und 2 doppelt
+    # in der Liste." A list that is not refused has a verdict for each of its
+    # lines, so there is always a part.
+    def import_notice(counts)
+      parts = IMPORT_NOTICE_COUNTS.filter_map do |key|
+        t("controllers.glossary.import.counts.#{key}", count: counts[key]) if counts[key].positive?
+      end
+      t('controllers.glossary.import.success', summary: parts.to_sentence)
+    end
+
+    # The page again, with the import open in the lane, the text kept and the
+    # reason above it, as render_refused_save does for the form.
+    def render_refused_import(text, result)
+      @terms = policy_scope(GlossaryTerm)
+      @import = ImportDraft.new(text: text)
+      @form_message = result.errors.to_sentence
+      load_list
+      render :index, status: :unprocessable_content
+    end
+
+    # No right of its own: every reader of the glossary may import.
+    def import_requested?
+      params[:new] == IMPORT_STATE
+    end
+
     def merge_target
       id = params[:target_id]
       policy_scope(GlossaryTerm).find_by(id: id) if id.is_a?(String) && id.present?
@@ -261,15 +351,17 @@ module Organisations
         render_frame(:detail, term: term)
       elsif new_term_requested?
         render_frame(:form, term: new_term)
+      elsif import_requested?
+        render_frame(:import, import: ImportDraft.new(text: ''))
       else
         render_frame(:empty)
       end
     end
 
-    def render_frame(state, term: nil)
+    def render_frame(state, term: nil, import: nil, message: nil, status: :ok)
       render html: helpers.turbo_frame_tag(DETAIL_FRAME_ID) {
-        helpers.render(partial: 'organisations/glossary/lane', locals: { state: state, term: term, message: nil })
-      }, layout: false
+        helpers.render(partial: 'organisations/glossary/lane', locals: { state: state, term: term, import: import, message: message })
+      }, layout: false, status: status
     end
 
     def render_forbidden

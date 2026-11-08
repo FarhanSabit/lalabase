@@ -1,9 +1,12 @@
 <%# locals: (status_counts:, origin_projects:) %>
-<%# The head of the list: the title, the "+" for those who may keep the
-    glossary, the status filter as pills with their counts, and project and
-    category as selects (a full visit of the index, auto-submitted). %>
+<%# The head of the list: the title, "Liste importieren" for every reader of
+    the glossary and the "+" for those who may keep it (both open their state
+    in the lane, ?new=import and ?new=term), the status filter as pills with
+    their counts, and project and category as selects (a full visit of the
+    index, auto-submitted). %>
 <% frame_id = Organisations::GlossaryController::DETAIL_FRAME_ID %>
 <% mobile = @viewport_mode == 'mobile' %>
+<% can_create = policy(GlossaryTerm).create? %>
 <% add_url = organisation_glossary_terms_path(@current_organisation, list_state.merge('new' => Organisations::GlossaryController::NEW_STATE)) %>
 <% add_data = {
      controller: 'lane-link',
@@ -14,17 +17,38 @@
      lane_link_remove_value: GlossaryHelper::SELECTION_PARAMS.to_json,
      lane_link_focus_value: '#glossary_term_term'
    } %>
+<%# The index answers the lane frame for ?new=import itself (no route of its own). %>
+<% import_state = Organisations::GlossaryController::IMPORT_STATE %>
+<% import_url = organisation_glossary_terms_path(@current_organisation, list_state.merge('new' => import_state)) %>
+<% import_data = {
+     controller: 'lane-link',
+     action: 'click->lane-link#click',
+     lane_link_url_value: organisation_glossary_terms_path(@current_organisation, new: import_state),
+     lane_link_frame_value: frame_id,
+     lane_link_set_value: { new: import_state }.to_json,
+     lane_link_remove_value: GlossaryHelper::SELECTION_PARAMS.to_json,
+     lane_link_focus_value: '#glossary_import_text',
+     glossary_import_link: true
+   } %>
 <div class="people-head">
   <% if mobile %>
-    <% if policy(GlossaryTerm).create? %>
-      <%= render Neo::Buttons::IconButtonComponent.new(variant: :primary, icon: 'plus-lg', size: :large, url: add_url,
-                                                       title: t('views.organisations.glossary.index.new_term'),
-                                                       class: 'people-head__action', data: add_data) %>
-    <% end %>
+    <%# Without its icon: below sm the button drops the gap between icon and word. %>
+    <div class="people-head__action flex items-center gap-2">
+      <%= render Neo::Buttons::ButtonComponent.new(variant: :secondary, size: :large, url: import_url, data: import_data) do %>
+        <%= t('views.organisations.glossary.import.open') %>
+      <% end %>
+      <% if can_create %>
+        <%= render Neo::Buttons::IconButtonComponent.new(variant: :primary, icon: 'plus-lg', size: :large, url: add_url,
+                                                         title: t('views.organisations.glossary.index.new_term'), data: add_data) %>
+      <% end %>
+    </div>
   <% else %>
     <%= render NeoTitleBoxComponent.new(title: t('views.organisations.glossary.index.title'), margin_bottom: nil) do |box| %>
-      <% if policy(GlossaryTerm).create? %>
-        <% box.with_title_action do %>
+      <% box.with_title_action do %>
+        <%= render Neo::Buttons::ButtonComponent.new(variant: :secondary, size: :medium, icon: 'list-ul', url: import_url, data: import_data) do %>
+          <%= t('views.organisations.glossary.import.open') %>
+        <% end %>
+        <% if can_create %>
           <%= render Neo::Buttons::IconButtonComponent.new(variant: :primary, icon: 'plus-lg', size: :medium, url: add_url,
                                                            title: t('views.organisations.glossary.index.new_term'), data: add_data) %>
         <% end %>
