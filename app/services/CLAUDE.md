@@ -183,6 +183,13 @@ Verzeichnis-Übersicht (Auswahl):
   auch an einem bestätigten Begriff. `confirm_heard_form`/`reject_heard_form`: die offenen
   Zeilen einer Form bestätigen oder löschen (bestätigte bleiben). `set_glossary_term_status`
   bestätigt mit einem VORGESCHLAGENEN Begriff seine offenen Formen.
+  K5a (08.11.2026): `import_glossary_terms` liest eine eingefügte Liste (`Begriff` oder
+  `Begriff;Kategorie`, höchstens 500 nicht leere Zeilen; Kategorie als Schlüssel oder Anzeigename DE/EN).
+  Doppelte nach `GlossaryText.normalize`, vorhandene Begriffe jedes Status übersprungen (verworfene bleiben
+  verworfen); mit `manage_glossary` bestätigt, sonst Vorschlag (`GlossaryPolicy.manage_allowed?`, wie K4b).
+  Der Trockenlauf der Vorschau ist derselbe Code in einem Savepoint, der zurückgerollt wird
+  (`requires_new: true` trägt das). Neue Begriffe in der Reihenfolge ihrer Form, Kategorien unter
+  Zeilensperre nach ID; `#report` liest der Aufrufer nach `.new(...).call`.
   Registrierung (Website-Schnitt W2, 15.09.2026): `create_signup` ist die EINE
   Selbst-Registrierung für das Formular und später den Provisioning-Endpunkt. Tier 2: Sprache
   und tenant-freier Rahmen umschließen den ganzen Lauf (die Bestätigungsmail rendert beim
