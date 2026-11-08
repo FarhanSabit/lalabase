@@ -1,8 +1,8 @@
 THIRD-PARTY NOTICES
 
 Lalabase is licensed under the GNU Affero General Public License, version 3
-(see LICENSE). This file lists the third-party code and fonts that are checked
-into this repository, each with its license and copyright notice.
+(see LICENSE). This file lists the third-party code, fonts and data that are
+checked into this repository, each with its license and copyright notice.
 
 Dependencies installed by Bundler or npm are not copied into this repository
 and are not listed here. Each of them ships its own license file.
@@ -11,6 +11,9 @@ Every "Path:" line names a file, or with a trailing slash a directory, in this
 repository. spec/architecture/third_party_license_guard_spec.rb reads these
 lines and the "License:" lines: a checked-in third-party file without a notice
 fails the build, and so does a notice that states a license off its allowlist.
+The only way past that list is the table FILE_EXCEPTIONS in the same spec: it
+names single files, each with the license its notice states, and a section
+passes only when the table names every file in it.
 
 
 ================================================================================
@@ -110,6 +113,27 @@ Path: public/fonts/lalabase/JetBrainsMono-OFL.txt
 
 Copyright 2020 The JetBrains Mono Project Authors
 (https://github.com/JetBrains/JetBrainsMono)
+
+
+================================================================================
+FrequencyWords by Hermit Dave: word lists de_50k and en_50k of content/2018
+================================================================================
+
+Version:  commit 072bbed282316a23651aa7068c7173aa7898cf80
+Source:   https://github.com/hermitdave/FrequencyWords
+License:  CC-BY-SA-4.0 (Creative Commons Attribution-ShareAlike 4.0
+          International, https://creativecommons.org/licenses/by-sa/4.0/)
+Path: vendor/wordlists/de_50k.txt
+Path: vendor/wordlists/en_50k.txt
+
+Copyright (c) 2016 Hermit Dave
+
+The two files are content/2018/de/de_50k.txt and content/2018/en/en_50k.txt
+of that commit, copied byte for byte and not changed.
+
+The README of the repository names this license for its word lists since
+commit 34bb6447a96d4434dc2d4b24e0cf946c523090b3 (before that: CC BY-SA 3.0).
+Both files are the same at that commit.
 
 
 ================================================================================
