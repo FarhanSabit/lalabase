@@ -130,8 +130,9 @@ module Meetings
 
     # Checked as a whole before anything is written: no list, a list too long, a
     # row that is no object, no text, text too long, or a count that is no whole
-    # number of at least 1 refuses the meeting. Counts come as numbers (JSON) or
-    # as digits (a form); nothing is trimmed or guessed.
+    # number within storage bounds refuses the meeting. Duplicate spellings must
+    # agree on the term and their sum must fit too. Counts come as numbers (JSON)
+    # or as digits (a form); nothing is trimmed or guessed.
     def resolve_replacements
       return unless @input.key?(:glossary_replacements)
 
@@ -141,8 +142,10 @@ module Meetings
       rows = entries.map { |entry| replacement_row(entry) }
       return INVALID_REPLACEMENTS if rows.any?(&:nil?)
 
-      @replacements = rows
+      @replacements = TermApplication.summed_entries(rows)
       nil
+    rescue TermApplication::InvalidEntries
+      INVALID_REPLACEMENTS
     end
 
     def replacement_row(entry)
@@ -166,7 +169,7 @@ module Meetings
                when Integer then value
                when String then value.match?(/\A\d+\z/) ? value.to_i : nil
                end
-      number if number && number >= 1
+      number if number&.between?(1, TermApplication::MAX_COUNT)
     end
 
     def resolve_participants

@@ -369,8 +369,8 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
       response.body
     end
 
-    def applied(heard, meeting, count: 1)
-      create(:term_application, organisation: organisation, glossary_term: term, meeting: meeting, project: meeting.project,
+    def applied(heard, meeting, count: 1, glossary_term: term)
+      create(:term_application, organisation: organisation, glossary_term: glossary_term, meeting: meeting, project: meeting.project,
                                 heard: heard, replaced_count: count)
     end
 
@@ -398,6 +398,84 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
       expect(body).to include(I18n.t("#{ga}.spelling_applied", times: I18n.t("#{ga}.times", count: 5),
                                                                meetings: I18n.t("#{ga}.in_meetings", count: 2)))
       expect(body).not_to include(I18n.t('views.organisations.glossary.quoted', text: 'lalabase'))
+    end
+
+    it 'keeps historical spelling counts at the head after the term is renamed' do
+      applied('lalabase', open_meeting, count: 4)
+      applied('LALABASE', closed_meeting)
+      sign_in manager
+
+      patch organisation_glossary_term_path(organisation, term), params: { glossary_term: { term: 'Lala Base' } }
+
+      expect(response).to redirect_to(organisation_glossary_terms_path(organisation, term_id: term.id))
+      page = Nokogiri::HTML(lane_for(admin))
+      expect(page.at_css('.people-identity__name').text).to eq('Lala Base')
+      expect(page.css('.glossary-detail__spelling').text.squish)
+        .to eq(I18n.t("#{ga}.spelling_applied", times: I18n.t("#{ga}.times", count: 5),
+                                                meetings: I18n.t("#{ga}.in_meetings", count: 2)))
+      expect(page.css('.glossary-heard__row--applied')).to be_empty
+      expect(page.css('.glossary-heard__form').text).not_to include(I18n.t('views.organisations.glossary.quoted', text: 'lalabase'))
+    end
+
+    it 'keeps an application under its heard form when the term is renamed to that form' do
+      applied('lala bass', open_meeting, count: 3)
+      sign_in manager
+
+      patch organisation_glossary_term_path(organisation, term), params: { glossary_term: { term: 'Lala Bass' } }
+
+      expect(response).to redirect_to(organisation_glossary_terms_path(organisation, term_id: term.id))
+      page = Nokogiri::HTML(lane_for(admin))
+      expect(page.at_css('.people-identity__name').text).to eq('Lala Bass')
+      expect(page.css('.glossary-detail__spelling')).to be_empty
+      group = page.css('.glossary-heard__group').find { |node| node.text.include?('lala bass') }
+      rows = group.css('.glossary-heard__row--applied')
+      expect(rows.size).to eq(1)
+      expect(rows.text).to include(I18n.t("#{ga}.replaced", count: 3))
+      expect(rows.css('a').pluck('href')).to eq([organisation_meetings_path(organisation, meeting_id: open_meeting.id)])
+    end
+
+    it 'keeps an application and its meeting link after its corrections are deleted and the term is renamed to its heard form' do
+      applied('lala bass', open_meeting, count: 2)
+      sign_in manager
+      delete heard_form_organisation_glossary_term_path(organisation, term, correction_id: open_correction.id)
+
+      patch organisation_glossary_term_path(organisation, term), params: { glossary_term: { term: 'Lala Bass' } }
+
+      expect(response).to redirect_to(organisation_glossary_terms_path(organisation, term_id: term.id))
+      page = Nokogiri::HTML(lane_for(admin))
+      expect(page.css('.glossary-detail__spelling')).to be_empty
+      group = page.css('.glossary-heard__group').find { |node| node.text.include?('lala bass') }
+      expect(group).to be_present
+      expect(group.text).to include(I18n.t("#{ga}.applied_only"))
+      rows = group.css('.glossary-heard__row--applied')
+      expect(rows.size).to eq(1)
+      expect(rows.text).to include(I18n.t("#{ga}.replaced", count: 2))
+      expect(rows.css('a').pluck('href')).to eq([organisation_meetings_path(organisation, meeting_id: open_meeting.id)])
+    end
+
+    it 'separates spelling from other applications with the same heard form and different stored terms after a merge' do
+      source = create(:glossary_term, organisation: organisation, term: 'Lala Base')
+      historical = applied('lalabase', open_meeting, count: 3, glossary_term: source)
+      applied('lala base', open_meeting, count: 4, glossary_term: source)
+      applied('LALABASE', closed_meeting)
+      sign_in manager
+
+      post merge_organisation_glossary_term_path(organisation, source), params: { target_id: term.id }
+
+      expect(response).to redirect_to(organisation_glossary_terms_path(organisation, term_id: term.id))
+      expect(GlossaryTerm.where(id: source.id)).not_to exist
+      expect(historical.reload).to have_attributes(glossary_term_id: term.id, term: 'Lala Base')
+      page = Nokogiri::HTML(lane_for(admin))
+      expect(page.css('.glossary-detail__spelling').text.squish)
+        .to eq(I18n.t("#{ga}.spelling_applied", times: I18n.t("#{ga}.times", count: 5),
+                                                meetings: I18n.t("#{ga}.in_meetings", count: 2)))
+      rows = page.css('.glossary-heard__row--applied')
+      expect(rows.size).to eq(1)
+      expect(rows.text).to include(I18n.t("#{ga}.replaced", count: 3))
+      expect(rows.css('a').pluck('href')).to eq([organisation_meetings_path(organisation, meeting_id: open_meeting.id)])
+      group = page.css('.glossary-heard__group').find { |node| node.text.include?('lalabase') }
+      expect(group.text).to include(I18n.t("#{ga}.applied_only"))
+      expect(group.css('.glossary-heard__row--applied').size).to eq(1)
     end
 
     it 'keeps the applications of a form whose corrections were deleted, as a group of its own' do

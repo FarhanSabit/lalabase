@@ -24,6 +24,10 @@ class TermApplication < ApplicationRecord
   SOURCES = %w[device].freeze
   # Rows one meeting may bring. A transcript of two hours has a few dozen.
   MAX_ENTRIES = 500
+  # PostgreSQL's four-byte replaced_count, including the sum of duplicate rows.
+  MAX_COUNT = (2**31) - 1
+
+  class InvalidEntries < ArgumentError; end
 
   belongs_to :meeting
   belongs_to :project, optional: true
@@ -38,7 +42,7 @@ class TermApplication < ApplicationRecord
   validates :term, presence: true, length: { maximum: GlossaryTerm::MAX_LENGTH }
   validates :heard, presence: true, length: { maximum: GlossaryTerm::MAX_LENGTH }
   validates :normalized_heard, presence: true
-  validates :replaced_count, numericality: { only_integer: true, greater_than_or_equal_to: 1 }
+  validates :replaced_count, numericality: { only_integer: true, greater_than_or_equal_to: 1, less_than_or_equal_to: MAX_COUNT }
   validate :same_organisation_references
 
   # The order of the list on the meeting: as written, then by spelling.
@@ -57,26 +61,41 @@ class TermApplication < ApplicationRecord
   # fetched its glossary) leaves the reference empty. Two statements whatever the
   # length of the list (one lookup, one insert): the rows were checked by the
   # caller, and every reference comes from the meeting itself or from a query
-  # bound to its organisation. Runs in the caller's transaction.
+  # bound to its organisation. The term locks follow the glossary writers' ID
+  # order and hold through insertion: deletion/merging must wait, then nullify
+  # or move the newly written rows too. The transaction joins the caller's.
   def self.record!(meeting:, entries:)
+    entries = summed_entries(entries)
+    return 0 if entries.empty?
+
+    transaction do
+      terms = GlossaryTerm.where(organisation_id: meeting.organisation_id,
+                                 normalized_term: entries.map { |row| GlossaryText.normalize(row[:term]) }.uniq)
+                          .order(:id).lock('FOR KEY SHARE').pluck(:normalized_term, :id).to_h
+      rows = entries.map do |row|
+        { organisation_id: meeting.organisation_id, meeting_id: meeting.id, project_id: meeting.project_id,
+          glossary_term_id: terms[GlossaryText.normalize(row[:term])], term: row[:term],
+          heard: row[:heard], normalized_heard: GlossaryText.normalize(row[:heard]), replaced_count: row[:count], source: 'device' }
+      end
+      insert_all!(rows).length
+    end
+  end
+
+  # Intake asks before saving the meeting, and the writer uses the same rule:
+  # identical heard spellings may sum only toward the same normalized term,
+  # and their total must fit the persisted count. Keep the first term's spelling.
+  def self.summed_entries(entries)
     summed = {}
     entries.each do |entry|
       heard = GlossaryText.clean(entry[:heard])
-      key = [GlossaryText.normalize(heard), heard]
-      row = summed[key] ||= { heard: heard, term: GlossaryText.clean(entry[:term]), count: 0 }
-      row[:count] += entry[:count]
-    end
-    return 0 if summed.empty?
+      term = GlossaryText.clean(entry[:term])
+      row = summed[heard] ||= { heard: heard, term: term, count: 0 }
+      raise InvalidEntries unless GlossaryText.normalize(row[:term]) == GlossaryText.normalize(term)
 
-    terms = GlossaryTerm.where(organisation_id: meeting.organisation_id,
-                               normalized_term: summed.values.map { |row| GlossaryText.normalize(row[:term]) }.uniq)
-                        .pluck(:normalized_term, :id).to_h
-    rows = summed.map do |(normalized_heard, heard), row|
-      { organisation_id: meeting.organisation_id, meeting_id: meeting.id, project_id: meeting.project_id,
-        glossary_term_id: terms[GlossaryText.normalize(row[:term])], term: row[:term],
-        heard: heard, normalized_heard: normalized_heard, replaced_count: row[:count], source: 'device' }
+      row[:count] += entry[:count]
+      raise InvalidEntries unless row[:count].between?(1, MAX_COUNT)
     end
-    insert_all!(rows).length
+    summed.values
   end
 
   private

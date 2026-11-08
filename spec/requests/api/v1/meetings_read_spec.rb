@@ -384,22 +384,96 @@ RSpec.describe 'REST meetings', :ci_guard, type: :request do
       expect(response.body).not_to include('boom', 'embedding', '_flag', '_error', 'organisation_id', 'creator_id')
     end
 
-    # K4d: what the sender replaced from the glossary, as it was sent, in the order it was written.
-    it 'hands back the glossary replacements with the term id while the term exists' do
-      term = quietly { create(:glossary_term, organisation: organisation, term: 'Lalabase') }
-      quietly do
-        create(:term_application, organisation: organisation, meeting: held, glossary_term: term, heard: 'lala bass',
-                                  replaced_count: 3, created_at: 2.minutes.ago)
-        create(:term_application, organisation: organisation, meeting: held, glossary_term: nil, term: 'Zirbelholz',
-                                  heard: 'zirbel holz', created_at: 1.minute.ago)
+    # K4d: the sender's text belongs to the meeting; a resolved id belongs to the glossary.
+    describe 'glossary replacements' do
+      let(:term) { quietly { create(:glossary_term, organisation: organisation, term: 'Lalabase') } }
+      let(:replacement_text) do
+        [
+          { 'heard' => 'lala bass', 'term' => 'Lalabase', 'count' => 3, 'glossary_term_id' => nil },
+          { 'heard' => 'zirbel holz', 'term' => 'Zirbelholz', 'count' => 1, 'glossary_term_id' => nil }
+        ]
       end
 
-      show(held.id)
+      before do
+        quietly do
+          create(:term_application, organisation: organisation, meeting: held, glossary_term: term, heard: 'lala bass',
+                                    replaced_count: 3, created_at: 2.minutes.ago)
+          create(:term_application, organisation: organisation, meeting: held, glossary_term: nil, term: 'Zirbelholz',
+                                    heard: 'zirbel holz', created_at: 1.minute.ago)
+        end
+      end
 
-      expect(response.parsed_body.dig('data', 'glossary_replacements')).to eq([
-                                                                                { 'heard' => 'lala bass', 'term' => 'Lalabase', 'count' => 3, 'glossary_term_id' => term.id },
-                                                                                { 'heard' => 'zirbel holz', 'term' => 'Zirbelholz', 'count' => 1, 'glossary_term_id' => nil }
-                                                                              ])
+      def grant_glossary(action = 'view_glossary')
+        quietly { create(:permission, role: role, category: 'glossary', action: action, allowed: true) }
+      end
+
+      it 'keeps the replacement text, counts and order without revealing term ids to a meeting reader' do
+        expect(show(held.id)).to have_http_status(:ok)
+
+        expect(response.parsed_body.dig('data', 'glossary_replacements')).to eq(replacement_text)
+      end
+
+      %w[view_glossary manage_glossary].each do |action|
+        it "includes the existing term id for a reader with #{action}" do
+          grant_glossary(action)
+
+          expect(show(held.id)).to have_http_status(:ok)
+
+          expect(response.parsed_body.dig('data', 'glossary_replacements')).to eq([
+                                                                                    replacement_text.first.merge('glossary_term_id' => term.id), replacement_text.last
+                                                                                  ])
+        end
+      end
+
+      it 'includes the existing term id for an account admin without a glossary permission row' do
+        expect(show(held.id, user: account_admin)).to have_http_status(:ok)
+
+        expect(response.parsed_body.dig('data', 'glossary_replacements')).to eq([
+                                                                                  replacement_text.first.merge('glossary_term_id' => term.id), replacement_text.last
+                                                                                ])
+      end
+
+      it 'stops disclosing term ids to the same token after the glossary right is revoked' do
+        permission = grant_glossary
+        pat = token_for(reader)
+
+        expect(show(held.id, pat: pat)).to have_http_status(:ok)
+        expect(response.parsed_body.dig('data', 'glossary_replacements', 0, 'glossary_term_id')).to eq(term.id)
+
+        quietly { permission.update!(allowed: false) }
+
+        expect(show(held.id, pat: pat)).to have_http_status(:ok)
+        expect(response.parsed_body.dig('data', 'glossary_replacements')).to eq(replacement_text)
+      end
+    end
+
+    it 'does not disclose whether submitted guesses match confirmed, proposed, rejected or absent glossary terms' do
+      terms = quietly do
+        %w[confirmed proposed rejected].map do |status|
+          create(:glossary_term, organisation: organisation, term: "Beispielwort #{status}", status: status)
+        end
+      end
+      guesses = terms.each_with_index.map do |term, index|
+        { heard: "bei spiel #{index}", term: term.term, count: index + 1 }
+      end
+      guesses << { heard: 'zirbel holz', term: 'Zirbelholz', count: 4 }
+      pat = token_for(creator, read_only: false)
+
+      post "/api/v1/organisations/#{organisation.id}/meetings",
+           params: { meeting: { title: 'Glossary guesses', project_id: project.id, occurred_at: 1.hour.ago.iso8601,
+                                transcript: 'Words from the sender', glossary_replacements: guesses } },
+           headers: { 'Authorization' => "Bearer #{pat.token}" }, as: :json
+
+      expect(response).to have_http_status(:created)
+      id = response.parsed_body.dig('data', 'id')
+      stored_terms = quietly { TermApplication.where(meeting_id: id).pluck(:term, :glossary_term_id).to_h }
+      expect(stored_terms).to eq(terms.to_h { |term| [term.term, term.id] }.merge('Zirbelholz' => nil))
+
+      expect(show(id, pat: pat)).to have_http_status(:ok)
+
+      expect(response.parsed_body.dig('data', 'glossary_replacements')).to match_array(
+        guesses.map { |guess| guess.stringify_keys.merge('glossary_term_id' => nil) }
+      )
     end
 
     it 'does not cut a long transcript' do

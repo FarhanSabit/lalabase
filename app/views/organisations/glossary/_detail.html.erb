@@ -10,12 +10,14 @@
 <% can_write = policy(term).update? %>
 <% corrections = term.term_corrections.includes(:project, :person, :user).in_lane_order.to_a %>
 <%# K4d: where a device applied a form (TermApplication), by heard form. A form that
-    was only righted in its spelling (the term itself, in another case) stands at the
-    head; a form whose corrections were deleted keeps its applications as a group of
-    its own, so the trace to the meetings stays. %>
+    was only righted in its spelling stands at the head, judged against the stored
+    replacement even after a rename or merge. Classify each application before grouping:
+    the same heard form may have had different replacements. A form whose corrections
+    were deleted keeps its applications as a group of its own, so the trace to the
+    meetings stays. %>
 <% applications = term.term_applications.includes(:project).in_text_order.to_a %>
-<% applied = applications.group_by(&:normalized_heard) %>
-<% spelling_applied = applied.delete(term.normalized_term) || [] %>
+<% spelling_applied, heard_applied = applications.partition(&:spelling?) %>
+<% applied = heard_applied.group_by(&:normalized_heard) %>
 <% meetings = glossary_readable_meetings(corrections + applications) %>
 <% groups = corrections.group_by(&:normalized_heard).values %>
 <% applied_only = applied.except(*groups.map { |group| group.first.normalized_heard }) %>

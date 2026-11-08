@@ -43,7 +43,7 @@ module Api
       def show
         shown = Meetings::Readable.call(id: params[:id], user: current_user, token: current_token) do |meeting|
           authorize meeting, :show?
-          render json: { data: Meetings::Serializer.full(meeting) }
+          render json: { data: Meetings::Serializer.full(meeting, viewer: current_user) }
         end
         raise ActiveRecord::RecordNotFound unless shown
       end

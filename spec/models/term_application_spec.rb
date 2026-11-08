@@ -72,7 +72,7 @@ RSpec.describe TermApplication, :ci_guard, type: :model do
   describe '.record!' do
     def record(*entries)
       described_class.record!(meeting: meeting, entries: entries)
-      described_class.where(meeting: meeting).order(:normalized_heard, :heard).to_a
+      described_class.where(meeting: meeting).to_a
     end
 
     it 'writes one row per spelling with the term found by its normalized spelling' do
@@ -80,11 +80,11 @@ RSpec.describe TermApplication, :ci_guard, type: :model do
       rows = record({ heard: 'lala bass', term: 'Lalabase', count: 3 }, { heard: 'lalabase', term: 'LALABASE', count: 1 },
                     { heard: 'zirbel holz', term: 'Zirbelholz', count: 2 })
 
-      expect(rows.map { |row| [row.heard, row.term, row.replaced_count, row.glossary_term_id, row.project_id] }).to eq([
-                                                                                                                         ['lala bass', 'Lalabase', 3, term.id, project.id],
-                                                                                                                         ['lalabase', 'LALABASE', 1, term.id, project.id],
-                                                                                                                         ['zirbel holz', 'Zirbelholz', 2, nil, project.id]
-                                                                                                                       ])
+      expect(rows.map { |row| [row.heard, row.term, row.replaced_count, row.glossary_term_id, row.project_id] }).to contain_exactly(
+        ['lala bass', 'Lalabase', 3, term.id, project.id],
+        ['lalabase', 'LALABASE', 1, term.id, project.id],
+        ['zirbel holz', 'Zirbelholz', 2, nil, project.id]
+      )
       expect(rows.map(&:organisation_id).uniq).to eq([organisation.id])
     end
 
@@ -92,7 +92,7 @@ RSpec.describe TermApplication, :ci_guard, type: :model do
       rows = record({ heard: 'lala bass', term: 'Lalabase', count: 1 }, { heard: 'lala bass', term: 'Lalabase', count: 4 },
                     { heard: 'Lala Bass', term: 'Lalabase', count: 1 })
 
-      expect(rows.map { |row| [row.heard, row.replaced_count] }).to eq([['Lala Bass', 1], ['lala bass', 5]])
+      expect(rows.map { |row| [row.heard, row.replaced_count] }).to contain_exactly(['Lala Bass', 1], ['lala bass', 5])
     end
 
     it 'writes nothing for no entries' do

@@ -288,7 +288,7 @@ RSpec.describe 'API V1 Meetings', :ci_guard, type: :request do
   describe 'the glossary replacements' do
     let!(:term) { in_org { create(:glossary_term, organisation: organisation, term: 'Lalabase') } }
 
-    def applications_of(id) = in_org { TermApplication.where(meeting_id: id).order(:normalized_heard, :heard).to_a }
+    def applications_of(id) = in_org { TermApplication.where(meeting_id: id).to_a }
 
     def send_with(replacements)
       send_meeting(body(project_id: project.id, glossary_replacements: replacements))
@@ -300,8 +300,8 @@ RSpec.describe 'API V1 Meetings', :ci_guard, type: :request do
       expect(response).to have_http_status(:created)
       rows = applications_of(json.dig('data', 'id'))
       expect(rows.map { |row| [row.heard, row.term, row.replaced_count, row.glossary_term_id, row.project_id, row.source] })
-        .to eq([['lala bass', 'Lalabase', 3, term.id, project.id, 'device'], ['lalabase', 'Lalabase', 2, term.id, project.id, 'device']])
-      expect(rows.map(&:spelling?)).to eq([false, true])
+        .to contain_exactly(['lala bass', 'Lalabase', 3, term.id, project.id, 'device'], ['lalabase', 'Lalabase', 2, term.id, project.id, 'device'])
+      expect(rows.map { |row| [row.heard, row.spelling?] }).to contain_exactly(['lala bass', false], ['lalabase', true])
       expect(json['data'].keys).not_to include('glossary_replacements'), 'the answer stays the small summary'
     end
 
@@ -340,6 +340,12 @@ RSpec.describe 'API V1 Meetings', :ci_guard, type: :request do
       'a broken count' => [{ heard: 'lala bass', term: 'Lalabase', count: 1.5 }],
       'a count in words' => [{ heard: 'lala bass', term: 'Lalabase', count: 'drei' }],
       'a count with a space' => [{ heard: 'lala bass', term: 'Lalabase', count: ' 3' }],
+      'a count beyond storage' => [{ heard: 'lala bass', term: 'Lalabase', count: 2_147_483_648 }],
+      'a digit count beyond storage' => [{ heard: 'lala bass', term: 'Lalabase', count: '2147483648' }],
+      'duplicate counts beyond storage' => [{ heard: 'lala bass', term: 'Lalabase', count: 2_147_483_647 },
+                                            { heard: " lala\u00A0bass ", term: 'Lalabase', count: 1 }],
+      'conflicting terms for the same spelling' => [{ heard: 'lala bass', term: 'Lalabase', count: 2 },
+                                                    { heard: " lala\u00A0bass ", term: 'Zirbelholz', count: 3 }],
       'a blank heard form' => [{ heard: '  ', term: 'Lalabase', count: 1 }],
       'a term too long' => [{ heard: 'lala bass', term: 'x' * 256, count: 1 }],
       'a heard form that is no text' => [{ heard: 7, term: 'Lalabase', count: 1 }],
@@ -353,6 +359,24 @@ RSpec.describe 'API V1 Meetings', :ci_guard, type: :request do
         expect(meeting_count).to eq(0)
         expect(in_org { TermApplication.count }).to eq(0)
       end
+    end
+
+    [2_147_483_646, 2_147_483_647].each do |count|
+      it "accepts the valid count #{count} at the storage boundary" do
+        send_with([{ heard: 'lala bass', term: 'Lalabase', count: count }])
+
+        expect(response).to have_http_status(:created)
+        expect(applications_of(json.dig('data', 'id')).sole.replaced_count).to eq(count)
+      end
+    end
+
+    it 'sums normalized duplicate destinations up to the storage limit and keeps the first spelling' do
+      send_with([{ heard: 'lala bass', term: 'Lalabase', count: 2_147_483_646 },
+                 { heard: " lala\u00A0bass ", term: ' LALABASE ', count: 1 }])
+
+      expect(response).to have_http_status(:created)
+      expect(applications_of(json.dig('data', 'id')).sole)
+        .to have_attributes(heard: 'lala bass', term: 'Lalabase', glossary_term_id: term.id, replaced_count: 2_147_483_647)
     end
 
     it 'writes the list once under one Idempotency-Key' do
