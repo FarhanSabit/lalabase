@@ -10,9 +10,11 @@
 #   What shows nothing (GlossaryText::INVISIBLE) is gone first, so it joins.
 # * A name: two or three capitalised words in a row with only blanks between
 #   them, so never across a line or a punctuation mark ("Zorbel Hub Pro",
-#   "Zorbel Hub"). Each of its words still counts on its own. German writes
-#   every noun with a capital, so a name of common words only counts from two
-#   sources on.
+#   "Zorbel Hub"), and never with a stop word first or last: many German
+#   sentences start with an article, so "Die Rechnung" makes no name and "Der
+#   Zorbel Hub" only "Zorbel Hub". Each of its words still counts on its own.
+#   German writes every noun with a capital, so a name of common words only
+#   counts from two sources on.
 # * Dropped: addresses, e-mail addresses, paths, numbers, codes (hex, UUID,
 #   eight characters without a vowel), words under three characters but
 #   abbreviations in capitals ("KI"), anything longer than a term may be,
@@ -105,8 +107,9 @@ module Glossary
     SNIPPET_REACH = MAX_SNIPPET * 4
 
     # What the rules say about a word, the same wherever it stands. noise: no
-    # term and no word of a name either.
-    Word = Data.define(:form, :key, :capitalised, :common, :noise)
+    # term and no word of a name either. stop: a stop word, which no name
+    # starts or ends with.
+    Word = Data.define(:form, :key, :capitalised, :common, :stop, :noise)
     # A word where it stands: bytes from...to of the read text.
     Placed = Data.define(:word, :from, :to)
     # One occurrence of a key. kind: :word, :name (with an uncommon word),
@@ -118,16 +121,19 @@ module Glossary
     Group = Struct.new(:forms, :sources, :occurrences, :snippets, :found, :common_name)
     private_constant :Word, :Placed, :Occurrence, :Seen, :Group
 
-    def self.call(sources:, known:, common_words:, max_candidates:)
-      new(sources: sources, known: known, common_words: common_words, max_candidates: max_candidates).call
+    def self.call(sources:, known:, common_words:, max_candidates:, stop_words: nil)
+      new(sources: sources, known: known, common_words: common_words, max_candidates: max_candidates,
+          stop_words: stop_words).call
     end
 
     # known: strings in any spelling. common_words: answers include? for a
-    # GlossaryText.normalize form.
-    def initialize(sources:, known:, common_words:, max_candidates:)
+    # GlossaryText.normalize form. stop_words: the same for the stop words
+    # alone; Glossary::WordLists.stop_words when not given.
+    def initialize(sources:, known:, common_words:, max_candidates:, stop_words: nil)
       @sources = sources
       @known = known.each_with_object(Set.new) { |value, keys| keys << GlossaryText.compact(value) }
       @common_words = common_words
+      @stop_words = stop_words || Glossary::WordLists.stop_words
       @max_candidates = max_candidates
       @groups = {}
     end
@@ -206,8 +212,9 @@ module Glossary
 
     def judge(raw)
       form = GlossaryText.clean(raw)
+      compared = GlossaryText.normalize(form)
       Word.new(form: form, key: GlossaryText.compact(form), capitalised: form.match?(CAPITALISED),
-               common: @common_words.include?(GlossaryText.normalize(form)), noise: noise?(form))
+               common: @common_words.include?(compared), stop: @stop_words.include?(compared), noise: noise?(form))
     end
 
     # Rule 3, and the length a term may have.
@@ -251,8 +258,14 @@ module Glossary
     # Words in a row: all capitalised, a :name with an uncommon word or a
     # :common_name of common words only; not all capitalised, a :spelling when
     # every word is uncommon (else every uncommon word would bring its
-    # neighbours along: "der zorbel", "zorbel ist").
+    # neighbours along: "der zorbel", "zorbel ist"). Nothing when the first or
+    # the last word is a stop word: an article at the start of a sentence and
+    # a noun after it ("Die Rechnung") would be a name in hundreds of texts,
+    # and "Der Zorbel" one next to "Zorbel". A stop word inside stays
+    # ("Zorbel For Teams").
     def name_kind(words)
+      return if words.first.stop || words.last.stop
+
       if words.all?(&:capitalised)
         words.all?(&:common) ? :common_name : :name
       elsif words.none?(&:common)

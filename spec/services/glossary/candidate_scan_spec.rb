@@ -3,15 +3,21 @@
 require 'rails_helper'
 
 # What: Glossary::CandidateScan, the sieve of the glossary extraction (K5b) without AI.
-# Type: Plain Ruby spec, no database: sources are values, the common words a small set.
+# Type: Plain Ruby spec, no database: sources are values, the common words and the stop words
+#   small sets; one group reads the real Glossary::WordLists.
 # Why:  Which words and names of the texts become candidate terms (rules 1 to 5), how their
 #   spellings group (rule 6), how they rank and are cut, what a snippet holds (rule 7), and that
-#   a stream of sources is read once. Invented words and names only.
+#   a stream of sources is read once. A name never starts or ends with a stop word, else an
+#   article and a noun ("Die Rechnung") would take the places of real terms. Invented words and
+#   names only.
 RSpec.describe Glossary::CandidateScan do
   let(:common_words) do
     Set.new(%w[der die das den und ist wir testen morgen neue version termin heute läuft steht hier
-               siehe bitte schreiben unter liegt pro sehr mögen nutzen kommt alles prüfen])
+               siehe bitte schreiben unter liegt pro sehr mögen nutzen kommt alles prüfen
+               rechnung kunde wege])
   end
+  # As in Glossary::WordLists, every stop word is a common word, not the other way round.
+  let(:stop_words) { Set.new(%w[der die das den und ist wir]) }
 
   def source(text, id: 's1', type: 'Ticket', project_id: nil)
     described_class::Source.new(type: type, id: id, project_id: project_id, text: text)
@@ -23,7 +29,8 @@ RSpec.describe Glossary::CandidateScan do
   end
 
   def scan(*texts, known: [], max_candidates: 100, sources: sources_of(texts))
-    described_class.call(sources: sources, known: known, common_words: common_words, max_candidates: max_candidates)
+    described_class.call(sources: sources, known: known, common_words: common_words, stop_words: stop_words,
+                         max_candidates: max_candidates)
   end
 
   def keys(*texts, **options)
@@ -150,6 +157,36 @@ RSpec.describe Glossary::CandidateScan do
     it 'makes no name of a word that is dropped' do
       expect(keys('Zorbel 2026 Quarnix, Zorbel Ab Quarnix, Zorbel https://zorbel.example.com Quarnix'))
         .to contain_exactly('zorbel', 'quarnix')
+    end
+
+    it 'makes no name of a stop word and a common noun, so they take no place of a term' do
+      texts = Array.new(5, 'Die Rechnung liegt hier. Der Kunde kommt morgen.')
+
+      expect(keys(*texts)).to eq([])
+      expect(keys(*texts, 'Zorbel kommt morgen.', max_candidates: 1)).to eq(['zorbel'])
+    end
+
+    it 'makes no name that starts with a stop word, of two words or of three' do
+      expect(keys('Das Zorbel-Werk läuft.')).to eq(['zorbelwerk'])
+      expect(candidate('zorbelwerk', 'Das Zorbel-Werk läuft.').forms).to eq(['Zorbel-Werk'])
+      expect(keys('Das Zorbel-Werk Quarnix läuft.')).to contain_exactly('zorbelwerk', 'quarnix', 'zorbelwerkquarnix')
+    end
+
+    it 'takes the name inside a window that starts with a stop word' do
+      found = scan('Der Zorbel Hub läuft.').candidates
+
+      expect(found.map(&:key)).to contain_exactly('zorbel', 'hub', 'zorbelhub')
+      expect(found.find { |candidate| candidate.key == 'zorbelhub' }.forms).to eq(['Zorbel Hub'])
+    end
+
+    it 'makes no name that ends with a stop word, but keeps one with a stop word inside' do
+      expect(keys('Wir testen Zorbel Und Quarnix morgen.')).to contain_exactly('zorbel', 'quarnix', 'zorbelundquarnix')
+    end
+
+    it 'keeps a name of common words that are no stop words from two sources on, as before' do
+      expect(keys('Wir testen Neue Wege.')).to eq([])
+      expect(keys('Wir testen Neue Wege.', 'Neue Wege kommt morgen.')).to eq(['neuewege'])
+      expect(candidate('neuewege', 'Wir testen Neue Wege.', 'Neue Wege kommt morgen.').source_count).to eq(2)
     end
   end
 
@@ -280,6 +317,28 @@ RSpec.describe Glossary::CandidateScan do
 
       expect(snippet).to have_attributes(type: 'Note', id: 'n1', project_id: 'p1', occurrences: 1,
                                          text: 'Zorbel steht hier.')
+    end
+  end
+
+  describe 'with the lists of Glossary::WordLists' do
+    # No stop_words given: the scan takes Glossary::WordLists.stop_words.
+    def keys_with_word_lists(*texts)
+      described_class.call(sources: sources_of(texts), known: [], common_words: Glossary::WordLists.common,
+                           max_candidates: 100).candidates.map(&:key)
+    end
+
+    it 'drops common abbreviations' do
+      expect(keys_with_word_lists('Zorbel läuft, z.B. hier, bzw. morgen.')).to eq(['zorbel'])
+    end
+
+    it 'keeps a name with a legal form, never the legal form alone' do
+      expect(keys_with_word_lists('Zorbel GmbH prüft das.', 'Eine GmbH prüft das.'))
+        .to contain_exactly('zorbel', 'zorbelgmbh')
+    end
+
+    it 'takes the stop words of the lists when none are given' do
+      expect(keys_with_word_lists('Der Zorbel Hub läuft.')).to contain_exactly('zorbel', 'zorbelhub')
+      expect(keys_with_word_lists('Zorbel For Teams läuft.')).to contain_exactly('zorbel', 'zorbelforteams')
     end
   end
 
