@@ -143,6 +143,7 @@ de:
         meeting_inbox_forbidden: Sie dürfen im Eingangsprojekt keine Meetings anlegen. Geben Sie ein Projekt an oder lassen Sie sich Zugriff geben.
         project_archived: Das Projekt ist archiviert und nimmt keine Meetings an.
         unknown_participant: Ein Teilnehmer lässt sich nicht zuordnen.
+        invalid_glossary_replacements: Die Liste der Glossar-Ersetzungen ist ungültig. Jede Zeile braucht gehörte Form, Begriff und eine Zahl ab 1.
       summary:
         ai_disabled: "KI-Funktionen sind für diese Organisation deaktiviert."
         not_configured: "Es ist kein gültiger KI-Zugang konfiguriert."

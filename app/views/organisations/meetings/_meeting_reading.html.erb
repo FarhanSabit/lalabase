@@ -40,7 +40,7 @@
       <%# Correcting a misheard word (K4b) only on the meeting page, never in the panel. %>
       <% correctable = can_write && !panel %>
       <%= render 'organisations/meetings/transcript_section',
-                 meeting: meeting, participants: participants, correctable: correctable,
+                 meeting: meeting, participants: participants, correctable: correctable, glossary: !panel,
                  clamp: panel || meeting.generated_summary.present? || meeting.notes.present? %>
       <% if correctable %>
         <%= turbo_frame_tag term_correction_modal_id(meeting.id) %>

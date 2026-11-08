@@ -3,7 +3,7 @@
     dialog gone, and a flash with the number of places and what the glossary learnt. %>
 <%= turbo_stream.replace meeting_transcript_section_id(@meeting) do %>
   <%= render 'organisations/meetings/transcript_section',
-             meeting: @meeting, participants: @participants, clamp: false, correctable: true %>
+             meeting: @meeting, participants: @participants, clamp: false, correctable: true, glossary: true %>
 <% end %>
 <% if @summary_replaced %>
   <%= turbo_stream.replace "#{dom_id(@meeting)}_summary_section",

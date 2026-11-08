@@ -546,6 +546,19 @@
   .glossary-heard__speaker { @apply min-w-[8rem] font-medium; }
   .glossary-heard__origin { @apply min-w-0 flex-1 text-cream-600; }
   .glossary-heard__when { @apply whitespace-nowrap text-xs tabular-nums text-muted; }
+  /* K4d: a row of what a device applied, quieter than a correction. */
+  .glossary-heard__row--applied { @apply text-cream-600; }
+  .glossary-heard__row--applied .glossary-heard__speaker { @apply font-normal italic; }
+  .glossary-detail__spelling { @apply text-cream-600; }
+  /* K4d: what the glossary did to a transcript, under the heading of the meeting page. */
+  .transcript-glossary { @apply mb-3 text-[13px] text-heading; }
+  .transcript-glossary__summary { @apply flex cursor-pointer items-baseline gap-1.5 text-cream-600; }
+  .transcript-glossary__list { @apply mt-1.5 flex flex-col gap-0.5 border-l-2 border-cream-200 pl-3; }
+  .transcript-glossary__row { @apply flex flex-wrap items-baseline gap-x-1.5; }
+  .transcript-glossary__heard { @apply text-cream-600 line-through decoration-cream-400; }
+  .transcript-glossary__term { @apply font-medium; }
+  .transcript-glossary__count,
+  .transcript-glossary__kind { @apply text-xs tabular-nums text-muted; }
   .glossary-merge { @apply flex flex-col gap-1.5 border-t border-cream-200 pt-4; }
   .glossary-merge__label { @apply text-sm font-semibold text-heading; }
   .glossary-merge__row { @apply flex flex-wrap items-center gap-2; }

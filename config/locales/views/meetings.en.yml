@@ -151,6 +151,19 @@ en:
           change: "Change the link of %{name}"
           open_person: "%{name}: open person"
         # Correcting a misheard word in the transcript (K4b).
+        # K4d: what the glossary did to the transcript before it arrived (the device sent the list).
+        glossary_applied:
+          summary: "Righted from the glossary: %{places} in %{terms}"
+          places:
+            one: "1 place"
+            other: "%{count} places"
+          terms:
+            one: "1 term"
+            other: "%{count} terms"
+          times:
+            one: "once"
+            other: "%{count} times"
+          spelling: "spelling"
         term_correction:
           trigger: Correct
           trigger_label: "Correct the marked word"

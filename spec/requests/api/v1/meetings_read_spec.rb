@@ -362,6 +362,7 @@ RSpec.describe 'REST meetings', :ci_guard, type: :request do
         'creator' => { 'id' => creator.id, 'name' => 'Clara Creator' },
         'participants' => [{ 'display_name' => 'Ben Berger' }, { 'display_name' => 'Anna Albers' }],
         'generated_summary' => '**Head:** done', 'notes' => 'Some notes', 'transcript' => 'Anna: hello',
+        'glossary_replacements' => [],
         'updated_at' => held.reload.updated_at.iso8601,
         'path' => "/org/#{organisation.id}/projects/#{project.id}/meetings/#{held.id}"
       )
@@ -378,9 +379,27 @@ RSpec.describe 'REST meetings', :ci_guard, type: :request do
       show(held.id)
       expect(response.parsed_body['data'].keys).to contain_exactly(
         'id', 'project_id', 'title', 'occurred_at', 'duration_minutes', 'creator', 'participants',
-        'generated_summary', 'notes', 'transcript', 'updated_at', 'path'
+        'generated_summary', 'notes', 'transcript', 'glossary_replacements', 'updated_at', 'path'
       )
       expect(response.body).not_to include('boom', 'embedding', '_flag', '_error', 'organisation_id', 'creator_id')
+    end
+
+    # K4d: what the sender replaced from the glossary, as it was sent, in the order it was written.
+    it 'hands back the glossary replacements with the term id while the term exists' do
+      term = quietly { create(:glossary_term, organisation: organisation, term: 'Lalabase') }
+      quietly do
+        create(:term_application, organisation: organisation, meeting: held, glossary_term: term, heard: 'lala bass',
+                                  replaced_count: 3, created_at: 2.minutes.ago)
+        create(:term_application, organisation: organisation, meeting: held, glossary_term: nil, term: 'Zirbelholz',
+                                  heard: 'zirbel holz', created_at: 1.minute.ago)
+      end
+
+      show(held.id)
+
+      expect(response.parsed_body.dig('data', 'glossary_replacements')).to eq([
+                                                                                { 'heard' => 'lala bass', 'term' => 'Lalabase', 'count' => 3, 'glossary_term_id' => term.id },
+                                                                                { 'heard' => 'zirbel holz', 'term' => 'Zirbelholz', 'count' => 1, 'glossary_term_id' => nil }
+                                                                              ])
     end
 
     it 'does not cut a long transcript' do

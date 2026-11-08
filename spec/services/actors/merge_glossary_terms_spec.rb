@@ -22,6 +22,17 @@ RSpec.describe Actors::MergeGlossaryTerms, :ci_guard, type: :service do
     described_class.call(source: from, target: into, current_user: writer)
   end
 
+  # K4d: the trace of where a device applied the source goes along; its spelling stays as sent.
+  it 'moves the applications of the source to the target and keeps their spelling' do
+    meeting = create(:meeting, organisation: organisation, project: project, creator: writer)
+    moved = create(:term_application, organisation: organisation, meeting: meeting, glossary_term: source, heard: 'lala bass')
+    own = create(:term_application, organisation: organisation, meeting: meeting, glossary_term: target, heard: 'lalabas')
+
+    expect(merge).to be_success
+    expect(target.term_applications.reload).to contain_exactly(moved, own)
+    expect(moved.reload.term).to eq('Lala Base')
+  end
+
   it 'moves every heard form of the source to the target, with speaker, project and place' do
     moved = create(:term_correction, organisation: organisation, glossary_term: source, heard: 'lala bass', project: project,
                                      person: person, line_index: 2, char_offset: 5)

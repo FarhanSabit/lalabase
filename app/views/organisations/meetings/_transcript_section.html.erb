@@ -1,10 +1,12 @@
-<%# locals: (meeting:, participants:, clamp:, correctable: false) %>
+<%# locals: (meeting:, participants:, clamp:, correctable: false, glossary: false) %>
 <%# The transcript of a meeting, rendered through Markdown (Neo::MarkdownPreviewComponent), with
     its speaker turns bolded against the participant list. clamp: collapsed to its tall preview.
     correctable (the meeting page with write access, never the panel beside a ticket): a mark in
     the transcript shows "Korrigieren" (transcript_selection_controller), which opens the dialog
     of a term correction (K4b) in the frame _meeting_reading puts beside this section. The section
-    carries the digest of the transcript it shows; a correction redraws it in full. %>
+    carries the digest of the transcript it shows; a correction redraws it in full.
+    glossary (the meeting page, never the panel): what the glossary did to the transcript before
+    it arrived (K4d, _glossary_applied), under the heading. %>
 <% source = meeting_transcript_source(meeting, participants) %>
 <% tc = 'views.organisations.meetings.term_correction' %>
 <% data = if correctable
@@ -18,6 +20,9 @@
   <h3 class="text-xs font-mono uppercase tracking-wider text-cream-600 mb-2">
     <%= t('views.organisations.meetings.show.transcript_heading') %>
   </h3>
+  <% if glossary %>
+    <%= render 'organisations/meetings/glossary_applied', meeting: meeting %>
+  <% end %>
   <%= tag.div data: ({ transcript_selection_target: 'content' } if correctable) do %>
     <% if clamp %>
       <%= render Neo::MarkdownPreviewComponent.new(

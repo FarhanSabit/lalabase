@@ -115,6 +115,13 @@ de:
             one: "„%{term}“ und seine gehörte Form löschen?"
             other: "„%{term}“ und seine %{count} gehörten Formen löschen?"
           read_only: "Du kannst das Glossar ansehen, aber nicht pflegen."
+          # K4d: what a device applied from the glossary when it sent a meeting.
+          applied_row: "Angewandt beim Senden"
+          applied_only: "nur angewandt, keine Korrektur mehr"
+          spelling_applied: "Schreibweise gerichtet: %{times} in %{meetings}"
+          in_meetings:
+            one: "1 Meeting"
+            other: "%{count} Meetings"
         form:
           new_title: "Neuer Begriff"
           edit_title: "„%{term}“ bearbeiten"

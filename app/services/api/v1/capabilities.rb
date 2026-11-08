@@ -22,8 +22,10 @@ module Api
       # its presence as the signal; 1.9.0 adds meetings.create and the field
       # meeting_inbox on projects.list; 1.10.0 adds meetings.list and meetings.show
       # (R8); 1.11.0 adds terms.list, the working terms of an organisation's
-      # glossary (K4c).
-      API_VERSION = '1.11.0'
+      # glossary (K4c); 1.12.0 adds meetings.glossary_replacements, the list of
+      # what a device replaced from the glossary, on meetings.create and
+      # meetings.show (K4d).
+      API_VERSION = '1.12.0'
 
       # name => [verb, path as the router spells it]
       ENDPOINTS = {
@@ -63,8 +65,12 @@ module Api
       # tickets.show and tickets.by_number, R1), `time_sessions.book`
       # (shared duration/date validation and actor-backed booking, R6), and
       # `posts.plain` (posts.create takes post[format] html or plain, by the
-      # rule the MCP tool post_comment writes by, Posts::Comment; R3a).
-      FEATURES = %w[idempotency error_codes tickets.paging time_sessions.book posts.plain].freeze
+      # rule the MCP tool post_comment writes by, Posts::Comment; R3a), and
+      # `meetings.glossary_replacements` (meetings.create takes the list
+      # meeting[glossary_replacements] of what the sender replaced from the
+      # glossary, meetings.show hands it back; K4d).
+      FEATURES = %w[idempotency error_codes tickets.paging time_sessions.book posts.plain
+                    meetings.glossary_replacements].freeze
 
       def self.names
         (ENDPOINTS.keys + FEATURES).sort

@@ -12,6 +12,12 @@
 # instead of a 404 nobody could act on. It tells nothing but that the organisation
 # has one.
 #
+# `glossary_replacements` (K4d) is what the sender replaced from the glossary before
+# it sent the transcript: rows of heard, term and count. Checked here as a whole
+# (shape, lengths, counts, at most TermApplication::MAX_ENTRIES) and refused as a
+# whole, like the participants; written as TermApplication rows in the meeting's
+# transaction, so a retry under one Idempotency-Key writes them once.
+#
 # A participant is a name, optionally with `ref`, the id the people list hands out
 # (member:<uuid>, person:<uuid>). A ref is resolved through People::Lookup, so the
 # token's reach and the writer's people right apply, and a ref that does not resolve
@@ -31,13 +37,15 @@ module Meetings
     INBOX_FORBIDDEN = Refusal.new(reason: :meeting_inbox_forbidden, code: :forbidden)
     PROJECT_ARCHIVED = Refusal.new(reason: :project_archived, code: :refused)
     UNKNOWN_PARTICIPANT = Refusal.new(reason: :unknown_participant, code: :invalid_input)
+    INVALID_REPLACEMENTS = Refusal.new(reason: :invalid_glossary_replacements, code: :invalid_input)
 
     attr_reader :project, :refusal, :meeting
 
     # #refusal is a Refusal, or nil when the meeting may go on to the policy and #save.
     # @param organisation [Organisation] reached by the token; the caller holds its tenant
     # @param reach [PersonalAccessToken::Reach]
-    # @param input [Hash] project_id, FIELDS, participants: [{ display_name:, ref: }]
+    # @param input [Hash] project_id, FIELDS, participants: [{ display_name:, ref: }],
+    #   glossary_replacements: [{ heard:, term:, count: }]
     def initialize(organisation:, reach:, viewer:, input:)
       @organisation = organisation
       @reach = reach
@@ -45,7 +53,8 @@ module Meetings
       @input = input.to_h.deep_symbolize_keys
       @participants = []
       @links = {}
-      @refusal = resolve_target || resolve_participants
+      @replacements = nil
+      @refusal = resolve_target || resolve_participants || resolve_replacements
     end
 
     # What the surface authorizes :create? on.
@@ -54,10 +63,26 @@ module Meetings
     end
 
     # @return [BaseActor::Result]
+    #
+    # With a list of replacements the actor runs inside one transaction with the
+    # rows (its own transaction joins it; a refusal of the actor rolls the whole
+    # back, as a list that cannot be written takes the meeting with it), so a
+    # retry under one Idempotency-Key finds either both or neither. The actor's
+    # jobs run after the outer commit. Without a list the actor runs as before.
     def save
       actor = Actors::SaveMeeting.new(project: project, params: meeting_params, current_user: @viewer,
                                       participant_links: @links)
-      actor.call.tap { @meeting = actor.record }
+      return actor.call.tap { @meeting = actor.record } unless @replacements
+
+      result = nil
+      Meeting.transaction do
+        result = actor.call
+        @meeting = actor.record
+        raise ActiveRecord::Rollback unless result.success?
+
+        TermApplication.record!(meeting: @meeting, entries: @replacements)
+      end
+      result
     end
 
     # The answer of both surfaces, and it stays this small: an idempotent write
@@ -101,6 +126,47 @@ module Meetings
       return if @reach.project?(@project) && Pundit.policy!(@viewer, meeting_for_policy).create?
 
       INBOX_FORBIDDEN
+    end
+
+    # Checked as a whole before anything is written: no list, a list too long, a
+    # row that is no object, no text, text too long, or a count that is no whole
+    # number of at least 1 refuses the meeting. Counts come as numbers (JSON) or
+    # as digits (a form); nothing is trimmed or guessed.
+    def resolve_replacements
+      return unless @input.key?(:glossary_replacements)
+
+      entries = @input[:glossary_replacements]
+      return INVALID_REPLACEMENTS unless entries.is_a?(Array) && entries.size <= TermApplication::MAX_ENTRIES
+
+      rows = entries.map { |entry| replacement_row(entry) }
+      return INVALID_REPLACEMENTS if rows.any?(&:nil?)
+
+      @replacements = rows
+      nil
+    end
+
+    def replacement_row(entry)
+      return unless entry.is_a?(Hash)
+
+      heard = replacement_text(entry[:heard])
+      term = replacement_text(entry[:term])
+      count = replacement_count(entry[:count])
+      { heard: heard, term: term, count: count } if heard && term && count
+    end
+
+    def replacement_text(value)
+      return unless value.is_a?(String)
+
+      cleaned = GlossaryText.clean(value)
+      cleaned if cleaned.present? && cleaned.length <= GlossaryTerm::MAX_LENGTH
+    end
+
+    def replacement_count(value)
+      number = case value
+               when Integer then value
+               when String then value.match?(/\A\d+\z/) ? value.to_i : nil
+               end
+      number if number && number >= 1
     end
 
     def resolve_participants

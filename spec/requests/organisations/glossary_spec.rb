@@ -358,6 +358,76 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
     end
   end
 
+  # K4d: where a device applied a form, under the form; the spelling at the head; a form
+  # without corrections left keeps its applications as a group of its own.
+  describe 'applications in the lane' do
+    let(:ga) { 'views.organisations.glossary.show' }
+
+    def lane_for(user)
+      sign_in user
+      get organisation_glossary_term_path(organisation, term), headers: frame_headers
+      response.body
+    end
+
+    def applied(heard, meeting, count: 1)
+      create(:term_application, organisation: organisation, glossary_term: term, meeting: meeting, project: meeting.project,
+                                heard: heard, replaced_count: count)
+    end
+
+    it 'lists an application under its heard form with project, date and count, the meeting only for its reader' do
+      applied('Lala Bass', open_meeting, count: 3)
+      applied('la la base', closed_meeting)
+
+      body = lane_for(viewer)
+      expect(body).to include(I18n.t("#{ga}.applied_row"), I18n.t("#{ga}.replaced", count: 3))
+      expect(body.scan(I18n.t("#{ga}.applied_row")).size).to eq(2)
+      expect(body).not_to include('Abstimmung Ahorn', "meeting_id=#{open_meeting.id}")
+
+      create(:project_permission, user: viewer, project: open_project, meetings_access: :read_only)
+      body = lane_for(viewer)
+      expect(body).to include('Abstimmung Ahorn', organisation_meetings_path(organisation, meeting_id: open_meeting.id))
+      expect(body).not_to include('Geheimrunde Birke')
+    end
+
+    it 'names a righted spelling at the head, not as a heard form' do
+      applied('lalabase', open_meeting, count: 4)
+      applied('LALABASE', closed_meeting, count: 1)
+
+      body = lane_for(admin)
+
+      expect(body).to include(I18n.t("#{ga}.spelling_applied", times: I18n.t("#{ga}.times", count: 5),
+                                                               meetings: I18n.t("#{ga}.in_meetings", count: 2)))
+      expect(body).not_to include(I18n.t('views.organisations.glossary.quoted', text: 'lalabase'))
+    end
+
+    it 'keeps the applications of a form whose corrections were deleted, as a group of its own' do
+      applied('lala bass', open_meeting, count: 2)
+      sign_in manager
+      delete heard_form_organisation_glossary_term_path(organisation, term, correction_id: open_correction.id)
+
+      body = lane_for(admin)
+
+      expect(body).to include(I18n.t('views.organisations.glossary.quoted', text: 'lala bass'), I18n.t("#{ga}.applied_only"),
+                              I18n.t("#{ga}.replaced", count: 2))
+      expect(body).not_to include(I18n.t("#{ga}.delete_heard", heard: 'lala bass'))
+    end
+
+    it 'shows the empty line only when neither corrections nor applications exist' do
+      term.term_corrections.delete_all
+      expect(lane_for(admin)).to include(I18n.t("#{ga}.no_heard"))
+
+      applied('lala bass', open_meeting)
+      expect(lane_for(admin)).not_to include(I18n.t("#{ga}.no_heard"))
+    end
+
+    it 'goes with its meeting' do
+      row = applied('lala bass', open_meeting)
+      open_meeting.destroy!
+
+      expect(TermApplication.where(id: row.id)).not_to exist
+    end
+  end
+
   # E3: speakers are shown as a name; the link to the person needs view_people.
   describe 'speakers in the lane' do
     def lane_for(user)

@@ -115,7 +115,16 @@ module Api
 
         fields = input.permit(:project_id, *Meetings::Intake::FIELDS).to_h
         fields[:participants] = participant_rows(input[:participants]) if input.key?(:participants)
+        fields[:glossary_replacements] = replacement_rows(input[:glossary_replacements]) if input.key?(:glossary_replacements)
         fields
+      end
+
+      # The same for the glossary replacements (K4d): the list passes as it came,
+      # each row trimmed to its three fields; Meetings::Intake checks the rest.
+      def replacement_rows(raw)
+        return raw unless raw.is_a?(Array)
+
+        raw.map { |row| row.is_a?(ActionController::Parameters) ? row.permit(:heard, :term, :count).to_h : row }
       end
 
       def participant_rows(raw)

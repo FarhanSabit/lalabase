@@ -36,11 +36,21 @@ module Meetings
         generated_summary: meeting.generated_summary,
         notes: Meeting.strip_frontmatter(meeting.notes),
         transcript: Meeting.strip_frontmatter(meeting.transcript),
+        glossary_replacements: glossary_replacements(meeting),
         updated_at: meeting.updated_at.iso8601,
         path: Rails.application.routes.url_helpers.organisation_project_meeting_path(
           meeting.organisation_id, meeting.project_id, meeting
         )
       )
+    end
+
+    # What the glossary did to the transcript before it arrived (K4d), as the device
+    # sent it: heard spelling, term, how often; the term's id when it still exists.
+    # Empty for a meeting without such a list. Sorted here, not by a scope: the
+    # caller preloads the rows.
+    def self.glossary_replacements(meeting)
+      meeting.term_applications.sort_by { |row| [row.created_at, row.normalized_heard, row.heard, row.id] }
+             .map { |row| { heard: row.heard, term: row.term, count: row.replaced_count, glossary_term_id: row.glossary_term_id } }
     end
   end
 end
