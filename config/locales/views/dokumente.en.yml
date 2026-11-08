@@ -117,7 +117,7 @@ en:
         glossary_source:
           propose: "Suggest glossary terms"
           hint: "Searches this document for terms for the glossary. The proposals go to the review list."
-          text_unavailable: "The text is still being read. Reload the page in a moment."
+          text_unavailable: "The text has not been read yet or could not be read."
           text_unsupported: "No text can be read from this kind of file."
           text_empty: "This file holds no text, as with a scanned PDF."
           run_active: "A search for proposals is already running. Please wait until it is done."

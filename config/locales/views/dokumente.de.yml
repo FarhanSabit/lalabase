@@ -119,7 +119,7 @@ de:
         glossary_source:
           propose: "Begriffe fürs Glossar vorschlagen"
           hint: "Sucht in diesem Dokument nach Begriffen fürs Glossar. Die Vorschläge kommen in die Prüfliste."
-          text_unavailable: "Der Text wird noch gelesen. Lade die Seite gleich neu."
+          text_unavailable: "Der Text ist noch nicht gelesen oder ließ sich nicht lesen."
           text_unsupported: "Aus dieser Art Datei lässt sich kein Text lesen."
           text_empty: "In dieser Datei steht kein Text, etwa bei einem eingescannten PDF."
           run_active: "Gerade läuft schon eine Suche nach Vorschlägen. Warte bitte, bis sie fertig ist."

@@ -58,17 +58,18 @@ RSpec.describe 'Organisations::Documents as a glossary source', :ci_guard, type:
 
   let(:manager) { member_with(role_with('manage_glossary'), documents_access: 'read_only') }
 
-  def upload(type, name)
-    Rack::Test::UploadedFile.new(StringIO.new('Quarnix'), type, true, original_filename: name)
+  def upload(type, name, content = 'Quarnix')
+    Rack::Test::UploadedFile.new(StringIO.new(content), type, true, original_filename: name)
   end
 
   # A document with one version, current, holding text (nil: not read out yet).
-  def document_with(text: 'Wir nutzen Quarnix im Team.', type: 'text/plain', name: 'zorbel.txt', project: self.project)
+  def document_with(text: 'Wir nutzen Quarnix im Team.', type: 'text/plain', name: 'zorbel.txt', project: self.project,
+                    title: 'Zorbel-Handbuch', content: 'Quarnix')
     ActsAsTenant.with_tenant(project.organisation) do
       Prosopite.pause do
         doc = create(:document, organisation: project.organisation, project: project)
-        version = create(:document_version, organisation: project.organisation, document: doc, title: 'Zorbel-Handbuch',
-                                            plain_text_version: text, document_version_file: upload(type, name))
+        version = create(:document_version, organisation: project.organisation, document: doc, title: title,
+                                            plain_text_version: text, document_version_file: upload(type, name, content))
         doc.update!(current_version: version)
         doc
       end
@@ -179,6 +180,31 @@ RSpec.describe 'Organisations::Documents as a glossary source', :ci_guard, type:
       end
     end
 
+    # unavailable is also the state of a file whose reading failed: the
+    # service clears its text then. So the reason may not promise a reading.
+    it 'says of a missing text that it is not read yet or could not be read, in both languages' do
+      bare = document_with(text: nil)
+      sign_in manager
+
+      lane(bare)
+
+      expect(reason).to eq(I18n.t("#{gs}.text_unavailable"))
+      expect(I18n.t("#{gs}.text_unavailable", locale: :de)).to include('ließ sich nicht lesen')
+      expect(I18n.t("#{gs}.text_unavailable", locale: :en)).to include('could not be read')
+    end
+
+    it 'turns on once a Markdown file that is not valid UTF-8 has been read' do
+      latin1 = document_with(text: nil, type: 'text/markdown', name: 'kueche.md', content: "Die K\xFCche von Quarnix".b)
+      Prosopite.pause { DocumentVersionProcessingJob.perform_now(latin1.current_version) }
+      sign_in manager
+
+      lane(latin1)
+
+      expect(latin1.current_version.reload.plain_text_version).to eq("Die K\uFFFDche von Quarnix")
+      expect(page.at_css(%(form[action="#{propose_path(latin1)}"] button[type="submit"]))['disabled']).to be_nil
+      expect(reason).to be_nil
+    end
+
     it 'takes a Markdown file with text as text' do
       markdown = document_with(text: '# Zorbel-Hub', type: 'text/markdown', name: 'zorbel.md')
       sign_in manager
@@ -199,14 +225,11 @@ RSpec.describe 'Organisations::Documents as a glossary source', :ci_guard, type:
       expect(propose_button['aria-describedby']).to eq(page.at_css('[data-document-glossary-reason]')['id'])
     end
 
-    %w[organisation document].each do |kind|
-      it "is off while a run of the organisation is active, also one over #{kind == 'document' ? 'another document' : 'it all'}" do
-        scope = if kind == 'document'
-                  { 'kind' => 'document', 'document_version_id' => document_with.current_version_id, 'since' => nil }
-                else
-                  { 'kind' => 'organisation', 'everything' => false, 'since' => nil }
-                end
-        create(:glossary_extraction_run, :running, organisation: organisation, scope: scope)
+    # A queued run is as active as a running one (GlossaryExtractionRun::ACTIVE_STATUSES).
+    %w[queued running].each do |status|
+      it "is off while a #{status} run over the whole organisation is active" do
+        create(:glossary_extraction_run, organisation: organisation, status: status,
+                                         scope: { 'kind' => 'organisation', 'everything' => false, 'since' => nil })
         sign_in manager
 
         lane
@@ -214,27 +237,43 @@ RSpec.describe 'Organisations::Documents as a glossary source', :ci_guard, type:
         expect(propose_button['disabled']).to eq('disabled')
         expect(reason).to eq(I18n.t("#{gs}.run_active"))
       end
-    end
 
-    it 'counts a stale run as ended, as the bar of the review list does' do
-      create(:glossary_extraction_run, :running, organisation: organisation)
-        .update_columns(updated_at: (GlossaryExtractionRun::STALE_AFTER + 1.minute).ago)
-      sign_in manager
+      it "is off while a #{status} run over a second document is active" do
+        document
+        second = document_with(title: 'Vexoria-Leitfaden', text: 'Wir nutzen Vexoria im Team.', name: 'leitfaden.txt')
+        run = create(:glossary_extraction_run, organisation: organisation, status: status,
+                                               scope: { 'kind' => 'document', 'document_version_id' => second.current_version_id,
+                                                        'since' => nil })
+        expect(second.id).not_to eq(document.id)
+        expect(run.document_version_id).not_to eq(document.current_version_id)
+        sign_in manager
 
-      lane
+        lane
 
-      expect(propose_button['disabled']).to be_nil
-      expect(reason).to be_nil
-    end
+        expect(propose_button['disabled']).to eq('disabled')
+        expect(reason).to eq(I18n.t("#{gs}.run_active"))
+      end
 
-    it 'does not count the active run of another organisation' do
-      other = create(:organisation)
-      ActsAsTenant.with_tenant(other) { create(:glossary_extraction_run, :running, organisation: other) }
-      sign_in manager
+      it "counts a stale #{status} run as ended, as the bar of the review list does" do
+        create(:glossary_extraction_run, organisation: organisation, status: status)
+          .update_columns(updated_at: (GlossaryExtractionRun::STALE_AFTER + 1.minute).ago)
+        sign_in manager
 
-      lane
+        lane
 
-      expect(propose_button['disabled']).to be_nil
+        expect(propose_button['disabled']).to be_nil
+        expect(reason).to be_nil
+      end
+
+      it "does not count the #{status} run of another organisation" do
+        other = create(:organisation)
+        ActsAsTenant.with_tenant(other) { create(:glossary_extraction_run, organisation: other, status: status) }
+        sign_in manager
+
+        lane
+
+        expect(propose_button['disabled']).to be_nil
+      end
     end
 
     %w[de en].each do |locale|
@@ -296,15 +335,17 @@ RSpec.describe 'Organisations::Documents as a glossary source', :ci_guard, type:
       expect(flash[:alert]).to eq(I18n.t('controllers.glossary.runs.document_unavailable'))
     end
 
-    it 'refuses a second run while one is active, in the words of the actor' do
-      document
-      create(:glossary_extraction_run, :running, organisation: organisation)
-      sign_in manager
+    %w[queued running].each do |status|
+      it "refuses a second run while one is #{status}, in the words of the actor" do
+        document
+        create(:glossary_extraction_run, organisation: organisation, status: status)
+        sign_in manager
 
-      expect { propose }.not_to(change { runs.size })
+        expect { propose }.not_to(change { runs.size })
 
-      expect(flash[:alert]).to eq(I18n.t('controllers.glossary.runs.run_active'))
-      expect(enqueued_jobs).to be_empty
+        expect(flash[:alert]).to eq(I18n.t('controllers.glossary.runs.run_active'))
+        expect(enqueued_jobs).to be_empty
+      end
     end
 
     it 'refuses without AI, in the words of the registry' do

@@ -385,14 +385,15 @@ RSpec.describe ExtractPlainTextProcessingService do
   describe 'SUPPORTED_CONTENT_TYPES', :no_attachment do
     let(:content_type) { nil }
 
-    it 'holds all 6 supported MIME types' do
+    it 'holds all 7 supported MIME types' do
       expect(described_class::SUPPORTED_CONTENT_TYPES.keys).to contain_exactly(
         'application/pdf',
         'text/plain',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'application/rtf',
         'text/rtf',
-        'text/markdown'
+        'text/markdown',
+        'text/x-markdown'
       )
     end
 
@@ -402,38 +403,66 @@ RSpec.describe ExtractPlainTextProcessingService do
   end
 
   # ---------------------------------------------------------------------------
-  # Markdown (K5c): a .md file is text, read the way a .txt file is read
+  # Markdown (K5c): a .md file is text, read the way a .txt file is read. Older
+  # MIME databases send text/x-markdown for it.
   # ---------------------------------------------------------------------------
-  describe 'Markdown' do
-    let(:content_type) { 'text/markdown' }
-    let(:text_content) { "# Zorbel-Hub\n\nWir nutzen **Quarnix** im Team." }
+  %w[text/markdown text/x-markdown].each do |markdown_type|
+    describe "Markdown as #{markdown_type}" do
+      let(:content_type) { markdown_type }
+      let(:text_content) { "# Zorbel-Hub\n\nWir nutzen **Quarnix** im Team." }
 
-    before do
-      allow(attachment).to receive(:download).and_return(text_content.dup.force_encoding('ASCII-8BIT'))
+      before do
+        allow(attachment).to receive(:download).and_return(text_content.dup.force_encoding('ASCII-8BIT'))
+      end
+
+      it 'reads the text as it stands, markup included, and counts its words' do
+        expect(subject.process).to be true
+
+        expect(document_holder.plain_text_version).to eq(text_content)
+        expect(document_holder.plain_text_version.encoding).to eq(Encoding::UTF_8)
+        expect(document_holder.plain_text_word_count).to eq(7)
+      end
+
+      it 'reads it with the reader of a .txt file, and logs a failure as such' do
+        allow(attachment).to receive(:download).and_raise(StandardError, 'kaputt')
+
+        expect(Rails.logger).to receive(:error).with('[TestLabel] Error reading the Text file: kaputt')
+
+        expect(subject.process).to be false
+        expect(document_holder.plain_text_version).to be_nil
+      end
+
+      it 'keeps an empty file empty, not unread' do
+        allow(attachment).to receive(:download).and_return(''.dup.force_encoding('ASCII-8BIT'))
+
+        expect(subject.process).to be false
+        expect(document_holder.plain_text_version).to eq('')
+      end
     end
+  end
 
-    it 'reads the text as it stands, markup included, and counts its words' do
-      expect(subject.process).to be true
+  # ---------------------------------------------------------------------------
+  # A text file that is not valid UTF-8 (K5c review): a Latin-1 "Küche" still
+  # holds text. Counting its words raised on the invalid byte, the file stayed
+  # without text, and its document said for ever that the text is being read.
+  # ---------------------------------------------------------------------------
+  %w[text/plain text/markdown text/x-markdown].each do |text_type|
+    describe "a #{text_type} file that is not valid UTF-8" do
+      let(:content_type) { text_type }
+      let(:latin1) { "Die K\xFCche von Quarnix\nZweite Zeile".dup.force_encoding('ASCII-8BIT') }
 
-      expect(document_holder.plain_text_version).to eq(text_content)
-      expect(document_holder.plain_text_version.encoding).to eq(Encoding::UTF_8)
-      expect(document_holder.plain_text_word_count).to eq(7)
-    end
+      before { allow(attachment).to receive(:download).and_return(latin1) }
 
-    it 'reads it with the reader of a .txt file, and logs a failure as such' do
-      allow(attachment).to receive(:download).and_raise(StandardError, 'kaputt')
+      it 'keeps its text, each invalid byte replaced, and counts its words' do
+        expect(Rails.logger).not_to receive(:error)
 
-      expect(Rails.logger).to receive(:error).with('[TestLabel] Error reading the Text file: kaputt')
+        expect(subject.process).to be true
 
-      expect(subject.process).to be false
-      expect(document_holder.plain_text_version).to be_nil
-    end
-
-    it 'keeps an empty file empty, not unread' do
-      allow(attachment).to receive(:download).and_return(''.dup.force_encoding('ASCII-8BIT'))
-
-      expect(subject.process).to be false
-      expect(document_holder.plain_text_version).to eq('')
+        expect(document_holder.plain_text_version).to eq("Die K\uFFFDche von Quarnix\nZweite Zeile")
+        expect(document_holder.plain_text_version.encoding).to eq(Encoding::UTF_8)
+        expect(document_holder.plain_text_version).to be_valid_encoding
+        expect(document_holder.plain_text_word_count).to eq(6)
+      end
     end
   end
 
@@ -444,7 +473,7 @@ RSpec.describe ExtractPlainTextProcessingService do
     let(:content_type) { nil }
 
     it 'answers for Markdown as for plain text' do
-      %w[text/plain text/markdown].each do |type|
+      %w[text/plain text/markdown text/x-markdown].each do |type|
         expect(described_class.text_extractable?(type)).to be(true), type
         expect(described_class.text_status('Quarnix', type)).to eq('available')
         expect(described_class.text_status(nil, type)).to eq('unavailable')

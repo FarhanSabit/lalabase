@@ -2,13 +2,15 @@
 
 class ExtractPlainTextProcessingService
   # Markdown (K5c) is text as it stands, markup included: read like a .txt file.
+  # Older MIME databases name it text/x-markdown.
   SUPPORTED_CONTENT_TYPES = {
     'application/pdf' => :extract_text_from_pdf,
     'text/plain' => :extract_text_from_text_file,
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => :extract_text_from_docx,
     'application/rtf' => :extract_text_from_rtf,
     'text/rtf' => :extract_text_from_rtf,
-    'text/markdown' => :extract_text_from_text_file
+    'text/markdown' => :extract_text_from_text_file,
+    'text/x-markdown' => :extract_text_from_text_file
   }.freeze
 
   # Whether this content type has an extractor at all. Asked by readers of the
@@ -101,8 +103,11 @@ class ExtractPlainTextProcessingService
     handle_text_extraction_error(e, 'PDF')
   end
 
+  # Read as UTF-8, each invalid byte replaced (scrub): a file in another
+  # encoding (a Latin-1 "Küche") still holds text. Unscrubbed, counting its
+  # words raised on the first invalid byte and the file stayed without text.
   def extract_text_from_text_file
-    text = @document.download.force_encoding('UTF-8')
+    text = @document.download.force_encoding('UTF-8').scrub
     set_plain_text(text)
   rescue StandardError => e
     handle_text_extraction_error(e, 'Text')
