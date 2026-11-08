@@ -25,14 +25,29 @@
 # A refused list (empty, too many lines) shows the textarea again with the
 # text kept and the reason (422).
 #
+# The review list of the glossary extraction (K5b) is a second view of the
+# same page, ?view=proposals: the proposals of the runs on the left, one in
+# the lane (?proposal_id=, the frame of #proposal), and on top a bar that
+# starts a run (Actors::StartGlossaryExtraction) and says how the last one
+# went. A status belongs to its view (GlossaryTerm::STATUSES or
+# GlossaryProposal::STATUSES; without one the review list shows the open
+# proposals); project and category filter both views. A decision on a
+# proposal goes through its actor and lands like every write here: an
+# accepted proposal, or one merged into a term, opens that term in the terms
+# view; one merged into another proposal opens that one; a dismissed or
+# restored one leaves the list as it was.
+#
 # Rights: GlossaryPolicy (view_glossary / manage_glossary, account admins
 # without a row). A denial answers 403, as on the people page: the page and
 # its frame have nothing to show, and a redirect inside the lane frame loops.
-# A term of another organisation is no term at all (404). The glossary shows
+# A term or a proposal of another organisation is none at all (404); a
+# decision asks the right before it looks the proposal up. The glossary shows
 # heard forms from every project (E3), but the title and the link of a meeting
 # only to a reader of that meeting, a speaker's name only to a reader who may
 # see that speaker on the members or the people page, and the link to a
-# speaker only with view_people as well (GlossaryHelper).
+# speaker only with view_people as well (GlossaryHelper). The same holds for
+# the sources of a proposal: their project and kind for every reader, the
+# snippet only for a reader of the source.
 module Organisations
   class GlossaryController < Organisations::BaseController
     include ViewportSwitchable
@@ -41,8 +56,15 @@ module Organisations
     LIST_FRAME_ID = 'glossary_results'
     NEW_STATE = 'term'
     IMPORT_STATE = 'import'
-    # The filters the address, the lane's forms and the writes carry along.
-    LIST_PARAMS = %w[project_id category status].freeze
+    # The review list of the extraction (K5b); without view the terms.
+    PROPOSALS_VIEW = 'proposals'
+    # The status the review list shows when the address names none.
+    DEFAULT_PROPOSAL_STATUS = 'open'
+    # The view and the filters the address, the lane's forms and the writes
+    # carry along.
+    LIST_PARAMS = %w[view project_id category status].freeze
+    # The actions on one proposal (K5b), found by set_proposal.
+    PROPOSAL_ACTIONS = %i[proposal accept_proposal merge_proposal dismiss_proposal restore_proposal].freeze
     # The parts of the notice after an import, in this order, each only when
     # it is not zero (the counts of Actors::ImportGlossaryTerms#report).
     IMPORT_NOTICE_COUNTS = %i[created proposed categorized existing rejected duplicate invalid].freeze
@@ -60,7 +82,8 @@ module Organisations
     # Every action: the lane frames render the phone layout too, and only the
     # address knows which one.
     before_action :set_viewport_mode
-    before_action :set_term, except: %i[index new create import_preview import]
+    before_action :set_term, except: [:index, :new, :create, :import_preview, :import, :start_run, *PROPOSAL_ACTIONS]
+    before_action :set_proposal, only: PROPOSAL_ACTIONS
 
     def index
       authorize GlossaryTerm
@@ -69,8 +92,11 @@ module Organisations
 
       load_list
       @lane_term = selected_term
-      @form_term = new_term if @lane_term.nil? && new_term_requested?
-      @import = ImportDraft.new(text: '') if @lane_term.nil? && import_requested?
+      @lane_proposal = selected_proposal if @lane_term.nil?
+      return if @lane_term || @lane_proposal
+
+      @form_term = new_term if new_term_requested?
+      @import = ImportDraft.new(text: '') if import_requested?
     end
 
     def show
@@ -187,6 +213,70 @@ module Organisations
       end
     end
 
+    # K5b: starts a run of the extraction ("Alles erneut lesen" reads
+    # everything, else what changed since the last run) and lands on the
+    # review list, which polls while the run is active. The actor refuses a
+    # second active run and a start without AI, in its own words.
+    def start_run
+      authorize GlossaryExtractionRun, :start?
+      result = Actors::StartGlossaryExtraction.call(organisation: current_organisation, current_user: current_user,
+                                                    everything: params[:everything] == '1')
+      lane = view_lane(PROPOSALS_VIEW)
+      land(result, notice: 'controllers.glossary.runs.success', lane: lane, failure_lane: lane)
+    end
+
+    # The lane of a proposal; a full visit lands on the review list with it
+    # open.
+    def proposal
+      authorize @proposal, :show?
+      return redirect_to(index_path(view: PROPOSALS_VIEW, proposal_id: @proposal.id)) unless turbo_frame_request?
+
+      render_frame(:proposal, proposal: @proposal)
+    end
+
+    # Into the glossary, with the spelling, the category and the spellings to
+    # learn as heard forms from the lane's form, or from a row: the proposal
+    # as it is, with all its spellings.
+    def accept_proposal
+      authorize @proposal, :accept?
+      given = decision_params
+      result = Actors::AcceptGlossaryProposal.call(proposal: @proposal, current_user: current_user, term: given[:term],
+                                                   category: given[:category], variants: given[:variants] || [])
+      land_on_term(result, notice: 'controllers.glossary.proposals.accept.success')
+    end
+
+    # Into the target named by target, "term:<id>" or "proposal:<id>", one of
+    # proposal_merge_targets, never a raw id. Into a term the proposal and its
+    # chosen spellings become heard forms there; into another proposal it goes
+    # with its spellings and places, and that one opens in the lane.
+    def merge_proposal
+      authorize @proposal, :accept?
+      kind, target = proposal_merge_target
+      return refuse_proposal_merge_without_target unless target
+
+      if kind == :term
+        result = Actors::MergeGlossaryProposalIntoTerm.call(proposal: @proposal, term: target, current_user: current_user,
+                                                            variants: decision_params[:variants] || [])
+        land_on_term(result, notice: 'controllers.glossary.proposals.merge.success')
+      else
+        result = Actors::MergeGlossaryProposals.call(source: @proposal, target: target, current_user: current_user)
+        land(result, notice: 'controllers.glossary.proposals.merge.success', lane: { proposal_id: target.id },
+                     failure_lane: { proposal_id: @proposal.id })
+      end
+    end
+
+    def dismiss_proposal
+      authorize @proposal, :dismiss?
+      result = Actors::DismissGlossaryProposal.call(proposal: @proposal, current_user: current_user)
+      land(result, notice: 'controllers.glossary.proposals.dismiss.success', lane: {}, failure_lane: {})
+    end
+
+    def restore_proposal
+      authorize @proposal, :restore?
+      result = Actors::DismissGlossaryProposal.call(proposal: @proposal, current_user: current_user, restore: true)
+      land(result, notice: 'controllers.glossary.proposals.restore.success', lane: {}, failure_lane: {})
+    end
+
     private
 
     # The write right first (403 before the correction is looked up), then
@@ -205,6 +295,57 @@ module Organisations
     def set_term
       authorize GlossaryTerm, :index?
       @term = policy_scope(GlossaryTerm).find(params[:id])
+    end
+
+    # The same for a proposal (K5b): view_glossary for its lane,
+    # manage_glossary for a decision (create? asks it without a record), each
+    # before the proposal is looked up; the action asks again on the record.
+    def set_proposal
+      authorize GlossaryProposal, action_name == 'proposal' ? :index? : :create?
+      @proposal = policy_scope(GlossaryProposal).find(params[:proposal_id])
+    end
+
+    # expect, as in term_params: a proposal that is no hash answers 400. The
+    # lane's form and the accept of a row always send the spelling.
+    def decision_params
+      params.expect(proposal: [:term, :category, { variants: [] }])
+    end
+
+    # A proposal decided for a term opens that term in the terms view; a
+    # refusal opens the proposal again, with the actor's reason.
+    def land_on_term(result, notice:)
+      land(result, notice: notice, lane: view_lane(nil).merge(term_id: result.resource&.id),
+                   failure_lane: { proposal_id: @proposal.id })
+    end
+
+    # The address of a view: the status filter of the one left stays behind
+    # (a status belongs to its view), project and category go along.
+    def view_lane(view)
+      { view: view, status: nil }
+    end
+
+    # [kind, record] of the target a merge names, "term:<id>" or
+    # "proposal:<id>", found among proposal_merge_targets; nil for anything
+    # else.
+    def proposal_merge_target
+      kind, id = params[:target].split(':', 2) if params[:target].is_a?(String)
+      return unless %w[term proposal].include?(kind) && id.present?
+
+      [kind.to_sym, proposal_merge_targets(@proposal).fetch(kind.to_sym).find_by(id: id)]
+    end
+
+    # What a proposal can be merged into: a confirmed term of this glossary,
+    # or another open proposal, both through the policy scope. The select of
+    # the lane offers these, and a merge accepts no other target.
+    def proposal_merge_targets(proposal)
+      { term: policy_scope(GlossaryTerm).where(status: 'confirmed'),
+        proposal: policy_scope(GlossaryProposal).where(status: 'open').where.not(id: proposal.id) }
+    end
+    helper_method :proposal_merge_targets
+
+    def refuse_proposal_merge_without_target
+      redirect_to index_path(proposal_id: @proposal.id), status: :see_other,
+                                                         alert: t('controllers.glossary.proposals.merge.no_target')
     end
 
     def save_term(id:, flash_key:)
@@ -312,14 +453,72 @@ module Organisations
       @terms.find_by(id: id) if id.is_a?(String) && id.present?
     end
 
+    def selected_proposal
+      id = params[:proposal_id]
+      policy_scope(GlossaryProposal).find_by(id: id) if id.is_a?(String) && id.present?
+    end
+
     # The terms of the list in their order (open proposals first), with what a
     # row shows of their heard forms: speaker and project, never the meeting.
     # Filtered by status, category and the project a heard form came from.
+    # The review list instead in the proposals view. The open proposals are
+    # counted in both, for the pill that leads to the review list.
     def load_list
+      @proposal_counts = policy_scope(GlossaryProposal).group(:status).count
+      return load_proposals if glossary_proposals_view?
+
       @status_counts = @terms.group(:status).count
       @origin_projects = glossary_origin_projects
       @entries = filtered_terms.ordered.includes(term_corrections: %i[project person user]).to_a
     end
+
+    # The review list (K5b): the proposals of one status in their order, with
+    # the projects of their sources, and the last run for the bar on top.
+    def load_proposals
+      @status_counts = @proposal_counts
+      @origin_projects = proposal_origin_projects
+      @last_run = policy_scope(GlossaryExtractionRun).order(created_at: :desc, id: :desc).first
+      @entries = filtered_proposals.in_review_order.includes(glossary_proposal_sources: :project).to_a
+    end
+
+    def filtered_proposals
+      proposals = policy_scope(GlossaryProposal).where(status: glossary_proposal_status)
+      proposals = proposals.where(category: list_state['category']) if list_state['category']
+      proposals = proposals.where(id: found_in_project(list_state['project_id'])) if list_state['project_id']
+      proposals
+    end
+
+    def found_in_project(project_id)
+      proposal_sources.where(project_id: project_id).select(:glossary_proposal_id)
+    end
+
+    # The sources of the proposals the reader may see. A source has no right
+    # of its own: its project belongs to the glossary like the project of a
+    # heard form (E3); its snippet is asked for at render time
+    # (GlossaryHelper#glossary_source_access).
+    def proposal_sources
+      GlossaryProposalSource.where(organisation_id: current_organisation.id,
+                                   glossary_proposal_id: policy_scope(GlossaryProposal).select(:id))
+    end
+
+    # The projects the sources came from, by name: the choices of the project
+    # filter of the review list.
+    def proposal_origin_projects
+      @proposal_origin_projects ||=
+        Project.where(id: proposal_sources.where.not(project_id: nil).select(:project_id))
+               .order(Arel.sql('LOWER(projects.name)'), :id).pluck(:id, :name)
+    end
+
+    def glossary_proposals_view?
+      list_state['view'] == PROPOSALS_VIEW
+    end
+    helper_method :glossary_proposals_view?
+
+    # The status the review list shows: the address's, else the open ones.
+    def glossary_proposal_status
+      list_state['status'] || DEFAULT_PROPOSAL_STATUS
+    end
+    helper_method :glossary_proposal_status
 
     def filtered_terms
       terms = @terms
@@ -348,9 +547,10 @@ module Organisations
 
     # The lane alone, as a full visit of the same address shows it.
     def render_lane_frame
-      term = selected_term
-      if term
+      if (term = selected_term)
         render_frame(:detail, term: term)
+      elsif (proposal = selected_proposal)
+        render_frame(:proposal, proposal: proposal)
       elsif new_term_requested?
         render_frame(:form, term: new_term)
       elsif import_requested?
@@ -360,9 +560,10 @@ module Organisations
       end
     end
 
-    def render_frame(state, term: nil, import: nil, message: nil, status: :ok)
+    def render_frame(state, term: nil, import: nil, proposal: nil, message: nil, status: :ok)
+      locals = { state: state, term: term, import: import, proposal: proposal, message: message }
       render html: helpers.turbo_frame_tag(DETAIL_FRAME_ID) {
-        helpers.render(partial: 'organisations/glossary/lane', locals: { state: state, term: term, import: import, message: message })
+        helpers.render(partial: 'organisations/glossary/lane', locals: locals)
       }, layout: false, status: status
     end
 
@@ -382,21 +583,33 @@ module Organisations
       organisation_glossary_terms_path(current_organisation, list_state.merge(lane.stringify_keys).compact_blank)
     end
 
-    # The filters of this request (the address, or the hidden fields of a lane
-    # form), each one only with a value it knows; anything else is no filter.
-    # The phone view rides along (viewport=mobile), as on the people page.
+    # The view and the filters of this request (the address, or the hidden
+    # fields of a lane form), each one only with a value it knows; anything
+    # else is no filter. A status and a project count against the view they
+    # filter: the statuses of terms or of proposals, the projects heard forms
+    # or sources came from. The phone view rides along (viewport=mobile), as
+    # on the people page.
     def list_state
       @list_state ||= begin
         given = request.query_parameters.merge(request.request_parameters)
         state = given.slice(*LIST_PARAMS).select { |_key, value| value.is_a?(String) && value.present? }
-        state.delete('status') unless GlossaryTerm::STATUSES.include?(state['status'])
-        state.delete('category') unless GlossaryTerm::CATEGORIES.include?(state['category'])
-        state.delete('project_id') if state['project_id'] && glossary_origin_projects.none? { |id, _name| id == state['project_id'] }
+        state.delete('view') unless state['view'] == PROPOSALS_VIEW
+        known_filters(state, proposals: state.key?('view'))
         state['viewport'] = 'mobile' if given['viewport'] == 'mobile'
         state
       end
     end
     helper_method :list_state
+
+    def known_filters(state, proposals:)
+      statuses = proposals ? GlossaryProposal::STATUSES : GlossaryTerm::STATUSES
+      state.delete('status') unless statuses.include?(state['status'])
+      state.delete('category') unless GlossaryTerm::CATEGORIES.include?(state['category'])
+      return unless state['project_id']
+
+      origins = proposals ? proposal_origin_projects : glossary_origin_projects
+      state.delete('project_id') if origins.none? { |id, _name| id == state['project_id'] }
+    end
 
     # Whether a speaker's name may link to the people page (view_people),
     # once per request: the lane asks it for every heard form.

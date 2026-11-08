@@ -21,8 +21,9 @@
 #   { "sources" => { "tickets", "posts", "ticket_documents", "post_documents",
 #                    "notes", "document_versions" => count },
 #     "projects_reached", "projects_total", "candidates", "ai_calls",
-#     "proposals_created", "proposals_updated" => count,
-#     "truncated" => true | false }
+#     "parse_errors", "proposals_created", "proposals_updated" => count,
+#     "truncated" => true | false,
+#     "since" => an ISO 8601 time or nil: the bound, as in scope }
 #
 # Deleting the organisation takes its runs along; deleting the account that
 # started one only clears started_by_id (both in the database). Rights:

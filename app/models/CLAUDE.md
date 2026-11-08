@@ -1,4 +1,4 @@
-# Karte: app/models (Stand: 2026-11-06)
+# Karte: app/models (Stand: 2026-11-08)
 
 ~80 Modelle liegen flach in diesem Verzeichnis; Namespaces existieren nur für `admin/`,
 `knowledge/`, `overview/`, `smart_folders/`, `time_sessions/`, `user/`. Die Domänen-Zugehörigkeit ist am
@@ -112,7 +112,7 @@ Verzeichnis-Layout nicht ablesbar — diese Karte gruppiert sie:
   einer Organisation stehen VOR `acts_as_tenant` und werden zusätzlich ohne Mandanten-Scope
   geprüft (`same_organisation_references`). Eigenes Recht
   (`Permission::CATEGORIES[:glossary]`, `view_glossary`/`manage_glossary`, gastrollen-tauglich),
-  Kontoadmins ohne Zeile; `GlossaryPolicy` für beide Modelle (`policy_class`). Schreiben nur über
+  Kontoadmins ohne Zeile; `GlossaryPolicy` für beide Modelle (seit K5b auch Lauf und Vorschlag, `policy_class`). Schreiben nur über
   die Glossar-Actors. ⚠️ Ein gelöschtes Meeting lässt seine gehörten Formen samt Stelle stehen, nur
   `meeting_id` wird leer (FK `on_delete: :nullify`, Ausnahme E4, Kommentar an
   `Meeting#purge_fragment_content_embeddings`); nie auf `cascade` stellen. Die Kontolöschung leert
@@ -136,6 +136,20 @@ Verzeichnis-Layout nicht ablesbar — diese Karte gruppiert sie:
   `Actors::SaveMeeting` mit `keep_summary: true`, das nur `Actors::CorrectMeetingTerm` übergibt
   (Wächter `spec/architecture/meeting_summary_exception_guard_spec.rb`). Nicht über
   „`generated_summary` mitschreiben“ lösen: ohne Treffer ändert sie sich nicht und ginge trotzdem.
+  K5b (08.11.2026, Extraktion): `GlossaryText.compact` ist der Schlüssel, der die Schreibweisen
+  eines Begriffs gruppiert (ohne Leerraum und Bindestriche), nie ein gespeicherter Begriff.
+  `glossary_extraction_run`: höchstens EIN aktiver Lauf je Organisation (partieller Unique-Index
+  `one_active_glossary_extraction_run`), `stale?` nach `STALE_AFTER`, `mark_failed!` ist EIN
+  `update_all` unter der Status-Bedingung; die Formen von `scope` und `stats` stehen im Kopf der
+  Datei. `glossary_proposal`: einer je `normalized_term` und Organisation, `variants` als
+  JSONB-Liste mit Check-Constraint, Status `open`/`accepted`/`dismissed`.
+  `glossary_proposal_source`: polymorph OHNE Fremdschlüssel; eine gelöschte Quelle lässt die Zeile
+  stehen, die Seite fragt beim Rendern, ob sie noch da und für den Leser lesbar ist
+  (`GlossaryHelper#glossary_source_access`); beim Schreiben muss die Quelle zur Organisation
+  gehören. Die Datenbank löscht: Organisation und Vorschlag kaskadieren, Lauf, Begriff, Projekt und
+  Konto leeren nur den Verweis. `GlossaryPolicy` für alle vier Modelle (Begriff, gehörte Form,
+  Lauf, Vorschlag). `term_corrections.origin` (`meeting`/`extraction`/`import`, Check-Constraint,
+  Altbestand `meeting`); `.effective` liest es nicht.
 * **Activity/Notifications**: `activity`, `user_activity`, `outbox_event`, `notification`,
   `notification_preference`, `notification_subscription`, `email_log` — Services dazu unter
   `app/services/notifications/` (eigene Karte dort)

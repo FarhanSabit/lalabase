@@ -1,4 +1,4 @@
-# Karte: app/services (Stand: 2026-11-06)
+# Karte: app/services (Stand: 2026-11-08)
 
 **Entry-Point-Konvention für NEUE Services: `Klass.call(**kwargs)`** (Klassenmethode; eine
 Instanz-`#call`-Implementierung dahinter ist erlaubt). Pflicht: mindestens 1 Kommentarzeile
@@ -196,6 +196,13 @@ Verzeichnis-Übersicht (Auswahl):
   Läuft ganz unter dem Mandanten seiner Organisation (`ActsAsTenant.with_tenant`, wie `Glossary::Lookup`), egal
   welchen der Aufrufer gesetzt hat. Trennt Begriff und Kategorie am ersten `;` oder Tabulator, vor dem Bereinigen;
   eine Zeile endet auch an VT, FF, NEL, U+2028 und U+2029 (Review-Runde 2 von #128).
+  K5b (08.11.2026, Extraktion): `start_glossary_extraction` (Zeilensperre der Organisation, ein
+  festgefahrener Lauf endet als `failed`/`stale`, EIN aktiver Lauf), `accept_glossary_proposal`,
+  `merge_glossary_proposal_into_term`, `merge_glossary_proposals`, `dismiss_glossary_proposal`
+  (auch Zurückholen). Begriff vor Vorschlag, nie umgekehrt; `manage_allowed?` unter der Sperre; der
+  Claim ist EIN `update_all` unter der Status-Bedingung (`status = 'open'`, beim Zurückholen
+  `'dismissed'`); zwei Vorschläge sperrt das Zusammenführen in EINER Abfrage nach ID. Die
+  Glossar-Seite ruft sie aus `Organisations::GlossaryController` (Prüfliste, `?view=proposals`).
   Registrierung (Website-Schnitt W2, 15.09.2026): `create_signup` ist die EINE
   Selbst-Registrierung für das Formular und später den Provisioning-Endpunkt. Tier 2: Sprache
   und tenant-freier Rahmen umschließen den ganzen Lauf (die Bestätigungsmail rendert beim
@@ -233,6 +240,20 @@ Verzeichnis-Übersicht (Auswahl):
   außerhalb), Sprecher nur mit dem Personenrecht über `People::Directory#entry_for_participant`,
   Seiten (`InvalidArgument`). Setzt den Mandanten selbst. Eine neue Regel dieser Antwort gehört
   hierher, nicht in eine der beiden Türen.
+  K5b (08.11.2026), die Extraktion von Vorschlägen: `word_lists.rb` (`common` = die beiden
+  50k-Listen, die Stoppwörter von PostgreSQL zur Laufzeit gelesen, mit Rückfall, und unsere
+  `EXTRA_COMMON_WORDS`; `stop_words` allein eine Teilmenge), `candidate_scan.rb` (das Sieb ohne KI,
+  ein Strom; je Schlüssel nur Zähler, Schreibweisen und höchstens `MAX_SOURCES` Ausschnitte; ein
+  Name aus zwei oder drei großgeschriebenen Wörtern beginnt und endet nie mit einem Stoppwort),
+  `classifier.rb` (ein Chat-Aufruf je Stapel von höchstens 60 auf `:glossary_extraction`, der
+  eigenen Stufe der Organisation; zuerst das Tor; die Antwort wird gegen das Gesendete geprüft;
+  bucht den eigenen Verbrauch; `Failure` mit einem Fehlercode des Laufs), `extraction.rb`
+  (Reichweite des Startenden zur Laufzeit je Bereich plus der Policy-Scope jeder Art; Kommentare
+  nur über `public_posts.readable_by`, auch für Admins; keine Meetings; die neuesten `MAX_SOURCES`
+  über sechs Arten; inkrementell ab dem Start des letzten erfolgreichen Laufs; offene Vorschläge
+  bekommen Vorkommen, Schreibweisen und Stellen statt eines Modellaufrufs; geschrieben je Stapel;
+  jeder Write berührt den Lauf unter `status = 'running'`). `Glossary::ExtractionJob`
+  (`app/jobs/`): Advisory Lock, EIN Claim, `interrupted`, `internal_error`, kein Retry.
 * `people/` — `directory.rb`, das Lese-Objekt der Personenliste (seit 26.10.2026): Mitglieder
   über `MembershipPolicy::Scope` (dieselbe Reichweite wie die Mitgliederseite), dazu die
   Zeilen ohne aktives Mitglied als Kontakte; Suche in Ruby über `PersonName.normalize`.

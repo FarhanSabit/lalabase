@@ -347,6 +347,17 @@ Rails.application.routes.draw do
       collection do
         post :import_preview
         post :import
+        # K5b: the glossary extraction. runs starts a run and lands on the
+        # review list (?view=proposals). A proposal answers the lane frame; a
+        # full visit lands on the index with ?view=proposals&proposal_id=.
+        # Accept, merge, dismiss and restore decide on one proposal and leave
+        # the frame (_top).
+        post 'runs', action: :start_run, as: :runs
+        get 'proposals/:proposal_id', action: :proposal, as: :proposal
+        patch 'proposals/:proposal_id/accept', action: :accept_proposal, as: :accept_proposal
+        post 'proposals/:proposal_id/merge', action: :merge_proposal, as: :merge_proposal
+        patch 'proposals/:proposal_id/dismiss', action: :dismiss_proposal, as: :dismiss_proposal
+        patch 'proposals/:proposal_id/restore', action: :restore_proposal, as: :restore_proposal
       end
       member do
         patch :confirm

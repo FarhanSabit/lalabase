@@ -168,6 +168,7 @@ else
   pin 'controllers/filter_menu_search_controller', to: 'controllers/filter_menu_search_controller.js'
   pin 'controllers/frame_error_controller', to: 'controllers/frame_error_controller.js'
   pin 'controllers/frame_search_controller', to: 'controllers/frame_search_controller.js'
+  pin 'controllers/glossary_run_poll_controller', to: 'controllers/glossary_run_poll_controller.js'
   pin 'controllers/help_copy_controller', to: 'controllers/help_copy_controller.js'
   pin 'controllers/help_modal_controller', to: 'controllers/help_modal_controller.js'
   pin 'controllers/hover_arrows_controller', to: 'controllers/hover_arrows_controller.js'

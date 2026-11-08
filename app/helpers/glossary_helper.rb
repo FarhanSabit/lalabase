@@ -9,21 +9,38 @@
 # glossary_readable_meetings), the name of a speaker (someone the reader may
 # see on the members or the people page, glossary_speaker_visible?) and the
 # link to a speaker (view_people as well, glossary_speaker_url).
+#
+# The review list of the extraction (K5b) follows the same rule: every
+# proposal with the projects and kinds of its sources, but the snippet of a
+# source only for a reader of that source (glossary_source_access).
 module GlossaryHelper
-  # The one thing a row opens in the lane.
-  SELECTION_PARAMS = %w[term_id].freeze
+  # What a row opens in the lane: a term, or a proposal of the review list.
+  # They exclude each other.
+  SELECTION_PARAMS = %w[term_id proposal_id].freeze
   # The distinct heard forms a row names before "…".
   ROW_FORMS_SHOWN = 4
   # The characters of a line without a term the check of an import shows
   # (K5): such a line can be as long as anything pasted.
   IMPORT_LINE_SHOWN = 60
 
+  # What the lane of a proposal knows about its sources (K5b): which the
+  # reader may read and which are still there, as [source_type, source_id].
+  SourceAccess = Data.define(:readable, :present) do
+    def readable?(source)
+      readable.include?([source.source_type, source.source_id])
+    end
+
+    def gone?(source)
+      !readable?(source) && !present.include?([source.source_type, source.source_id])
+    end
+  end
+
   # The page wrapper's data: the lane (layout-toggle, index-page) and the
   # desktop/mobile switch, the controllers of the people page
   # (people_page_data).
-  def glossary_page_data(viewport_mode:, selected:, form_open:)
+  def glossary_page_data(viewport_mode:, term:, form_open:, proposal: nil)
     detail_frame_id = Organisations::GlossaryController::DETAIL_FRAME_ID
-    unresolved = glossary_unresolved_lane_params(selected: selected, form_open: form_open)
+    unresolved = glossary_unresolved_lane_params(term: term, proposal: proposal, form_open: form_open)
     {
       controller: 'layout-toggle index-page viewport',
       layout_toggle_list_frame_ids_value: [Organisations::GlossaryController::LIST_FRAME_ID].to_json,
@@ -41,8 +58,8 @@ module GlossaryHelper
       index_page_content_selector_value: '.glossary-content',
       index_page_placeholder_id_value: 'glossary-term-placeholder',
       index_page_placeholder_class_value: 'ticket-placeholder px-4',
-      index_page_placeholder_title_value: t('views.organisations.glossary.index.placeholder_title'),
-      index_page_placeholder_body_value: t('views.organisations.glossary.index.placeholder_body'),
+      index_page_placeholder_title_value: t(glossary_placeholder_key(:title)),
+      index_page_placeholder_body_value: t(glossary_placeholder_key(:body)),
       index_page_selected_row_selector_value: '.selected-row[data-glossary-row]',
       index_page_skip_if_content_visible_value: 'true',
       index_url: organisation_glossary_terms_path(current_organisation),
@@ -50,16 +67,22 @@ module GlossaryHelper
     }.compact
   end
 
-  # Lane parameters of this visit the server did not open (an unknown term, a
-  # form the reader may not open). layout-toggle takes them out of the
-  # address, so the page stays the list.
-  def glossary_unresolved_lane_params(selected:, form_open:)
+  # Lane parameters of this visit the server did not open (an unknown term or
+  # proposal, a form the reader may not open). layout-toggle takes them out
+  # of the address, so the page stays the list.
+  def glossary_unresolved_lane_params(term:, proposal:, form_open:)
     unresolved = {}
-    term_id = params[:term_id]
-    unresolved['term_id'] = term_id if term_id.is_a?(String) && term_id.present? && selected.nil?
-    new_state = params[:new]
-    unresolved['new'] = new_state if new_state.is_a?(String) && new_state.present? && !form_open
+    { 'term_id' => term, 'proposal_id' => proposal, 'new' => form_open }.each do |name, opened|
+      value = params[name]
+      unresolved[name] = value if value.is_a?(String) && value.present? && !opened
+    end
     unresolved
+  end
+
+  # The words of the empty lane, for the view of the list beside it.
+  def glossary_placeholder_key(part)
+    scope = glossary_proposals_view? ? 'proposals' : 'index'
+    "views.organisations.glossary.#{scope}.placeholder_#{part}"
   end
 
   def glossary_category_name(category)
@@ -165,5 +188,131 @@ module GlossaryHelper
   # The other terms a term can be merged into, by spelling.
   def glossary_merge_options(term)
     policy_scope(GlossaryTerm).where.not(id: term.id).order(:normalized_term, :id).pluck(:term, :id)
+  end
+
+  def glossary_proposal_status_name(status)
+    t("views.organisations.glossary.proposals.statuses.#{status}")
+  end
+
+  # The projects a proposal was found in, by name, each once: a part of the
+  # glossary for every reader, like the project of a heard form (E3). Reads
+  # the loaded sources.
+  def glossary_proposal_projects(proposal)
+    proposal.glossary_proposal_sources.filter_map { |source| source.project&.name }.uniq.sort_by { |name| [name.downcase, name] }
+  end
+
+  # Ticket, Kommentar, Notiz, ...: what every reader may know of a source.
+  def glossary_source_kind(source)
+    t("views.organisations.glossary.proposals.show.source_kinds.#{source.source_type.underscore}")
+  end
+
+  # Which sources of a proposal the reader may READ and which are still there,
+  # one query per kind and question, never one per source. The run wrote them
+  # with the rights of the account that started it, which says nothing about
+  # this reader, so the page asks again (glossary_readable_sources). A source
+  # neither readable nor there is gone.
+  def glossary_source_access(sources)
+    readable = Set.new
+    present = Set.new
+    sources.group_by(&:source_type).each do |type, rows|
+      next unless GlossaryProposalSource::SOURCE_TYPES.include?(type)
+
+      ids = rows.map(&:source_id).uniq
+      found = glossary_readable_sources(type).where(id: ids).pluck(:id)
+      found.each { |id| readable << [type, id] }
+      rest = ids - found
+      next if rest.empty?
+
+      GlossaryProposalSource.polymorphic_class_for(type).where(organisation_id: current_organisation.id, id: rest)
+                            .pluck(:id).each { |id| present << [type, id] }
+    end
+    SourceAccess.new(readable: readable, present: present)
+  end
+
+  # The rows of one kind the reader may read, the rule of each kind's own
+  # page: a ticket through the ticket policy scope; a comment only when it is
+  # public (never a private one, also not for an account admin), readable_by
+  # the reader and on a readable ticket; a file through its ticket or its
+  # public, readable comment; a note through the note policy scope; a version
+  # through the document policy scope of its document.
+  def glossary_readable_sources(type)
+    organisation_id = current_organisation.id
+    case type
+    when 'Ticket' then glossary_readable_tickets
+    when 'Post' then glossary_readable_comments
+    when 'TicketDocument' then TicketDocument.where(organisation_id: organisation_id, ticket_id: glossary_readable_tickets.select(:id))
+    when 'PostDocument' then PostDocument.where(organisation_id: organisation_id, post_id: glossary_readable_comments.select(:id))
+    when 'Note' then policy_scope(Note.where(organisation_id: organisation_id))
+    when 'DocumentVersion'
+      DocumentVersion.where(organisation_id: organisation_id,
+                            document_id: policy_scope(Document.where(organisation_id: organisation_id)).select(:id))
+    end
+  end
+
+  def glossary_readable_tickets
+    @glossary_readable_tickets ||= policy_scope(Ticket.where(organisation_id: current_organisation.id))
+  end
+
+  def glossary_readable_comments
+    @glossary_readable_comments ||= Post.public_posts.readable_by(current_user, current_organisation)
+                                        .where(organisation_id: current_organisation.id,
+                                               ticket_id: glossary_readable_tickets.select(:id))
+  end
+
+  # The choices of "Ist eine Schreibweise von …": the confirmed terms, then
+  # the other open proposals, by spelling, as option groups. A value names
+  # its kind (term:<id>, proposal:<id>), and the merge looks it up among the
+  # same targets again (proposal_merge_targets).
+  def glossary_proposal_merge_options(proposal)
+    targets = proposal_merge_targets(proposal)
+    scope = 'views.organisations.glossary.proposals.show'
+    {
+      t("#{scope}.merge_terms") => glossary_merge_choices(targets[:term], 'term'),
+      t("#{scope}.merge_proposals") => glossary_merge_choices(targets[:proposal], 'proposal')
+    }.reject { |_label, choices| choices.empty? }
+  end
+
+  def glossary_merge_choices(relation, kind)
+    relation.order(:normalized_term, :id).pluck(:term, :id).map { |term, id| [term, "#{kind}:#{id}"] }
+  end
+
+  # Whether a run is still at work: queued or running, and moving. One that
+  # has not moved for STALE_AFTER lost its worker; the next start ends it
+  # (Actors::StartGlossaryExtraction), so nothing waits for it.
+  def glossary_run_active?(run)
+    run.present? && run.active? && !run.stale?
+  end
+
+  # The line about the last run, for every reader of the review list: running
+  # since when, what a finished run read and found, or why it failed (a stale
+  # run as what it will be: ended as stale).
+  def glossary_run_status(run)
+    scope = 'views.organisations.glossary.runs'
+    return t("#{scope}.never") unless run
+
+    # A clock time, so in the reader's own zone, not the app's (UTC).
+    date = l(run.created_at.in_time_zone(current_user.time_zone), format: :long)
+    return t("#{scope}.running_since", time: date) if glossary_run_active?(run)
+    return t("#{scope}.last_run", date: date, summary: glossary_run_summary(run.stats)) if run.succeeded?
+
+    code = run.stale? ? 'stale' : run.error_code.presence || 'internal_error'
+    "#{t("#{scope}.failed", date: date)} #{t("services.glossary_extraction.errors.#{code}")}"
+  end
+
+  # What a finished run read and found (the stats of Glossary::Extraction):
+  # its sources, "aus 3 von 5 Projekten" (the projects the starter could read
+  # of all of the organisation), its new proposals.
+  def glossary_run_summary(stats)
+    stats = {} unless stats.is_a?(Hash)
+    sources = stats['sources'].is_a?(Hash) ? stats['sources'].values.sum(&:to_i) : 0
+    scope = 'views.organisations.glossary.runs'
+    [t("#{scope}.sources_read", count: sources),
+     t("#{scope}.projects", count: stats['projects_total'].to_i, reached: stats['projects_reached'].to_i),
+     t("#{scope}.proposals_created", count: stats['proposals_created'].to_i)].join(', ')
+  end
+
+  # Whether a finished run stopped at one of its limits (stats truncated).
+  def glossary_run_truncated?(run)
+    run&.succeeded? && run.stats.is_a?(Hash) && run.stats['truncated'] == true
   end
 end

@@ -1,9 +1,13 @@
-<%# locals: (status_counts:, origin_projects:) %>
+<%# locals: (status_counts:, origin_projects:, proposal_counts:) %>
 <%# The head of the list: the title, "Liste importieren" for every reader of
     the glossary and the "+" for those who may keep it (both open their state
     in the lane, ?new=import and ?new=term), the status filter as pills with
     their counts, and project and category as selects (a full visit of the
-    index, auto-submitted). %>
+    index, auto-submitted). Above the terms a pill leads to the review list
+    of the extraction (K5b), with the number of open proposals, also at 0;
+    in the review list the pills are the statuses of a proposal, behind the
+    way back to the terms. Switching the view leaves the status behind (it
+    belongs to its view); project and category go along. %>
 <% frame_id = Organisations::GlossaryController::DETAIL_FRAME_ID %>
 <% mobile = @viewport_mode == 'mobile' %>
 <% can_create = policy(GlossaryTerm).create? %>
@@ -69,21 +73,49 @@
 </div>
 
 <div class="people-tools glossary-tools">
-  <nav class="people-filters" aria-label="<%= t('views.organisations.glossary.index.status_filter_label') %>">
-    <% ([nil] + GlossaryTerm::STATUSES).each do |status| %>
-      <% active = list_state['status'] == status %>
-      <% count = status ? status_counts.fetch(status, 0) : status_counts.values.sum %>
-      <%= link_to organisation_glossary_terms_path(@current_organisation, list_state.merge('status' => status).compact),
-                  class: "people-pill #{'people-pill--active' if active}", 'aria-current': (active ? 'true' : nil),
-                  data: { turbo_frame: '_top' } do %>
-        <%= status ? t("views.organisations.glossary.index.status_filter.#{status}") : t('views.organisations.glossary.index.status_filter.all') %>
-        <span class="people-pill__count"><%= count %></span>
+  <% if glossary_proposals_view? %>
+    <nav class="people-filters" aria-label="<%= t('views.organisations.glossary.proposals.status_filter_label') %>">
+      <%= link_to organisation_glossary_terms_path(@current_organisation, list_state.except('view', 'status')),
+                  class: 'people-pill', data: { turbo_frame: '_top', glossary_terms_link: true } do %>
+        <i class="bi bi-arrow-left" aria-hidden="true"></i><%= t('views.organisations.glossary.proposals.back_to_terms') %>
       <% end %>
+      <% GlossaryProposal::STATUSES.each do |status| %>
+        <% active = glossary_proposal_status == status %>
+        <%# The open ones are the review list without a status: one address per state. %>
+        <% shown = status == Organisations::GlossaryController::DEFAULT_PROPOSAL_STATUS ? nil : status %>
+        <%= link_to organisation_glossary_terms_path(@current_organisation, list_state.merge('status' => shown).compact),
+                    class: "people-pill #{'people-pill--active' if active}", 'aria-current': (active ? 'true' : nil),
+                    data: { turbo_frame: '_top', glossary_proposal_status: status } do %>
+          <%= glossary_proposal_status_name(status) %>
+          <span class="people-pill__count"><%= proposal_counts.fetch(status, 0) %></span>
+        <% end %>
+      <% end %>
+    </nav>
+  <% else %>
+    <nav class="people-filters" aria-label="<%= t('views.organisations.glossary.index.status_filter_label') %>">
+      <% ([nil] + GlossaryTerm::STATUSES).each do |status| %>
+        <% active = list_state['status'] == status %>
+        <% count = status ? status_counts.fetch(status, 0) : status_counts.values.sum %>
+        <%= link_to organisation_glossary_terms_path(@current_organisation, list_state.merge('status' => status).compact),
+                    class: "people-pill #{'people-pill--active' if active}", 'aria-current': (active ? 'true' : nil),
+                    data: { turbo_frame: '_top' } do %>
+          <%= status ? t("views.organisations.glossary.index.status_filter.#{status}") : t('views.organisations.glossary.index.status_filter.all') %>
+          <span class="people-pill__count"><%= count %></span>
+        <% end %>
+      <% end %>
+    </nav>
+
+    <% review_state = list_state.except('status').merge('view' => Organisations::GlossaryController::PROPOSALS_VIEW) %>
+    <%= link_to organisation_glossary_terms_path(@current_organisation, review_state),
+                class: 'people-pill', data: { turbo_frame: '_top', glossary_review_link: true } do %>
+      <i class="bi bi-list-check" aria-hidden="true"></i><%= t('views.organisations.glossary.proposals.review_list') %>
+      <span class="people-pill__count"><%= proposal_counts.fetch('open', 0) %></span>
     <% end %>
-  </nav>
+  <% end %>
 
   <%= form_with url: organisation_glossary_terms_path(@current_organisation), method: :get, class: 'glossary-filters',
                 data: { controller: 'auto-submit', turbo_frame: '_top' } do %>
+    <%= hidden_field_tag :view, list_state['view'], id: nil if list_state['view'] %>
     <%= hidden_field_tag :status, list_state['status'], id: nil if list_state['status'] %>
     <%= hidden_field_tag :viewport, 'mobile', id: nil if list_state['viewport'] %>
     <label class="glossary-filters__field">

@@ -1,4 +1,4 @@
-# Karte: app/javascript/controllers (Stand: 2026-11-05)
+# Karte: app/javascript/controllers (Stand: 2026-11-08)
 
 ~109 Stimulus-Controller, bewusst FLACH gehalten: Unterordner würden via
 `eagerLoadControllersFrom` alle Identifier ändern (`meetings/row_controller.js` →
@@ -350,6 +350,11 @@ die Sidebar-Zeile liegt in der Navigation. Damit sind sie NICHT im selben Stimul
   `disconnect` bricht den Request ab und entwertet über eine Generation alte Timer.
   Geschlossene Ergebnisflächen erhalten keine Inhalte. Der allgemeine Chat-Resync
   überspringt diese Ergebnisse, damit nicht zwei Polling-Wege denselben Auftrag aktualisieren.
+* `glossary_run_poll` (K5b, 08.11.2026) lädt den Listen-Frame der Prüfliste des Glossars alle 5 s
+  neu (Value `interval`), solange ein Lauf der Extraktion aktiv ist. Sitzt an der Lauf-Leiste IM
+  Frame: die frische Leiste entscheidet, ob es weitergeht (`active`), eine Antwort ohne Liste
+  beendet das Fragen. Kein Broadcast, die Rechte bleiben in der View (Form von
+  `meeting_section_sync`, node-Tests).
 * Die Grenzen des lebenden Knotens stehen in `doc/persoenlicher_assistent_plan.md` §7.7.
   Kurzform: Org-Wechsel und globale Suche sind `turbo: false`, und
   `knowledge/index.html.erb` trägt `<meta name="turbo-visit-control" content="reload">` —

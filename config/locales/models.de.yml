@@ -13,6 +13,7 @@ de:
         project: "Projekt"
         meeting: "Meeting"
         glossary_term: "Begriff"
+        origin: "Herkunft"
       organisation:
         meeting_inbox_project_id: "Eingangsprojekt"
       person:
@@ -89,6 +90,30 @@ de:
         valid_from: "Gültig ab"
         locator: "Fundstelle"
         file: "PDF"
+      # The glossary extraction (K5b): its runs, their proposals and where a
+      # proposal was found.
+      glossary_extraction_run:
+        status: "Status"
+        scope: "Umfang"
+        error_code: "Fehler"
+        started_by: "Gestartet von"
+      glossary_proposal:
+        term: "Begriff"
+        category: "Kategorie"
+        variants: "Schreibweisen"
+        hint: "Hinweis"
+        occurrences: "Vorkommen"
+        status: "Status"
+        glossary_term: "Begriff im Glossar"
+        glossary_extraction_run: "Lauf"
+        decided_by: "Entschieden von"
+      glossary_proposal_source:
+        source: "Fundstelle"
+        source_type: "Art der Fundstelle"
+        snippet: "Ausschnitt"
+        occurrences: "Vorkommen"
+        project: "Projekt"
+        glossary_proposal: "Vorschlag"
     errors:
       models:
         glossary_term:
@@ -441,6 +466,17 @@ de:
           attributes:
             event_type:
               preference_exists: "Preference existiert bereits für diese Kombination"
+        # A proposal of the glossary extraction (K5b): one per compared form,
+        # and its other spellings as a list of texts.
+        glossary_proposal:
+          attributes:
+            term:
+              taken: "ist schon vorgeschlagen"
+            variants:
+              not_a_list: "(keine Liste)"
+              too_many: "(höchstens %{count} erlaubt)"
+              not_text: "(Nr. %{position}): kein Text"
+              variant_too_long: "(Nr. %{position}): zu lang (höchstens %{count} Zeichen)"
   models:
     document:
       # Document#one_line_title: ein Dokument ohne aktuelle Version hat keinen

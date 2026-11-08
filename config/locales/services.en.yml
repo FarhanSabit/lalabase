@@ -267,6 +267,22 @@ en:
       custom_attribute_mapping:
         unknown_action: "Unknown action for %{type} '%{name}': %{action}"
         target_blank: "Target value must not be empty for %{type}"
+    # Why a run of the glossary extraction failed (K5b, one text per
+    # GlossaryExtractionRun::ERROR_CODES), in the line about the last run above
+    # the review list of the glossary.
+    glossary_extraction:
+      errors:
+        starter_inactive: "The person who started the search is no longer an active member. Please start it again."
+        ai_unavailable: "No AI is set up for the search for proposals."
+        ai_disabled: "AI features are switched off for this organisation."
+        not_configured: "No valid AI access is set up."
+        quota_exceeded: "The AI quota of the organisation is used up."
+        invalid_key: "The AI access is not valid. Please check it in the AI settings."
+        provider_error: "The AI provider did not answer. Please try again later."
+        parse_error: "The answer of the AI could not be read. Please try again."
+        interrupted: "The search was interrupted. Please start it again."
+        stale: "The search made no progress and was ended. Please start it again."
+        internal_error: "The search ran into an error. Please start it again."
   jobs:
     ai_chat:
       unauthorized: "Sorry, the AI service is currently unavailable. Please try again later."
