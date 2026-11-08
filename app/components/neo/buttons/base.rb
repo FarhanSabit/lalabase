@@ -7,12 +7,15 @@ module Neo
     module Base
       extend ActiveSupport::Concern
 
-      # Soft-flat look (user, 04.09.2026): generous radius, NO offset shadow and
-      # no hover lift - hover feedback is the background shift each variant brings.
+      # Soft-flat look (user, 04.09.2026): generous radius. Secondary buttons (every variant
+      # but PRIMARY) are flat: NO offset shadow and no hover lift - hover feedback is the
+      # background shift each variant brings. The main action (PRIMARY, below) is the one
+      # exception: it carries the hard offset shadow of the tokens shadow-press and
+      # shadow-press-hover (CLAUDE.md "Shadows").
       # Hierarchy comes from border strength + fill color:
-      # - LOUD  = meaningful actions (primary + colored semantics): translucent
-      #           stroke that reads as a darker shade of the fill, not as a hard
-      #           black outline (user, 04.09.2026).
+      # - LOUD  = meaningful actions (colored semantics): translucent stroke that
+      #           reads as a darker shade of the fill, not as a hard black outline
+      #           (user, 04.09.2026).
       # - QUIET = frequent neutral actions (Show all/Edit): soft cream border,
       #           steps back next to the loud face.
       LOUD  = 'border border-stroke/30'
