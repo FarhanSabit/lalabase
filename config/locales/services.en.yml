@@ -283,6 +283,7 @@ en:
         interrupted: "The search was interrupted. Please start it again."
         stale: "The search made no progress and was ended. Please start it again."
         internal_error: "The search ran into an error. Please start it again."
+        document_unavailable: "The document could not be read: it is gone, has no text, or the person who started the search may no longer read it."
   jobs:
     ai_chat:
       unauthorized: "Sorry, the AI service is currently unavailable. Please try again later."

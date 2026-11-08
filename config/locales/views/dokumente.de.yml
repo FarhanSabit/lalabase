@@ -114,6 +114,15 @@ de:
           uploaded_by_unknown: ohne Angabe
           current: aktuell
           index_failed: Index fehlgeschlagen
+        # The start of a glossary run over this document (K5c), for
+        # manage_glossary, and why it is off: one reason at a time.
+        glossary_source:
+          propose: "Begriffe fürs Glossar vorschlagen"
+          hint: "Sucht in diesem Dokument nach Begriffen fürs Glossar. Die Vorschläge kommen in die Prüfliste."
+          text_unavailable: "Der Text wird noch gelesen. Lade die Seite gleich neu."
+          text_unsupported: "Aus dieser Art Datei lässt sich kein Text lesen."
+          text_empty: "In dieser Datei steht kein Text, etwa bei einem eingescannten PDF."
+          run_active: "Gerade läuft schon eine Suche nach Vorschlägen. Warte bitte, bis sie fertig ist."
       documentation:
         index:
           title: Dokumentation
@@ -605,3 +614,10 @@ de:
           scope:
             full: "%{files} Dateien · %{symbols} Symbole"
             incremental: "%{files} Dateien · +%{added} neu, %{removed} entfernt"
+  # The start of a glossary run from the lane of a document (K5c,
+  # DocumentsController#propose_glossary_terms). A refusal speaks in the words
+  # of Actors::StartGlossaryExtraction (controllers.glossary.runs).
+  controllers:
+    documents:
+      propose_glossary_terms:
+        success: "Die Suche nach Begriffen in „%{title}“ läuft. Die Vorschläge kommen gleich hier in die Prüfliste."

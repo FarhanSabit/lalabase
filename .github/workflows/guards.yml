@@ -378,6 +378,7 @@ jobs:
           spec/services/actors/start_glossary_extraction_spec.rb
           spec/requests/organisations/glossary_proposals_spec.rb
           spec/requests/organisations/glossary_runs_spec.rb
+          spec/requests/organisations/documents_glossary_source_spec.rb
           spec/services/actors/correct_meeting_term_spec.rb
           spec/requests/organisations/meeting_term_corrections_spec.rb
           spec/models/term_application_spec.rb

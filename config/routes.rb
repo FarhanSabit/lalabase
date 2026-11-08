@@ -887,6 +887,9 @@ Rails.application.routes.draw do
           # the frame road of the page state ?document_id=X&preview=V.
           get :preview
           get :download_plain_text
+          # K5c: a glossary run over the current version, from the button in
+          # the lane; lands on the review list of the glossary.
+          post :propose_glossary_terms
         end
       end
     end

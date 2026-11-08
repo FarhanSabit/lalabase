@@ -155,6 +155,7 @@ Verzeichnis-Layout nicht ablesbar — diese Karte gruppiert sie:
   Konto leeren nur den Verweis. `GlossaryPolicy` für alle vier Modelle (Begriff, gehörte Form,
   Lauf, Vorschlag). `term_corrections.origin` (`meeting`/`extraction`/`import`, Check-Constraint,
   Altbestand `meeting`); `.effective` liest es nicht.
+  K5c (08.11.2026): ein Lauf über EIN Dokument (`scope` Art `document`, `document_version_id` derselben Org); nur `organisation`-Läufe setzen die Grenze.
 * **Activity/Notifications**: `activity`, `user_activity`, `outbox_event`, `notification`,
   `notification_preference`, `notification_subscription`, `email_log` — Services dazu unter
   `app/services/notifications/` (eigene Karte dort)

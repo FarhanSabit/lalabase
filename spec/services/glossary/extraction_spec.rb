@@ -349,6 +349,22 @@ RSpec.describe Glossary::Extraction, :ci_guard do
       expect(run.stats['since']).to eq(bound.iso8601(6))
     end
 
+    # K5c: a run over one document read that document only, so what changed
+    # elsewhere in the meantime was never read and must be read now.
+    it 'is not moved by a later run over one document' do
+      read_alone = document('Wir nutzen nichts im Team.')
+      read_alone.current_version.update_columns(updated_at: bound - 1.day)
+      create(:glossary_extraction_run, :succeeded, organisation: organisation, created_at: bound + 2.days,
+                                                   scope: { 'kind' => 'document', 'document_version_id' => read_alone.current_version_id,
+                                                            'since' => nil })
+      ticket(text('Vexoria')).update_columns(updated_at: bound + 1.day)
+
+      extract
+
+      expect(sent_keys).to contain_exactly('quarnix', 'vexoria')
+      expect(run.scope['since']).to eq(bound.iso8601(6))
+    end
+
     context 'with everything' do
       let(:everything) { true }
 
@@ -370,6 +386,148 @@ RSpec.describe Glossary::Extraction, :ci_guard do
 
     expect(sent_keys).to eq(['quarnix'])
     expect(run.scope['since']).to be_nil
+  end
+
+  # K5c: a run started from the lane of one document reads the version its
+  # scope names and nothing else, whole, with the rights of its starter now.
+  describe 'a run over one document' do
+    let(:chosen) { document(text('Quarnix')) }
+    let(:run) do
+      create(:glossary_extraction_run, :running, organisation: organisation, started_by: starter,
+                                                 scope: { 'kind' => 'document', 'document_version_id' => chosen.current_version_id,
+                                                          'since' => nil })
+    end
+
+    it 'reads only its version: the words of other sources never reach the classifier' do
+      chosen
+      document(text('Vexoria'))
+      ticket(text('Plumbix'))
+      note(text('Trondel'))
+
+      extract
+
+      expect(run).to have_attributes(status: 'succeeded', error_code: nil)
+      expect(sent_keys).to eq(['quarnix'])
+      expect(run.stats['sources']).to eq('tickets' => 0, 'posts' => 0, 'ticket_documents' => 0,
+                                         'post_documents' => 0, 'notes' => 0, 'document_versions' => 1)
+      expect(run.stats).to include('projects_reached' => 1, 'projects_total' => 1, 'proposals_created' => 1,
+                                   'truncated' => false, 'since' => nil)
+      expect(run.scope).to eq('kind' => 'document', 'document_version_id' => chosen.current_version_id, 'since' => nil)
+      place = GlossaryProposal.find_by!(organisation: organisation, normalized_term: 'quarnix').glossary_proposal_sources.sole
+      expect([place.source_type, place.source_id, place.project_id]).to eq(['DocumentVersion', chosen.current_version_id, project.id])
+    end
+
+    it 'counts its project as one of one, however many projects the organisation has' do
+      create(:project, organisation: organisation)
+      create(:project, organisation: organisation)
+
+      extract
+
+      expect(run.stats).to include('projects_reached' => 1, 'projects_total' => 1)
+    end
+
+    it 'ignores the incremental bound: a version older than the last run over the organisation is read' do
+      bound = 1.day.ago
+      create(:glossary_extraction_run, :succeeded, organisation: organisation, created_at: bound)
+      chosen.current_version.update_columns(updated_at: bound - 1.month)
+
+      extract
+
+      expect(sent_keys).to eq(['quarnix'])
+      expect(run.scope['since']).to be_nil
+      expect(run.stats['since']).to be_nil
+    end
+
+    it 'reads the version it names, also when a newer one became current in the meantime' do
+      named = chosen.current_version
+      chosen.update!(current_version: version_of(chosen, text('Vexoria')))
+      run.update_columns(scope: { 'kind' => 'document', 'document_version_id' => named.id, 'since' => nil })
+
+      extract
+
+      expect(sent_keys).to eq(['quarnix'])
+    end
+
+    it 'reads the whole text of the version, also its last line' do
+      chosen.current_version.update_columns(plain_text_version: "#{'Wir nutzen das im Team. ' * 4_000}\n#{text('Quarnix')}")
+
+      extract
+
+      expect(sent_keys).to eq(['quarnix'])
+    end
+
+    it 'honours the caps of a run: candidates, calls and proposals' do
+      stub_const('Glossary::Extraction::MAX_CANDIDATES', 3)
+      stub_const('Glossary::Extraction::BATCH_SIZE', 1)
+      stub_const('Glossary::Extraction::MAX_AI_CALLS', 2)
+      chosen.current_version.update_columns(plain_text_version: text('Plumbix', 'Quarnix', 'Vexoria', 'Glimmox'))
+
+      extract
+
+      expect(calls.size).to eq(2)
+      expect(run.stats).to include('candidates' => 4, 'ai_calls' => 2, 'proposals_created' => 2, 'truncated' => true)
+    end
+
+    context 'when the starter lost the read right on the document before the run ran' do
+      let(:starter) { reader }
+
+      it 'fails as document_unavailable and sends nothing' do
+        grant(reader, project, documents_access: 'read_only', tickets_access: 'read_only')
+        run
+        ProjectPermission.find_by!(user: reader, project: project).update!(documents_access: 'no_access')
+        ticket(text('Vexoria'))
+
+        extract
+
+        expect(run).to have_attributes(status: 'failed', error_code: 'document_unavailable')
+        expect(run.finished_at).to be_present
+        expect(Glossary::Classifier).not_to have_received(:call)
+        expect(proposal_terms).to be_empty
+      end
+    end
+
+    context 'when the starter may still read the document' do
+      let(:starter) { reader }
+
+      it 'reads it with documents access alone' do
+        grant(reader, project, documents_access: 'read_only')
+
+        extract
+
+        expect(run).to have_attributes(status: 'succeeded')
+        expect(sent_keys).to eq(['quarnix'])
+      end
+    end
+
+    it 'fails as document_unavailable when the version has no text by now' do
+      chosen.current_version.update_columns(plain_text_version: '')
+
+      extract
+
+      expect(run).to have_attributes(status: 'failed', error_code: 'document_unavailable')
+      expect(Glossary::Classifier).not_to have_received(:call)
+    end
+
+    it 'fails as document_unavailable when the version is gone' do
+      named = chosen.current_version
+      run
+      chosen.update_columns(current_version_id: nil)
+      DocumentVersion.where(id: named.id).delete_all
+
+      extract
+
+      expect(run).to have_attributes(status: 'failed', error_code: 'document_unavailable')
+      expect(Glossary::Classifier).not_to have_received(:call)
+    end
+
+    it 'asks for the starter first: an inactive one fails as starter_inactive' do
+      run
+      Membership.where(user_id: admin.id, organisation_id: organisation.id).update_all(active: false)
+
+      extract
+
+      expect(run).to have_attributes(status: 'failed', error_code: 'starter_inactive')
+    end
   end
 
   describe 'limits' do

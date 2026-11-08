@@ -302,6 +302,34 @@ class Organisations::DocumentsController < Organisations::BaseController
     end
   end
 
+  # K5c: a glossary run over this document, the button in its lane. Reading
+  # the document is enough of it (authorize_project_access! answers a reader
+  # without it as for every action here, :show? asks it again). The glossary
+  # right is asked of the current organisation, as the glossary page asks it
+  # (GlossaryPolicy#start?), and answered 403 as there. A document that is not
+  # this project's, or has no current version, is none at all (404). The actor
+  # asks both rights again under its lock, with the current version and its
+  # text; it lands on the review list (303), a refusal on the document with
+  # the actor's reason.
+  def propose_glossary_terms
+    document = @project.documents.find(params[:id])
+    authorize document, :show?
+    return render(plain: t('shared.errors.not_authorized'), status: :forbidden) unless policy(GlossaryExtractionRun).start?
+
+    version = document.current_version
+    raise ActiveRecord::RecordNotFound unless version
+
+    result = Actors::StartGlossaryExtraction.call(organisation: @current_organisation, current_user: current_user,
+                                                  document_version: version)
+    if result.success?
+      redirect_to organisation_glossary_terms_path(@current_organisation, view: Organisations::GlossaryController::PROPOSALS_VIEW),
+                  status: :see_other, notice: t('controllers.documents.propose_glossary_terms.success', title: document.title)
+    else
+      redirect_to organisation_project_knowledge_index_path(@current_organisation, @project, document_id: document.id, type: 'all'),
+                  status: :see_other, alert: result.errors.to_sentence
+    end
+  end
+
   def destroy_version
     # Deleting a version = :destroy? (no :destroy_version? in the policy).
     authorize @document, :destroy?

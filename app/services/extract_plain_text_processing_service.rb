@@ -1,12 +1,14 @@
 # frozen_string_literal: true
 
 class ExtractPlainTextProcessingService
+  # Markdown (K5c) is text as it stands, markup included: read like a .txt file.
   SUPPORTED_CONTENT_TYPES = {
     'application/pdf' => :extract_text_from_pdf,
     'text/plain' => :extract_text_from_text_file,
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => :extract_text_from_docx,
     'application/rtf' => :extract_text_from_rtf,
-    'text/rtf' => :extract_text_from_rtf
+    'text/rtf' => :extract_text_from_rtf,
+    'text/markdown' => :extract_text_from_text_file
   }.freeze
 
   # Whether this content type has an extractor at all. Asked by readers of the
@@ -43,6 +45,18 @@ class ExtractPlainTextProcessingService
     return 'unsupported' unless text_extractable?(content_type)
 
     raw.nil? ? 'unavailable' : 'empty'
+  end
+
+  # text_status of a holder of one attached file (a document version): its
+  # column and the type of its file. A holder without a file has nothing read
+  # out yet, unavailable, the answer Lalabase::Tools::GetDocument gives for
+  # it. Asked by the start of a glossary run over one document and its button
+  # (K5c), so both say the same about the same version.
+  def self.file_text_status(raw, file)
+    blob = file&.blob
+    return 'unavailable' if blob.nil?
+
+    text_status(raw, blob.content_type)
   end
 
   def initialize(document_holder, document_accessor:, log_label:)
