@@ -116,7 +116,8 @@ module Lalabase
                     action: action, seam: seam, utility: utility).tap { |feature| validate_entry!(feature) }
       end
 
-      # The 12 entries (plan §E2). `action:` REFERENCES the ActionRegistry constant
+      # The 13 entries: the 12 of plan §E2 and, since K5b, the glossary extraction
+      # at the end. `action:` REFERENCES the ActionRegistry constant
       # rather than repeating its string, so a renamed action breaks loudly here
       # instead of quietly mis-attributing metering (plan §7.7).
       #
@@ -204,7 +205,16 @@ module Lalabase
         # the RAG pipeline rather than by a person, and it runs over whole
         # repositories, which is where an expensive rung would be felt most.
         build_feature(key: :repository_indexing, lanes: %i[chat embedding], utility: true,
-                      action: nil, seam: 'ProjectIndexerJob')
+                      action: nil, seam: 'ProjectIndexerJob'),
+        # The glossary extraction (K5b): one call per batch of up to 60 candidate
+        # terms, out of the texts of the whole organisation. Deliberately NOT
+        # utility: telling the product and field names of an organisation from
+        # ordinary words over its whole catalogue is the product here, not a
+        # helper, and every candidate a weaker model gets wrong costs a person a
+        # decision on a proposal (or loses a term nobody proposes). So it runs on
+        # the organisation's own rung, like the meeting analysis.
+        build_feature(key: :glossary_extraction, lanes: %i[chat],
+                      action: ActionRegistry::GLOSSARY_EXTRACTION, seam: 'Glossary::Classifier')
       ].freeze
 
       BY_KEY = FEATURES.index_by(&:key).freeze

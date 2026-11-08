@@ -2460,6 +2460,7 @@ en:
         content_indexing: Content indexing
         semantic_search: Semantic search
         repository_indexing: Repository indexing
+        glossary_extraction: Glossary suggestions
       # Quota action labels (ai_usages.action). A guard spec enforces DE AND EN for
       # every registry action — Lalabase::Llm::ActionRegistry.
       actions:
@@ -2472,6 +2473,7 @@ en:
         participant_detection: Participant detection
         meeting_analysis: Meeting analysis
         ticket_suggestions: Ticket suggestions
+        glossary_extraction: Glossary suggestions
       # Quota UI (consumption bar, banners, history) — shared shared/ai/* partials,
       # used by BOTH the org AI settings and the admin backend.
       quota:
