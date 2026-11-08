@@ -305,39 +305,43 @@ stands apart by tone and edge (rule 5 in `doc/belegungstabelle_oberflaeche.md`, 
 | `shadow-press-hover` | `3px 3px 0 0 rgb(var(--ink))` | the main action hovered; pressed, it sinks and loses it |
 | `shadow-lift` | `4px 4px 0 0 rgb(var(--ink))` | a card that is wholly a link or a button, while hovered |
 
-* Hard shadows stand in three places only: the main action (also when styled in CSS, as
-  `.members-invite` and `.mobile-primary`), a clickable card while hovered (flat at rest), and
-  the logo tile (`shared/_brand_mark`, its own value, as on the website). Every other button is
-  flat; its hover is the background shift of its variant.
-* **Written values**: no `shadow-[<n>px_<n>px_0...` (any prefix, `hover:` too) in `app/views`,
-  `app/components`, `app/javascript`, `app/helpers`, `app/services`, comments included. The old
-  ones stand in a legacy list, a count per file (89 values in 52 files on 2026-11-08). It only
-  shrinks: a count too high or too low is red, so is a file with hits and no entry, or an entry
-  without hits. Not read here: `app/views/admin/` (its own style guide, decided 2026-06-01) and
-  `app/views/style_guide/` (it shows samples; a slice of its own).
+* Hard shadows stand in three places only: the main action (also in CSS, as `.members-invite`
+  and `.mobile-primary`), a clickable card while hovered (flat at rest), and the logo tile
+  (`shared/_brand_mark`, its own value, as on the website). Every other button is flat.
+* **Written values**: every arbitrary value `shadow-[...]` whose shadow is hard (an offset, no
+  blur; any prefix) in `app/views`, `app/components`, `app/javascript`, `app/helpers`,
+  `app/services`, comments included. It is read with the classifier of the stylesheets:
+  `shadow-[0_-4px_0_0_#14110c]` counts, a ring or `inset` does not. A legacy list holds a count
+  per file (90 values in 53 files on 2026-11-08) and only shrinks: a count too high or too low is
+  red, so is a file with hits and no entry, or an entry without hits. Not read: `app/views/admin/`
+  (its own style guide, decided 2026-06-01) and `app/views/style_guide/` (it shows samples).
+* **Inline values**: a hard `box-shadow` literal in the same files (a `style` attribute, a CSS
+  string in Ruby, a `boxShadow` string in a script) stands in a second list that only shrinks,
+  `INLINE_LEGACY` (4 in 4 files on 2026-11-08: `NeoToggleComponent`, three Stimulus controllers).
+  They keep their shadow in the dark theme until a later slice: no attribute rule reaches them.
 * **Tokens in their place**: `shadow-press` and `shadow-press-hover` only in
   `app/components/neo/buttons/base.rb`, `shadow-lift` only in the files of `LIFT_USERS` (today
-  `NeoCardComponent`), each with its reason. This check reads admin and the style guide too: a
-  token's name promises its role everywhere. Each hard token in `config/tailwind.config.js` is
-  drawn from `--ink`, so every theme follows on its own (Pop's ink is black).
-* **Stylesheets**: a `box-shadow` under `app/assets/stylesheets/` with a layer that is not
-  `inset`, has an offset other than 0 and blur 0 (or none) belongs to a selector of `CSS_HARD`,
-  with its reason (10 selectors in 5 files on 2026-11-08). A ring (`0 0 0 2px ...`) and `inset`
-  do not count. Not read: `landing_tokens.css`, `lp_base.css`, `auth.css` (mirrors of the
-  website, held by `auth_styles_guard_spec.rb`) and `bootstrap-icons/`.
-* ⚠️ **The dark theme has no hard shadow at all.** Each token has its line
-  `.dark [class*="shadow-<token>"]` with `box-shadow: none` in `application.tailwind.css`, each
-  `CSS_HARD` selector a `.dark <selector>` rule in its own file (`!important` where the original
-  has it). The line `.dark [class*="shadow-["] { box-shadow: none !important; }` stays: it
-  removes every written value, but it does not match a named class.
-* ⚠️ The guard does NOT see a shadow built at run time (a class put together from parts, a
-  style set by a script), a shadow through a CSS variable, a token used through `@apply` in a
-  stylesheet (the token check reads templates, Ruby and scripts), soft shadows on things that
-  do not float (`shadow-sm`, another plan), or the role of an element: a panel that gets
-  `shadow-lift` is for the person who reads the diff.
-* Menus, modals and drawers get a soft shadow, in a later slice. `shadow-layer` and
-  `shadow-modal` do not exist yet: in the dark theme `--ink` is light, and a soft shadow drawn
-  from it would glow. Their colour is that slice's question.
+  `NeoCardComponent`), each with its reason. Read in admin and the style guide too: a token's name
+  promises its role everywhere. Each token in `config/tailwind.config.js` is drawn from `--ink`.
+* **Stylesheets**: a `box-shadow` under `app/assets/stylesheets/` with a hard layer (not `inset`,
+  an offset other than 0, blur 0 or none) belongs to a selector of `CSS_HARD`, with its reason
+  (10 selectors in 5 files on 2026-11-08). A written hard value in `@apply` counts as a
+  declaration of that selector (entry and dark rule); a token in `@apply` is red. A ring
+  (`0 0 0 2px ...`) and `inset` do not count. Not read: `landing_tokens.css`, `lp_base.css`,
+  `auth.css` (mirrors of the website, held by `auth_styles_guard_spec.rb`), `bootstrap-icons/`.
+* ⚠️ **No hard shadow from a class or a stylesheet reaches the dark theme**; the inline list is
+  the known rest. Each token has `.dark [class*="shadow-<token>"]` with
+  `box-shadow: none !important` in `application.tailwind.css`. Only this form counts
+  (`.dark .shadow-lift` never matches `hover:shadow-lift`), and `!important` because at equal
+  specificity the hover utility comes later in the build and wins. Each `CSS_HARD` selector has a
+  `.dark <selector>` rule in its own file (`!important` where the original has it). The line
+  `.dark [class*="shadow-["] { box-shadow: none !important; }` stays: it removes every written
+  value, but it does not match a named class.
+* ⚠️ The guard does NOT see a shadow built at run time (a class or a style put together from
+  parts, a value from a variable or a template expression), soft shadows (`shadow-sm`, another
+  plan), or the role of an element: a panel that gets `shadow-lift` is for the reader of the diff.
+* Menus, modals and drawers get a soft shadow in a later slice. `shadow-layer` and `shadow-modal`
+  do not exist yet: `--ink` is light in the dark theme, and a soft shadow from it would glow.
 
 ### CSS-Konvention: KEINE `<style>`-Blöcke in Views
 **Verbindlich** (Guard-Spec: `spec/views/no_style_blocks_guard_spec.rb` schlägt sonst fehl):
