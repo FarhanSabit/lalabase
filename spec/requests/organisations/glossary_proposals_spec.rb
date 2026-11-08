@@ -218,9 +218,10 @@ RSpec.describe 'Organisations::Glossary proposals', :ci_guard, type: :request do
       expect(response.body).to include(new_organisation_glossary_term_path(organisation))
     end
 
-    # The hint stands for a reader of one of the sources ('the hint of a proposal').
+    # The hint stands for a reader of every source ('the hint of a proposal').
     it 'shows a row with spelling, category, spellings, hint, projects and occurrences, and opens it in the lane' do
       grant(viewer, open_project, tickets_access: :read_only)
+      grant(viewer, closed_project, tickets_access: :read_only)
 
       review_list
 
@@ -302,8 +303,9 @@ RSpec.describe 'Organisations::Glossary proposals', :ci_guard, type: :request do
     before { sign_in manager }
 
     it 'answers the frame with the form: the spelling, the category and every spelling checked' do
-      # The hint stands for a reader of one of the sources ('the hint of a proposal').
+      # The hint stands for a reader of every source ('the hint of a proposal').
       grant(manager, open_project, tickets_access: :read_only)
+      grant(manager, closed_project, tickets_access: :read_only)
 
       lane_of
 
@@ -607,7 +609,24 @@ RSpec.describe 'Organisations::Glossary proposals', :ci_guard, type: :request do
       expect(response.body).not_to include(hint)
     end
 
-    it 'stands for a reader of one of its sources, in the row and in the lane' do
+    # The model read only some of the places, but which ones the proposal does
+    # not keep: a reader of one of two may not have read the one it repeats.
+    it 'stands for no reader of only some of its sources, in the row and in the lane' do
+      grant(viewer, closed_project, tickets_access: :read_only)
+      sign_in viewer
+
+      review_list
+      expect(row_of('Zorbel-Hub').at_css('[data-glossary-proposal-hint]')).to be_nil
+      expect(response.body).not_to include(hint)
+
+      lane_of
+      expect(snippet_of(closed_source)).to eq('Geheim: der Zorbelhub aus Birke.')
+      expect(hint_text).to be_nil
+      expect(response.body).not_to include(hint)
+    end
+
+    it 'stands for a reader of every one of its sources, in the row and in the lane' do
+      grant(viewer, open_project, tickets_access: :read_only)
       grant(viewer, closed_project, tickets_access: :read_only)
       sign_in viewer
 
@@ -616,6 +635,20 @@ RSpec.describe 'Organisations::Glossary proposals', :ci_guard, type: :request do
 
       lane_of
       expect(hint_text).to eq(I18n.t("#{gp}.show.hint", hint: hint))
+    end
+
+    # Without a place there is nothing to read that would let the sentence
+    # stand, also for an account admin who reads every project.
+    it 'stands for no reader when the proposal has no source' do
+      bare = create(:glossary_proposal, organisation: organisation, term: 'Glimmox', hint: 'Ein Satz ohne Stelle.')
+      sign_in admin
+
+      review_list
+      expect(row_of('Glimmox').at_css('[data-glossary-proposal-hint]')).to be_nil
+
+      lane_of(bare)
+      expect(hint_text).to be_nil
+      expect(response.body).not_to include('Ein Satz ohne Stelle.')
     end
 
     # A private comment is readable by nobody here, so it opens no hint either,
@@ -923,14 +956,16 @@ RSpec.describe 'Organisations::Glossary proposals', :ci_guard, type: :request do
     it 'renders the review list with the hints its reader may see without an N+1' do
       reader = member_with(role_with('view_glossary'))
       grant(reader, Project.find_by!(organisation: organisation, name: 'Projekt 0'), tickets_access: :read_only)
+      grant(reader, Project.find_by!(organisation: organisation, name: 'Projekt 1'), tickets_access: :read_only)
       sign_in reader
 
       review_list
 
       expect(response).to have_http_status(:ok)
-      # Proposal n has its sources in the projects n % 3 and (n + 1) % 3, so
-      # Projekt 0 holds one of 20 of the 30; the two others have none there.
-      expect(page.css('[data-glossary-proposal-row] [data-glossary-proposal-hint]').size).to eq(20)
+      # Proposal n has its sources in the projects n % 3 and (n + 1) % 3: both
+      # lie in Projekt 0 and 1 for the 10 with n % 3 == 0. The other 20 have one
+      # source there and one in Projekt 2, the two others none there.
+      expect(page.css('[data-glossary-proposal-row] [data-glossary-proposal-hint]').size).to eq(10)
     end
 
     it 'renders a lane with sources of every kind without an N+1' do

@@ -252,7 +252,11 @@ Verzeichnis-Übersicht (Auswahl):
   nur über `public_posts.readable_by`, auch für Admins; keine Meetings; die neuesten `MAX_SOURCES`
   über sechs Arten; inkrementell ab dem Start des letzten erfolgreichen Laufs; offene Vorschläge
   bekommen Vorkommen, Schreibweisen und Stellen statt eines Modellaufrufs; geschrieben je Stapel;
-  jeder Write berührt den Lauf unter `status = 'running'`). `Glossary::ExtractionJob`
+  jeder Write berührt den Lauf unter `status = 'running'`). Offene Vorschläge nehmen keinen der
+  `MAX_CANDIDATES`-Plätze; ein Vorschlag bekommt nur die Vorkommen neuer Stellen; jeder Text höchstens
+  `MAX_SOURCE_CHARS` (zwischen Wörtern geschnitten), der Lauf wird vor jedem Ladestapel berührt. Den
+  Hinweis des Modells sieht nur, wer jede Quelle des Vorschlags lesen darf; beim Zusammenführen wandert
+  er nicht mit. `Glossary::ExtractionJob`
   (`app/jobs/`): Advisory Lock, EIN Claim, `interrupted`, `internal_error`, kein Retry.
 * `people/` — `directory.rb`, das Lese-Objekt der Personenliste (seit 26.10.2026): Mitglieder
   über `MembershipPolicy::Scope` (dieselbe Reichweite wie die Mitgliederseite), dazu die

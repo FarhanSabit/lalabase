@@ -13,7 +13,8 @@
 # The review list of the extraction (K5b) follows the same rule: every
 # proposal with the projects and kinds of its sources, but the snippet of a
 # source only for a reader of that source (glossary_source_access), and the
-# model's hint only for a reader of one of its sources (glossary_proposal_hint).
+# model's hint only for a reader of every one of its sources
+# (glossary_proposal_hint).
 module GlossaryHelper
   # What a row opens in the lane: a term, or a proposal of the review list.
   # They exclude each other.
@@ -31,8 +32,11 @@ module GlossaryHelper
       readable.include?([source.source_type, source.source_id])
     end
 
-    def any_readable?(sources)
-      sources.any? { |source| readable?(source) }
+    # Every one of these sources, and there is one: a list without a source
+    # has nothing the reader could have read.
+    def all_readable?(sources)
+      list = sources.to_a
+      list.any? && list.all? { |source| readable?(source) }
     end
 
     def gone?(source)
@@ -206,14 +210,16 @@ module GlossaryHelper
     proposal.glossary_proposal_sources.filter_map { |source| source.project&.name }.uniq.sort_by { |name| [name.downcase, name] }
   end
 
-  # The model's hint, or nil: only for a reader of at least one of the
-  # proposal's sources. The model wrote it from their snippets, read with the
-  # rights of the account that started the run, so for a reader of none of
-  # them the sentence could repeat what such a source says. access is
+  # The model's hint, or nil: only for a reader of every source of the
+  # proposal, and only when it has one. The model wrote it from the snippets of
+  # some of these places, read with the rights of the account that started the
+  # run, and the proposal does not keep which: for a reader who may not read
+  # them all, the sentence could repeat what one of them says. A source that is
+  # gone is read by nobody, so its proposal shows no hint. access is
   # glossary_source_access for these sources: the list asks it once for the
   # sources of every row, the lane for its own.
   def glossary_proposal_hint(proposal, access, sources: proposal.glossary_proposal_sources)
-    proposal.hint.presence if access.any_readable?(sources)
+    proposal.hint.presence if access.all_readable?(sources)
   end
 
   # Ticket, Kommentar, Notiz, ...: what every reader may know of a source.

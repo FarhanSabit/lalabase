@@ -23,7 +23,9 @@
 #   compared form, never its own term, at most GlossaryProposal::MAX_VARIANTS
 #   with its own first, but the source's spelling always (in the place of the
 #   target's last own variant when it is full); the source's occurrences; its
-#   category and its hint only where the target has none.
+#   category only where the target has none. Never its hint: a hint belongs to
+#   the places it was written from, and the trim to MAX_SOURCES below can drop
+#   them, so the target keeps its own hint, blank or not.
 # * The source's places move to the target. A place both have stays once,
 #   with the occurrences of both. Then the target keeps the
 #   GlossaryProposal::MAX_SOURCES places with the most occurrences.
@@ -76,7 +78,6 @@ module Actors
       @target.variants = merged_variants
       @target.occurrences += @source.occurrences
       @target.category ||= @source.category
-      @target.hint = @source.hint if @target.hint.blank?
       @target.save!
     end
 

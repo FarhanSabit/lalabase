@@ -110,13 +110,17 @@ RSpec.describe Actors::MergeGlossaryProposals, :ci_guard, type: :service do
       expect(full.variants.size).to eq(GlossaryProposal::MAX_VARIANTS)
     end
 
-    it 'takes the category and the hint of the source only where it has none' do
+    # A hint belongs to the places it was written from, and the trim to
+    # MAX_SOURCES can drop the source's places: the target keeps its own hint,
+    # blank or not.
+    it 'takes the category of the source only where it has none, and never its hint' do
       own = create(:glossary_proposal, organisation: organisation, term: 'Quarnix', category: 'company', hint: 'Eigener Hinweis')
+      expect(target.hint).to eq('')
 
       merge
       merge(from: create(:glossary_proposal, organisation: organisation, term: 'Wub', category: 'place', hint: 'Fremd'), into: own)
 
-      expect(target.reload.attributes.slice('category', 'hint')).to eq('category' => 'product', 'hint' => 'Ein Werkzeug von Wub')
+      expect(target.reload.attributes.slice('category', 'hint')).to eq('category' => 'product', 'hint' => '')
       expect(own.reload.attributes.slice('category', 'hint')).to eq('category' => 'company', 'hint' => 'Eigener Hinweis')
     end
 
