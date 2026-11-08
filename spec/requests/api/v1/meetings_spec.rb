@@ -284,6 +284,113 @@ RSpec.describe 'API V1 Meetings', :ci_guard, type: :request do
     end
   end
 
+  # K4d: what the sender replaced from the glossary before it sent the transcript.
+  describe 'the glossary replacements' do
+    let!(:term) { in_org { create(:glossary_term, organisation: organisation, term: 'Lalabase') } }
+
+    def applications_of(id) = in_org { TermApplication.where(meeting_id: id).to_a }
+
+    def send_with(replacements)
+      send_meeting(body(project_id: project.id, glossary_replacements: replacements))
+    end
+
+    it 'writes one row per heard spelling with the term, the project and the count' do
+      send_with([{ heard: 'lala bass', term: 'Lalabase', count: 3 }, { heard: 'lalabase', term: 'Lalabase', count: 2 }])
+
+      expect(response).to have_http_status(:created)
+      rows = applications_of(json.dig('data', 'id'))
+      expect(rows.map { |row| [row.heard, row.term, row.replaced_count, row.glossary_term_id, row.project_id, row.source] })
+        .to contain_exactly(['lala bass', 'Lalabase', 3, term.id, project.id, 'device'], ['lalabase', 'Lalabase', 2, term.id, project.id, 'device'])
+      expect(rows.map { |row| [row.heard, row.spelling?] }).to contain_exactly(['lala bass', false], ['lalabase', true])
+      expect(json['data'].keys).not_to include('glossary_replacements'), 'the answer stays the small summary'
+    end
+
+    it 'sums a spelling sent twice and cleans what it keeps' do
+      send_with([{ heard: 'lala bass', term: 'Lalabase', count: 1 }, { heard: " lala\u00A0bass ", term: 'Lalabase', count: '4' }])
+
+      rows = applications_of(json.dig('data', 'id'))
+      expect(rows.map { |row| [row.heard, row.replaced_count] }).to eq([['lala bass', 5]])
+    end
+
+    it 'keeps a row whose term the glossary no longer has, without a reference' do
+      send_with([{ heard: 'zirbel holz', term: 'Zirbelholz', count: 1 }])
+
+      row = applications_of(json.dig('data', 'id')).first
+      expect(row).to have_attributes(term: 'Zirbelholz', glossary_term_id: nil)
+      expect(in_org { GlossaryTerm.where(normalized_term: 'zirbelholz') }).not_to exist, 'nothing is learnt'
+    end
+
+    it 'writes nothing without the list or with an empty one' do
+      send_meeting(body(project_id: project.id))
+      expect(applications_of(json.dig('data', 'id'))).to be_empty
+
+      send_with([])
+      expect(response).to have_http_status(:created)
+      expect(applications_of(json.dig('data', 'id'))).to be_empty
+    end
+
+    # One example per shape: a loop of requests in one example reads as an N+1 to the detector.
+    {
+      'no list' => 'lala bass',
+      'a list of strings' => ['lala bass'],
+      'a row without heard' => [{ term: 'Lalabase', count: 1 }],
+      'a row without term' => [{ heard: 'lala bass', count: 1 }],
+      'a row without count' => [{ heard: 'lala bass', term: 'Lalabase' }],
+      'a count of zero' => [{ heard: 'lala bass', term: 'Lalabase', count: 0 }],
+      'a broken count' => [{ heard: 'lala bass', term: 'Lalabase', count: 1.5 }],
+      'a count in words' => [{ heard: 'lala bass', term: 'Lalabase', count: 'drei' }],
+      'a count with a space' => [{ heard: 'lala bass', term: 'Lalabase', count: ' 3' }],
+      'a count beyond storage' => [{ heard: 'lala bass', term: 'Lalabase', count: 2_147_483_648 }],
+      'a digit count beyond storage' => [{ heard: 'lala bass', term: 'Lalabase', count: '2147483648' }],
+      'duplicate counts beyond storage' => [{ heard: 'lala bass', term: 'Lalabase', count: 2_147_483_647 },
+                                            { heard: " lala\u00A0bass ", term: 'Lalabase', count: 1 }],
+      'conflicting terms for the same spelling' => [{ heard: 'lala bass', term: 'Lalabase', count: 2 },
+                                                    { heard: " lala\u00A0bass ", term: 'Zirbelholz', count: 3 }],
+      'a blank heard form' => [{ heard: '  ', term: 'Lalabase', count: 1 }],
+      'a term too long' => [{ heard: 'lala bass', term: 'x' * 256, count: 1 }],
+      'a heard form that is no text' => [{ heard: 7, term: 'Lalabase', count: 1 }],
+      'a list too long' => Array.new(TermApplication::MAX_ENTRIES + 1) { |n| { heard: "form #{n}", term: 'Lalabase', count: 1 } }
+    }.each do |shape, replacements|
+      it "refuses the whole meeting for #{shape}" do
+        send_with(replacements)
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(json).to include('code' => 'invalid_input', 'reason' => 'invalid_glossary_replacements')
+        expect(meeting_count).to eq(0)
+        expect(in_org { TermApplication.count }).to eq(0)
+      end
+    end
+
+    [2_147_483_646, 2_147_483_647].each do |count|
+      it "accepts the valid count #{count} at the storage boundary" do
+        send_with([{ heard: 'lala bass', term: 'Lalabase', count: count }])
+
+        expect(response).to have_http_status(:created)
+        expect(applications_of(json.dig('data', 'id')).sole.replaced_count).to eq(count)
+      end
+    end
+
+    it 'sums normalized duplicate destinations up to the storage limit and keeps the first spelling' do
+      send_with([{ heard: 'lala bass', term: 'Lalabase', count: 2_147_483_646 },
+                 { heard: " lala\u00A0bass ", term: ' LALABASE ', count: 1 }])
+
+      expect(response).to have_http_status(:created)
+      expect(applications_of(json.dig('data', 'id')).sole)
+        .to have_attributes(heard: 'lala bass', term: 'Lalabase', glossary_term_id: term.id, replaced_count: 2_147_483_647)
+    end
+
+    it 'writes the list once under one Idempotency-Key' do
+      key = { 'Idempotency-Key' => 'aufnahme-2' }
+      2.times do
+        send_meeting(body(project_id: project.id, glossary_replacements: [{ heard: 'lala bass', term: 'Lalabase', count: 3 }]),
+                     headers: key)
+      end
+
+      expect(meeting_count).to eq(1)
+      expect(in_org { TermApplication.count }).to eq(1)
+    end
+  end
+
   describe 'a retry' do
     let(:key) { { 'Idempotency-Key' => 'aufnahme-1' } }
 

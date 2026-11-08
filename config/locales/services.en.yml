@@ -143,6 +143,7 @@ en:
         meeting_inbox_forbidden: You may not create meetings in the inbox project. Name a project or ask for access.
         project_archived: The project is archived and takes no meetings.
         unknown_participant: A participant cannot be resolved.
+        invalid_glossary_replacements: The list of glossary replacements is invalid. Every row needs heard, term and a count of at least 1.
       summary:
         ai_disabled: "AI features are disabled for this organisation."
         not_configured: "No valid AI access is configured."

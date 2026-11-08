@@ -23,6 +23,9 @@ class GlossaryTerm < ApplicationRecord
   # The database removes them too (on_delete: :cascade); delete_all says the
   # same in Rails and runs one DELETE, no callbacks.
   has_many :term_corrections, dependent: :delete_all
+  # Where the term was applied by a device (K4d). The rows outlive the term with
+  # its spelling in `term`; only the reference is cleared (the key does the same).
+  has_many :term_applications, dependent: :nullify
 
   enum :status, STATUSES.index_by(&:itself), validate: true
 

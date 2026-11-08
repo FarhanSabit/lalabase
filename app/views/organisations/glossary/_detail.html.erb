@@ -9,8 +9,18 @@
     width. %>
 <% can_write = policy(term).update? %>
 <% corrections = term.term_corrections.includes(:project, :person, :user).in_lane_order.to_a %>
-<% meetings = glossary_readable_meetings(corrections) %>
+<%# K4d: where a device applied a form (TermApplication), by heard form. A form that
+    was only righted in its spelling stands at the head, judged against the stored
+    replacement even after a rename or merge. Classify each application before grouping:
+    the same heard form may have had different replacements. A form whose corrections
+    were deleted keeps its applications as a group of its own, so the trace to the
+    meetings stays. %>
+<% applications = term.term_applications.includes(:project).in_text_order.to_a %>
+<% spelling_applied, heard_applied = applications.partition(&:spelling?) %>
+<% applied = heard_applied.group_by(&:normalized_heard) %>
+<% meetings = glossary_readable_meetings(corrections + applications) %>
 <% groups = corrections.group_by(&:normalized_heard).values %>
+<% applied_only = applied.except(*groups.map { |group| group.first.normalized_heard }) %>
 <div class="people-detail glossary-detail">
   <%= render 'organisations/glossary/lane_head',
              edit_url: (edit_organisation_glossary_term_path(@current_organisation, term, list_state) if can_write) %>
@@ -21,6 +31,13 @@
       <p class="people-identity__line">
         <%= [(glossary_category_name(term.category) if term.category), glossary_status_name(term.status)].compact.join(' · ') %>
       </p>
+      <% if spelling_applied.any? %>
+        <p class="people-identity__line glossary-detail__spelling">
+          <%= t('views.organisations.glossary.show.spelling_applied',
+                times: t('views.organisations.glossary.show.times', count: spelling_applied.sum(&:replaced_count)),
+                meetings: t('views.organisations.glossary.show.in_meetings', count: spelling_applied.map(&:meeting_id).uniq.size)) %>
+        </p>
+      <% end %>
     </div>
 
     <% if can_write %>
@@ -29,7 +46,7 @@
 
     <section class="glossary-heard" aria-labelledby="glossary-heard-title">
       <h3 id="glossary-heard-title" class="people-meetings__title"><%= t('views.organisations.glossary.show.heard_title') %></h3>
-      <% if groups.empty? %>
+      <% if groups.empty? && applied_only.empty? %>
         <p class="people-meetings__empty"><%= t('views.organisations.glossary.show.no_heard') %></p>
       <% else %>
         <ul class="glossary-heard__groups">
@@ -84,6 +101,22 @@
               <ul class="glossary-heard__list">
                 <% group.each do |correction| %>
                   <%= render 'organisations/glossary/correction', correction: correction, meetings: meetings %>
+                <% end %>
+                <% applied.fetch(group.first.normalized_heard, []).each do |application| %>
+                  <%= render 'organisations/glossary/application', application: application, meetings: meetings %>
+                <% end %>
+              </ul>
+            </li>
+          <% end %>
+          <% applied_only.each_value do |group| %>
+            <li class="glossary-heard__group">
+              <div class="glossary-heard__form">
+                <%= t('views.organisations.glossary.quoted', text: group.first.heard) %>
+                <span class="glossary-heard__count"><%= t('views.organisations.glossary.show.applied_only') %></span>
+              </div>
+              <ul class="glossary-heard__list">
+                <% group.each do |application| %>
+                  <%= render 'organisations/glossary/application', application: application, meetings: meetings %>
                 <% end %>
               </ul>
             </li>

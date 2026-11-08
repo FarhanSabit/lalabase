@@ -122,7 +122,16 @@ Verzeichnis-Layout nicht ablesbar — diese Karte gruppiert sie:
   `manage_glossary` entsteht sie als Vorschlag, auch an einem bestätigten Begriff. Wirksam ist
   nur `TermCorrection.effective` (bestätigte Form an bestätigtem Begriff): K4c und das Gerät lesen
   dort, nie `term_corrections` direkt. K4c (06.11.2026): dieser Leser ist `Glossary::Lookup`
-  (REST `/terms` und MCP `get_glossary`, Karte `app/services/CLAUDE.md`). ⚠️ `Meeting#invalidate_stale_summary` hat GENAU EINE
+  (REST `/terms` und MCP `get_glossary`, Karte `app/services/CLAUDE.md`). K4d (08.11.2026):
+  `term_application` hält, was ein Gerät beim Senden eines Meetings aus dem Glossar ersetzt hat
+  (gehörte Schreibung, Begriff als Text, Zahl; `source` `device`), geschrieben nur von
+  `Meetings::Intake` über `TermApplication.record!` (zwei Statements, in der Transaktion des
+  Meetings; Feld `meeting[glossary_replacements]`, Fähigkeit `meetings.glossary_replacements`).
+  Keine Korrektur: nichts wird gelernt, `.effective` sieht die Zeilen nie. Anders als
+  `term_corrections` gehen sie MIT dem Meeting (FK `cascade`, `dependent: :delete_all`); ein
+  gelöschter Begriff lässt sie mit seinem Text stehen (`nullify`), ein Merge nimmt sie mit.
+  Anzeige: Meetingseite über dem Transkript (`_glossary_applied`), Glossar unter der gehörten
+  Form (`_application`), Schreibweise am Kopf des Begriffs. ⚠️ `Meeting#invalidate_stale_summary` hat GENAU EINE
   Ausnahme: `keep_summary_for_next_save!` (eine Speicherung, eine Instanz), gesetzt nur von
   `Actors::SaveMeeting` mit `keep_summary: true`, das nur `Actors::CorrectMeetingTerm` übergibt
   (Wächter `spec/architecture/meeting_summary_exception_guard_spec.rb`). Nicht über

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_05_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_08_100000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -1691,6 +1691,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_100000) do
     t.index ["user_id"], name: "index_tags_on_user_id"
   end
 
+  create_table "term_applications", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "organisation_id", null: false
+    t.uuid "meeting_id", null: false
+    t.uuid "project_id"
+    t.uuid "glossary_term_id"
+    t.string "term", null: false
+    t.string "heard", null: false
+    t.string "normalized_heard", null: false
+    t.integer "replaced_count", default: 1, null: false
+    t.string "source", default: "device", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["glossary_term_id", "normalized_heard"], name: "index_term_applications_on_term_and_heard"
+    t.index ["meeting_id", "normalized_heard", "heard"], name: "index_term_applications_on_meeting_and_heard", unique: true
+    t.index ["organisation_id"], name: "index_term_applications_on_organisation_id"
+    t.index ["project_id"], name: "index_term_applications_on_project_id"
+    t.check_constraint "replaced_count >= 1", name: "term_applications_count_positive"
+    t.check_constraint "source::text = 'device'::text", name: "term_applications_source_known"
+  end
+
   create_table "term_corrections", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "organisation_id", null: false
     t.uuid "glossary_term_id", null: false
@@ -1716,7 +1736,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_100000) do
     t.index ["project_id"], name: "index_term_corrections_on_project_id"
     t.index ["user_id"], name: "index_term_corrections_on_user_id"
     t.check_constraint "num_nonnulls(person_id, user_id) <= 1", name: "term_corrections_one_speaker"
-    t.check_constraint "status::text = ANY (ARRAY['proposed'::character varying, 'confirmed'::character varying]::text[])", name: "term_corrections_status_known"
+    t.check_constraint "status::text = ANY (ARRAY['proposed'::character varying::text, 'confirmed'::character varying::text])", name: "term_corrections_status_known"
   end
 
   create_table "ticket_assignments", force: :cascade do |t|
@@ -2008,7 +2028,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_100000) do
     t.index ["scheduled_deletion_at"], name: "index_users_on_scheduled_deletion_at"
     t.index ["timezone"], name: "index_users_on_timezone"
     t.index ["unlock_token"], name: "index_users_on_unlock_token", unique: true
-    t.check_constraint "email_visibility::text = ANY (ARRAY['login'::character varying, 'contact'::character varying, 'none'::character varying]::text[])", name: "users_email_visibility_known"
+    t.check_constraint "email_visibility::text = ANY (ARRAY['login'::character varying::text, 'contact'::character varying::text, 'none'::character varying::text])", name: "users_email_visibility_known"
   end
 
   create_table "view_configurations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2226,6 +2246,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_100000) do
   add_foreign_key "taggings", "users"
   add_foreign_key "tags", "organisations"
   add_foreign_key "tags", "users"
+  add_foreign_key "term_applications", "glossary_terms", on_delete: :nullify
+  add_foreign_key "term_applications", "meetings", on_delete: :cascade
+  add_foreign_key "term_applications", "organisations", on_delete: :cascade
+  add_foreign_key "term_applications", "projects", on_delete: :nullify
   add_foreign_key "term_corrections", "glossary_terms", on_delete: :cascade
   add_foreign_key "term_corrections", "meetings", on_delete: :nullify
   add_foreign_key "term_corrections", "organisations", on_delete: :cascade

@@ -359,6 +359,9 @@ jobs:
           spec/requests/organisations/glossary_spec.rb
           spec/services/actors/correct_meeting_term_spec.rb
           spec/requests/organisations/meeting_term_corrections_spec.rb
+          spec/models/term_application_spec.rb
+          spec/models/term_application_concurrency_spec.rb
+          spec/requests/organisations/meeting_glossary_applied_spec.rb
           spec/services/glossary/lookup_spec.rb
           spec/services/list_paging_spec.rb
           spec/requests/organisations/people_spec.rb

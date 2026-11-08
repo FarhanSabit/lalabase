@@ -152,6 +152,19 @@ de:
           change: "Verknüpfung von %{name} ändern"
           open_person: "%{name}: Person öffnen"
         # Correcting a misheard word in the transcript (K4b).
+        # K4d: what the glossary did to the transcript before it arrived (the device sent the list).
+        glossary_applied:
+          summary: "Aus dem Glossar gerichtet: %{places} in %{terms}"
+          places:
+            one: "1 Stelle"
+            other: "%{count} Stellen"
+          terms:
+            one: "1 Begriff"
+            other: "%{count} Begriffen"
+          times:
+            one: "1-mal"
+            other: "%{count}-mal"
+          spelling: "Schreibweise"
         term_correction:
           trigger: Korrigieren
           trigger_label: "Markiertes Wort korrigieren"

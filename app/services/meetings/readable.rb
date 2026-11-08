@@ -42,7 +42,7 @@ module Meetings
       return nil unless token.accessible_project?(Project.find_by(id: project_id))
 
       meeting = Pundit.policy_scope!(user, Meeting.where(id: id, project_id: project_id))
-                      .preload(:creator, :meeting_participants, :project).take
+                      .preload(:creator, :meeting_participants, :project, :term_applications).take
       meeting if meeting && Pundit.policy!(user, meeting).show?
     end
     private_class_method :read

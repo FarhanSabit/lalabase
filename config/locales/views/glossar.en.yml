@@ -115,6 +115,13 @@ en:
             one: "Delete “%{term}” and its heard form?"
             other: "Delete “%{term}” and its %{count} heard forms?"
           read_only: "You can view the glossary, but not change it."
+          # K4d: what a device applied from the glossary when it sent a meeting.
+          applied_row: "applied on sending"
+          applied_only: "only applied, no correction left"
+          spelling_applied: "Spelling righted %{times} in %{meetings}"
+          in_meetings:
+            one: "1 meeting"
+            other: "%{count} meetings"
         form:
           new_title: "New term"
           edit_title: "Edit “%{term}”"

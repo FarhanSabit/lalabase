@@ -105,6 +105,13 @@ class Meeting < ApplicationRecord
   # no retrievable trace) — which Note deliberately does NOT do.
   has_many :fragments, as: :fragmentable, dependent: :delete_all
 
+  # What the glossary did to this transcript before it arrived (K4d): the
+  # replacements the recording app reports with the meeting. Rows about this
+  # meeting and nothing else, so they go with it (delete_all, the key cascades
+  # too). The heard forms of the glossary (term_corrections) are the other way
+  # round, see purge_fragment_content_embeddings.
+  has_many :term_applications, dependent: :delete_all
+
   # DoS guard (plan §3): notes/transcript are free-text paste targets with no
   # natural bound. A 2h transcript is ~100-200 KB, so a 1 MB cap per field is
   # generous but keeps the write path bounded. Bytes, not characters — the risk
