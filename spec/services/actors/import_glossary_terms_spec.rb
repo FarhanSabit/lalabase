@@ -1,0 +1,300 @@
+# frozen_string_literal: true
+
+require 'rails_helper'
+
+# Importing many glossary terms at once from the text of a textarea (K5): one
+# line per term, "Term" or "Term;Category". A new term is confirmed with
+# manage_glossary and proposed with only view_glossary; a term the glossary
+# already has is skipped and keeps its status; a dry run reports the same
+# numbers and writes nothing. Invented words and names only.
+RSpec.describe Actors::ImportGlossaryTerms, :ci_guard, type: :service do
+  let(:organisation) { create(:organisation) }
+  let(:other_organisation) { create(:organisation) }
+
+  before { ActsAsTenant.current_tenant = organisation }
+  after { ActsAsTenant.current_tenant = nil }
+
+  let(:manager) { member_with(role_with('manage_glossary')) }
+  let(:viewer) { member_with(role_with('view_glossary')) }
+
+  def role_with(*glossary_actions)
+    role = create(:role, organisation: organisation)
+    glossary_actions.each { |action| create(:permission, role: role, category: 'glossary', action: action, allowed: true) }
+    role
+  end
+
+  def member_with(role)
+    user = create(:user, first_name: 'Anna', last_name: "Beispiel#{SecureRandom.hex(2)}")
+    create(:membership, user: user, organisation: organisation, role: role)
+    user
+  end
+
+  # The actor before its call: the example calls it and then reads its
+  # report, as the controller does.
+  def importer(text, user: manager, dry_run: false)
+    described_class.new(organisation: organisation, text: text, current_user: user, dry_run: dry_run)
+  end
+
+  # Every count of a report: the ones named, the others zero.
+  def counts(**named)
+    { new: 0, existing: 0, rejected: 0, duplicate: 0, invalid: 0, created: 0, proposed: 0, categorized: 0 }.merge(named)
+  end
+
+  def category_name(key, locale)
+    I18n.t(key, scope: 'views.organisations.glossary.categories', locale: locale)
+  end
+
+  # The terms of one organisation, whatever the current tenant is.
+  def terms_of(owner)
+    GlossaryTerm.unscoped.where(organisation_id: owner.id)
+  end
+
+  describe 'new terms' do
+    it 'writes 200 lines as 200 confirmed terms with their category and creator, with manage_glossary' do
+      categories = GlossaryTerm::CATEGORIES
+      lines = (1..200).to_h { |n| ["Zorbel #{n}", categories[n % categories.size]] }
+      actor = importer(lines.map { |term, category| "#{term};#{category}" }.join("\n"))
+
+      result = actor.call
+
+      expect(result).to be_success
+      expect(result.resource).to eq(organisation)
+      expect(terms_of(organisation).to_h { |term| [term.term, term.category] }).to eq(lines)
+      expect(terms_of(organisation).distinct.pluck(:status, :created_by_id)).to eq([['confirmed', manager.id]])
+      expect(actor.report.counts).to eq(counts(new: 200, created: 200))
+    end
+
+    it 'proposes new terms with only view_glossary, with their creator' do
+      actor = importer("Zorbel;product\nWub", user: viewer)
+
+      expect(actor.call).to be_success
+      expect(terms_of(organisation).order(:normalized_term).pluck(:term, :category, :status, :created_by_id))
+        .to eq([['Wub', nil, 'proposed', viewer.id], ['Zorbel', 'product', 'proposed', viewer.id]])
+      expect(actor.report.counts).to eq(counts(new: 2, proposed: 2))
+    end
+
+    # A failure at one term leaves none of the others written.
+    it 'writes all lines or none' do
+      allow_any_instance_of(GlossaryTerm).to receive(:save!).and_wrap_original do |original, *args, **options|
+        raise ActiveRecord::StatementInvalid, 'Wub fails' if original.receiver.term == 'Wub'
+
+        original.call(*args, **options)
+      end
+
+      expect { importer("Quarnix\nWub\nZorbel").call }.to raise_error(ActiveRecord::StatementInvalid)
+      expect(terms_of(organisation).count).to eq(0)
+    end
+  end
+
+  describe 'the lines of a textarea' do
+    it 'splits at each kind of line break and at the first semicolon, and cleans each part' do
+      actor = importer("  Zorbel ;  product \r\n\r\nWub;company;x\rQuarnix Hub\n")
+
+      expect(actor.call).to be_success
+      expect(actor.report.lines).to eq(
+        [
+          described_class::Line.new(number: 1, text: 'Zorbel ; product', term: 'Zorbel', category: 'product',
+                                    verdict: :new, existing_status: nil),
+          described_class::Line.new(number: 3, text: 'Wub;company;x', term: 'Wub', category: nil,
+                                    verdict: :new, existing_status: nil),
+          described_class::Line.new(number: 4, text: 'Quarnix Hub', term: 'Quarnix Hub', category: nil,
+                                    verdict: :new, existing_status: nil)
+        ]
+      )
+    end
+  end
+
+  describe 'the limit' do
+    def numbered_terms(count)
+      (1..count).map { |n| "Quarnix #{n}" }
+    end
+
+    # Between two terms a line of a space and a zero-width space: blank once cleaned.
+    it 'takes 500 lines that are not blank; blank lines do not count and the others keep their numbers' do
+      actor = importer("#{numbered_terms(500).join("\n ​\n")}\n\n")
+
+      expect(actor.call).to be_success
+      expect(terms_of(organisation).count).to eq(500)
+      expect(actor.report.lines.map(&:number)).to eq((1..999).step(2).to_a)
+    end
+
+    # The 501st line is invalid: the limit counts lines, not terms.
+    it 'refuses 501 lines that are not blank as a whole, and writes nothing' do
+      result = importer([*numbered_terms(500), ';product'].join("\n")).call
+
+      expect(result).not_to be_success
+      expect(result.code).to eq(:too_many_lines)
+      expect(terms_of(organisation).count).to eq(0)
+    end
+
+    it 'refuses 501 lines in a dry run too' do
+      actor = importer(numbered_terms(501).join("\n"), dry_run: true)
+
+      expect(actor.call.code).to eq(:too_many_lines)
+      expect(actor.report).to be_nil
+      expect(terms_of(organisation).count).to eq(0)
+    end
+
+    it 'refuses a text without a line that is not blank' do
+      expect(importer(" \n​\n\t\r\n").call.code).to eq(:empty)
+      expect(importer(nil).call.code).to eq(:empty)
+    end
+  end
+
+  describe 'duplicates in the list' do
+    it 'are lines of a form already in the list: the first spelling wins' do
+      actor = importer("ZorBel Hub;product\nzorbel hub\nZorbel​ Hub;company\nZorbel  Hub\nWub")
+
+      expect(actor.call).to be_success
+      expect(terms_of(organisation).order(:normalized_term).pluck(:term, :category))
+        .to eq([['Wub', nil], ['ZorBel Hub', 'product']])
+      expect(actor.report.lines.map { |line| [line.number, line.term, line.verdict] }).to eq(
+        [[1, 'ZorBel Hub', :new], [2, 'zorbel hub', :duplicate], [3, 'Zorbel Hub', :duplicate],
+         [4, 'Zorbel Hub', :duplicate], [5, 'Wub', :new]]
+      )
+      expect(actor.report.counts).to eq(counts(new: 2, created: 2, duplicate: 3))
+    end
+  end
+
+  describe 'terms the glossary has' do
+    it 'skips a term of each status and counts it; a rejected one stays rejected' do
+      create(:glossary_term, organisation: organisation, term: 'Zorbel')
+      create(:glossary_term, :proposed, organisation: organisation, term: 'Wub')
+      create(:glossary_term, :rejected, organisation: organisation, term: 'Quarnix')
+      actor = importer("ZORBEL\nwub\nQuarnix\nZorbel-Hub")
+
+      expect(actor.call).to be_success
+      expect(actor.report.lines.map { |line| [line.term, line.verdict, line.existing_status] }).to eq(
+        [['ZORBEL', :existing, 'confirmed'], ['wub', :existing, 'proposed'], ['Quarnix', :rejected, 'rejected'],
+         ['Zorbel-Hub', :new, nil]]
+      )
+      # Spelling and status as they were; only the new term is added.
+      expect(terms_of(organisation).order(:normalized_term).pluck(:term, :status))
+        .to eq([%w[Quarnix rejected], %w[Wub proposed], %w[Zorbel confirmed], %w[Zorbel-Hub confirmed]])
+      expect(actor.report.counts).to eq(counts(new: 1, created: 1, existing: 2, rejected: 1))
+    end
+
+    it 'gives a term without a category the category of its line, with manage_glossary' do
+      create(:glossary_term, organisation: organisation, term: 'Zorbel')
+      create(:glossary_term, organisation: organisation, term: 'Wub', category: 'company')
+      create(:glossary_term, :rejected, organisation: organisation, term: 'Quarnix')
+      actor = importer("zorbel;product\nWub;product\nQuarnix;place")
+
+      expect(actor.call).to be_success
+      # A category a term has stays; a rejected term stays rejected.
+      expect(terms_of(organisation).order(:normalized_term).pluck(:term, :category, :status))
+        .to eq([%w[Quarnix place rejected], %w[Wub company confirmed], %w[Zorbel product confirmed]])
+      expect(actor.report.counts).to eq(counts(existing: 2, rejected: 1, categorized: 2))
+    end
+
+    it 'leaves a term without a category as it is with only view_glossary' do
+      term = create(:glossary_term, organisation: organisation, term: 'Zorbel')
+      actor = importer('Zorbel;product', user: viewer)
+
+      expect(actor.call).to be_success
+      expect(term.reload.slice(:category, :lock_version)).to eq('category' => nil, 'lock_version' => 0)
+      expect(actor.report.counts).to eq(counts(existing: 1))
+    end
+  end
+
+  describe 'the category of a line' do
+    it 'is a key, or a display name in German or English, in any case; an unknown one is none' do
+      text = [
+        'Zorbel 1;product',
+        "Zorbel 2;#{category_name(:company, :de)}",
+        "Zorbel 3;#{category_name(:domain, :en)}",
+        "Zorbel 4;#{category_name(:place, :de).upcase}",
+        "Zorbel 5; #{category_name(:foreign, :en).downcase} ",
+        'Zorbel 6;PRODUCT',
+        'Zorbel 7;Planet',
+        'Zorbel 8;'
+      ].join("\n")
+      actor = importer(text)
+
+      expect(actor.call).to be_success
+      expected = ['product', 'company', 'domain', 'place', 'foreign', 'product', nil, nil]
+      expect(actor.report.lines.map(&:category)).to eq(expected)
+      expect(terms_of(organisation).order(:normalized_term).pluck(:category)).to eq(expected)
+      expect(actor.report.counts).to eq(counts(new: 8, created: 8))
+    end
+  end
+
+  describe 'invalid lines' do
+    it 'are a blank term and one over the maximum length; nothing is written for them' do
+      longest = 'Q' * GlossaryTerm::MAX_LENGTH
+      actor = importer(";product\n#{'Z' * (GlossaryTerm::MAX_LENGTH + 1)}\n#{longest}")
+
+      expect(actor.call).to be_success
+      expect(actor.report.lines.map { |line| [line.number, line.verdict, line.term] })
+        .to eq([[1, :invalid, nil], [2, :invalid, nil], [3, :new, longest]])
+      expect(terms_of(organisation).pluck(:term)).to eq([longest])
+      expect(actor.report.counts).to eq(counts(invalid: 2, new: 1, created: 1))
+    end
+  end
+
+  describe 'a dry run' do
+    it 'writes nothing and reports what the import of the same text then does' do
+      uncategorized = create(:glossary_term, organisation: organisation, term: 'Zorbel')
+      create(:glossary_term, :rejected, organisation: organisation, term: 'Quarnix')
+      text = "Zorbel;product\nWub;company\nwub\nQuarnix\n;place\nZorbel-Hub"
+
+      dry = importer(text, dry_run: true)
+      expect(dry.call).to be_success
+      expect(terms_of(organisation).count).to eq(2)
+      expect(uncategorized.reload.slice(:category, :lock_version)).to eq('category' => nil, 'lock_version' => 0)
+      expect(dry.report.counts)
+        .to eq(counts(new: 2, created: 2, existing: 1, rejected: 1, duplicate: 1, invalid: 1, categorized: 1))
+
+      real = importer(text)
+      expect(real.call).to be_success
+      expect(real.report).to eq(dry.report)
+      expect(terms_of(organisation).count).to eq(4)
+      expect(uncategorized.reload.category).to eq('product')
+    end
+  end
+
+  # Someone saves the same term between the read of the glossary and the
+  # insert: the read misses it, the insert meets it.
+  describe 'a term created at the same moment by someone else' do
+    it 'counts as existing when the validation sees it' do
+      other = create(:glossary_term, organisation: organisation, term: 'Wub')
+      allow_any_instance_of(described_class).to receive(:existing_terms).and_return({})
+      actor = importer("Wub\nZorbel")
+
+      expect(actor.call).to be_success
+      expect(actor.report.lines.map { |line| [line.term, line.verdict, line.existing_status] })
+        .to eq([['Wub', :existing, 'confirmed'], ['Zorbel', :new, nil]])
+      expect(terms_of(organisation).where(normalized_term: 'wub').pluck(:id)).to eq([other.id])
+      expect(actor.report.counts).to eq(counts(existing: 1, new: 1, created: 1))
+    end
+
+    it 'counts as existing when the unique index reports it, and the import goes on' do
+      other = create(:glossary_term, organisation: organisation, term: 'Wub')
+      allow_any_instance_of(described_class).to receive(:existing_terms).and_return({})
+      allow_any_instance_of(GlossaryTerm).to receive(:term_not_taken)
+      actor = importer("Wub\nZorbel")
+
+      expect(actor.call).to be_success
+      expect(actor.report.lines.map { |line| [line.term, line.verdict, line.existing_status] })
+        .to eq([['Wub', :existing, 'confirmed'], ['Zorbel', :new, nil]])
+      expect(terms_of(organisation).order(:normalized_term).pluck(:term)).to eq(%w[Wub Zorbel])
+      expect(terms_of(organisation).find_by(normalized_term: 'wub').id).to eq(other.id)
+      expect(actor.report.counts).to eq(counts(existing: 1, new: 1, created: 1))
+    end
+  end
+
+  describe 'another organisation' do
+    it 'neither blocks the import nor is touched by it' do
+      foreign = ActsAsTenant.with_tenant(other_organisation) do
+        create(:glossary_term, organisation: other_organisation, term: 'Zorbel')
+      end
+      actor = importer('zorbel;product')
+
+      expect(actor.call).to be_success
+      expect(actor.report.lines.map(&:verdict)).to eq([:new])
+      expect(terms_of(organisation).pluck(:term, :category)).to eq([%w[zorbel product]])
+      expect(terms_of(other_organisation).sole.slice(:id, :term, :category, :lock_version))
+        .to eq('id' => foreign.id, 'term' => 'Zorbel', 'category' => nil, 'lock_version' => 0)
+    end
+  end
+end
