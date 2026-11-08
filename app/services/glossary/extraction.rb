@@ -26,18 +26,23 @@
 #   form, the spellings of accepted and dismissed proposals, the names of the people
 #   directory and of the active members (whole, first and last).
 # * A candidate of an open proposal (its term or one of its variants, compared by
-#   GlossaryText.compact) goes to that proposal instead of the model: occurrences,
-#   new spellings, new places.
-# * The rest in batches of BATCH_SIZE, at most MAX_AI_CALLS calls. An answer that
+#   GlossaryText.compact) goes to that proposal instead of the model: new
+#   spellings, new places and the occurrences of those places. Such candidates
+#   take none of the MAX_CANDIDATES places of the others: open proposals left
+#   undecided would else fill every later run.
+# * The rest, at most MAX_CANDIDATES, in batches of BATCH_SIZE, at most
+#   MAX_AI_CALLS calls (a safety net: five calls hold them today). An answer that
 #   could not be read skips its batch; when none could be read the run fails as
 #   parse_error. Any other failure ends the run with its code. What a batch brought
 #   is written before the next call, so it stays whatever comes after. At most
 #   MAX_PROPOSALS_PER_RUN new proposals.
 # * Every write first touches the run while it is running, in the same
-#   transaction: a run ended elsewhere (a start that found it stale) writes nothing
-#   more, and a run that moves does not turn stale.
-# * Memory: the texts are loaded LOAD_BATCH at a time and read once by the scan,
-#   which keeps counts and snippets, never a whole text.
+#   transaction, and so does every load batch of the scan: a run ended elsewhere
+#   (a start that found it stale) reads and writes nothing more, and a run that
+#   moves does not turn stale.
+# * Memory and time: the texts are loaded LOAD_BATCH at a time, each cut to
+#   MAX_SOURCE_CHARS, and read once by the scan, which keeps counts and snippets,
+#   never a whole text.
 # * stats: the shape in the header of GlossaryExtractionRun, plus parse_errors and
 #   since. truncated says whether MAX_SOURCES, MAX_CANDIDATES, MAX_AI_CALLS or
 #   MAX_PROPOSALS_PER_RUN cut anything.
@@ -49,10 +54,20 @@ module Glossary
     MAX_CANDIDATES = 300
     # The classifier's own bound per call (60): it refuses a bigger batch.
     BATCH_SIZE = Classifier::MAX_CANDIDATES
+    # A safety net: MAX_CANDIDATES fit into five calls today, so this binds
+    # only should those numbers change (the guard in the spec says so).
     MAX_AI_CALLS = 8
     MAX_PROPOSALS_PER_RUN = 300
     # Texts held in memory at a time.
     LOAD_BATCH = 100
+    # The characters of one text the scan reads; the rest is cut. Some 40
+    # pages: a long document names its terms early and often, so its start
+    # finds them, and a whole book would hold up the run. The bound of a batch:
+    # LOAD_BATCH texts of this length are ten million characters in memory,
+    # which the scan reads in some ten seconds on a developer machine (about a
+    # million characters a second), far below
+    # GlossaryExtractionRun::STALE_AFTER; the run is touched before each batch.
+    MAX_SOURCE_CHARS = 100_000
     # The areas of ProjectPermission whose reach the run reads.
     AREAS = %i[tickets notes documents].freeze
     # The one kind of scope there is (GlossaryExtractionRun::SCOPE_KINDS).
@@ -103,12 +118,12 @@ module Glossary
 
       @since = since
       touch!(scope: @run.scope.to_h.merge('since' => @since&.iso8601(6)))
+      keys = open_proposal_keys
       scan = CandidateScan.call(sources: sources(picks), known: known_forms, common_words: WordLists.common,
-                                max_candidates: MAX_CANDIDATES)
+                                max_candidates: MAX_CANDIDATES + keys.size)
       touch!
       @counts['candidates'] = scan.total
-      cut! if scan.truncated
-      code = classify(attach_to_open_proposals(scan.candidates))
+      code = classify(attach_to_open_proposals(scan, keys))
       code ? end_failed(code) : end_succeeded
     rescue Lost
       nil
@@ -200,14 +215,19 @@ module Glossary
     end
 
     # Read once, as the scan reads it: LOAD_BATCH texts at a time, one query per
-    # kind and batch, through the same rights as the picks. A row gone or out of
-    # reach in between, or without text, is skipped and not counted.
+    # kind and batch, through the same rights as the picks, each text cut to
+    # MAX_SOURCE_CHARS. A row gone or out of reach in between, or without text,
+    # is skipped and not counted. The scan reads while it pulls the texts, so
+    # the run is touched before each batch: a long scan does not turn it stale,
+    # and a run ended elsewhere reads no further batch.
     def sources(picks)
       Enumerator.new do |yielder|
         picks.each_slice(LOAD_BATCH) do |slice|
+          touch!
           texts = slice.group_by(&:type).to_h { |type, group| [type, send(TEXT_READERS.fetch(type), group.map(&:id))] }
           slice.each do |pick|
             project_id, text = texts.fetch(pick.type)[pick.id]
+            text = cut_to_size(text)
             next if text.blank?
 
             @read[SOURCE_KEYS.fetch(pick.type)] += 1
@@ -215,6 +235,19 @@ module Glossary
           end
         end
       end
+    end
+
+    # At most MAX_SOURCE_CHARS, cut between words as the scan cuts a snippet
+    # (CandidateScan#beginning): the piece of a word at the cut would be a
+    # candidate of its own. A text without a break keeps its first characters.
+    def cut_to_size(text)
+      return text if text.nil? || text.length <= MAX_SOURCE_CHARS
+
+      piece = text[0, MAX_SOURCE_CHARS]
+      return piece if text[MAX_SOURCE_CHARS].match?(/[[:space:]]/)
+
+      space = piece.rindex(/[[:space:]]/)
+      space ? piece[0, space] : piece
     end
 
     # Each text reader answers { id => [project_id, text] }. A ticket's text is the
@@ -246,11 +279,19 @@ module Glossary
     end
 
     # The parts of a text joined by line breaks, so a name never runs from one part
-    # into the next.
+    # into the next. The database sends at most one character more than
+    # MAX_SOURCE_CHARS of each column, so a batch holds no whole file and the cut
+    # (cut_to_size) still sees whether it falls into a word. A ticket's
+    # description comes whole through Action Text and is cut once it is text.
     def texts(relation, project_column, *columns)
       table = relation.model.arel_table
-      relation.pluck(table[:id], project_column, *columns.map { |column| table[column] })
+      relation.pluck(table[:id], project_column, *columns.map { |column| capped(table[column]) })
               .to_h { |id, project_id, *parts| [id, [project_id, parts.compact_blank.join("\n")]] }
+    end
+
+    # LEFT counts characters, not bytes.
+    def capped(column)
+      Arel::Nodes::NamedFunction.new('LEFT', [column, Arel::Nodes.build_quoted(MAX_SOURCE_CHARS + 1)])
     end
 
     def known_forms
@@ -280,13 +321,17 @@ module Glossary
           .flat_map { |first, last| [[first, last].compact_blank.join(' '), first, last] }
     end
 
-    # The candidates for the model: those of no open proposal. The others go to
-    # their proposal now.
-    def attach_to_open_proposals(candidates)
-      keys = open_proposal_keys
-      found, fresh = candidates.partition { |candidate| keys.key?(candidate.key) }
+    # The candidates for the model: the best MAX_CANDIDATES of those of no open
+    # proposal. The others go to their proposal now. They take no place of a
+    # fresh one: a key names at most one candidate, so the scan, keeping one
+    # more per key of an open proposal, holds the best MAX_CANDIDATES fresh ones
+    # whatever it found of the open proposals. Cut is what the scan left out or
+    # a fresh one past MAX_CANDIDATES.
+    def attach_to_open_proposals(scan, keys)
+      found, fresh = scan.candidates.partition { |candidate| keys.key?(candidate.key) }
+      cut! if scan.truncated || fresh.size > MAX_CANDIDATES
       add_to_open_proposals(found.group_by { |candidate| keys.fetch(candidate.key) }) if found.any?
-      fresh
+      fresh.first(MAX_CANDIDATES)
     end
 
     # Each compared key of an open proposal to that proposal: the terms first, so a
@@ -303,6 +348,14 @@ module Glossary
     # Actors::MergeGlossaryProposals locks two), and only while it is open: one
     # accepted, dismissed or merged away in the meantime stays as it is. No glossary
     # term is locked, so the one lock order of the glossary (the term first) holds.
+    #
+    # A proposal gains the occurrences of the places it gains, so a place it has
+    # counts once however often a run reads it again (a run that reads
+    # everything, a row that changed). What a run finds past the places a
+    # proposal holds (GlossaryProposal::MAX_SOURCES) adds nothing: there the
+    # proposal cannot tell a source it counted before from a new one, and a count
+    # that stays low orders the review list better than one that grows with every
+    # read.
     def add_to_open_proposals(found)
       GlossaryProposal.transaction do
         touch!
@@ -311,10 +364,11 @@ module Glossary
         places = known_places(proposals.map(&:id))
         rows = proposals.flat_map do |proposal|
           candidates = found.fetch(proposal.id)
-          proposal.occurrences += candidates.sum(&:occurrences)
+          gained = new_places(proposal.id, candidates, places.fetch(proposal.id, []))
+          proposal.occurrences += gained.sum { |place| place.fetch(:occurrences) }
           proposal.variants = with_new_spellings(proposal, candidates)
           proposal.save!
-          new_places(proposal.id, candidates, places.fetch(proposal.id, []))
+          gained
         end
         insert_places(rows)
         @counts['proposals_updated'] = proposals.size

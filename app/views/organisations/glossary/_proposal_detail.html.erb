@@ -7,11 +7,13 @@
     kind and its project for every reader of the glossary (E3); its snippet
     only for a reader of the source, asked now and for all places at once
     (glossary_source_access), because the run read them with the rights of
-    the account that started it. A place whose source is gone says so. The
-    body ends at reading width. %>
+    the account that started it. The hint, written from those snippets, only
+    for a reader of one of them (glossary_proposal_hint). A place whose
+    source is gone says so. The body ends at reading width. %>
 <% can_decide = policy(proposal).accept? %>
 <% sources = proposal.glossary_proposal_sources.includes(:project).order(occurrences: :desc, created_at: :asc, id: :asc).to_a %>
 <% access = glossary_source_access(sources) %>
+<% hint = glossary_proposal_hint(proposal, access, sources: sources) %>
 <% scope = 'views.organisations.glossary.proposals' %>
 <div class="people-detail glossary-detail" data-glossary-proposal-detail>
   <%= render 'organisations/glossary/lane_head', edit_url: nil %>
@@ -23,8 +25,8 @@
         <%= [(glossary_category_name(proposal.category) if proposal.category), glossary_proposal_status_name(proposal.status),
              t("#{scope}.occurrences", count: proposal.occurrences)].compact.join(' · ') %>
       </p>
-      <% if proposal.hint.present? %>
-        <p class="people-form__hint" data-glossary-proposal-hint><%= t("#{scope}.show.hint", hint: proposal.hint) %></p>
+      <% if hint %>
+        <p class="people-form__hint" data-glossary-proposal-hint><%= t("#{scope}.show.hint", hint: hint) %></p>
       <% end %>
     </div>
 

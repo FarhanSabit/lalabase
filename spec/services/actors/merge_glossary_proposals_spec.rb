@@ -85,6 +85,18 @@ RSpec.describe Actors::MergeGlossaryProposals, :ci_guard, type: :service do
       expect(full.variants.last(2)).to eq(['Quarnix 9', 'Zorbl Hub'])
     end
 
+    # The source is deleted: a spelling of it with no place left would be known
+    # to nobody, and the next run would propose it again. Its other variants
+    # only fill what is left.
+    it "keeps the source's spelling when the target is full, in the place of the target's last own variant" do
+      own = (1..GlossaryProposal::MAX_VARIANTS).map { |n| "Quarnix #{n}" }
+      full = create(:glossary_proposal, organisation: organisation, term: 'Quarnix', variants: own)
+
+      expect(merge(into: full)).to be_success
+
+      expect(full.reload.variants).to eq([*own.first(GlossaryProposal::MAX_VARIANTS - 1), 'Zorbl Hub'])
+    end
+
     # Forms the target has, and its own term, are dropped before the cap, so
     # they take no place a new form could have.
     it 'fills the places left only with forms it does not have' do

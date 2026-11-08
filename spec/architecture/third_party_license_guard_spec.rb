@@ -35,7 +35,9 @@ module ThirdPartyLicenseGuard
   # one more file in the section, or another license, is red.
   #
   # Only shrinks, like GEM_EXCEPTIONS: an entry whose file is not tracked any more, or
-  # whose notice no longer declares what the entry recorded, is red.
+  # whose notice no longer declares what the entry recorded, is red. And it is for
+  # data only: an entry holds for a DATA_FILE under DATA_LICENSES (declared and
+  # taken), anything else covers nothing and is red (invalid_file_exceptions).
   FILE_EXCEPTIONS = {
     'vendor/wordlists/de_50k.txt' => {
       declared: 'CC-BY-SA-4.0', taken: 'CC-BY-SA-4.0',
@@ -46,6 +48,13 @@ module ThirdPartyLicenseGuard
       reason: 'Data, not code; unchanged; named in THIRD_PARTY_NOTICES.txt. Read by Glossary::WordLists.'
     }
   }.freeze
+
+  # What FILE_EXCEPTIONS may name: a plain text data file directly in
+  # vendor/wordlists/ (no folder below it, so no path leads elsewhere), under a
+  # license written for data. A share-alike license on code, or a copyleft one on
+  # anything, still has to go.
+  DATA_FILE = %r{\Avendor/wordlists/[^/]+\.(?:txt|tsv|csv)\z}
+  DATA_LICENSES = %w[CC-BY-SA-4.0 CC-BY-4.0].freeze
 
   NO_DECLARATION = [].freeze
 
@@ -235,11 +244,37 @@ module ThirdPartyLicenseGuard
 
   # The files of a section that no entry covers for every license off the list. An entry
   # covers its own path and the one license it declares: a directory line has no entry,
-  # and a second license off the list is never declared.
+  # and a second license off the list is never declared. An entry for anything but data
+  # covers nothing.
   def files_without_exception(paths, unlisted, exceptions)
     return [] if unlisted.empty?
 
-    paths.reject { |path| unlisted.all? { |license| exceptions.dig(path, :declared) == license } }
+    paths.reject do |path|
+      entry = exceptions[path]
+      entry && data_exception?(path, entry) && unlisted.all? { |license| entry[:declared] == license }
+    end
+  end
+
+  def data_exception?(path, entry)
+    path.match?(DATA_FILE) && exception_licenses(entry).all? { |license| DATA_LICENSES.include?(license) }
+  end
+
+  # Both licenses of an entry, a missing one as nil.
+  def exception_licenses(entry)
+    entry.values_at(:declared, :taken).uniq
+  end
+
+  # The entries of FILE_EXCEPTIONS that name no data file in vendor/wordlists/, or a
+  # license that is not for data.
+  def invalid_file_exceptions(exceptions = FILE_EXCEPTIONS)
+    exceptions.filter_map do |path, entry|
+      if !path.match?(DATA_FILE)
+        "#{path} is no data file in vendor/wordlists/: FILE_EXCEPTIONS names word lists, never code"
+      elsif !data_exception?(path, entry)
+        "#{path} names #{list(exception_licenses(entry).map { |license| license || 'nothing' })}, " \
+          "not only licenses for data (#{list(DATA_LICENSES)})"
+      end
+    end
   end
 
   # An exception for a file that went, or for a license its notice no longer states.
@@ -438,8 +473,8 @@ RSpec.describe 'Third-party license guard' do
       describe 'with an exception for single files' do
         let(:exceptions) do
           {
-            'vendor/data/zorbel.txt' => { declared: 'CC-BY-SA-4.0', taken: 'CC-BY-SA-4.0', reason: 'Data.' },
-            'vendor/data/quarnix.txt' => { declared: 'CC-BY-SA-4.0', taken: 'CC-BY-SA-4.0', reason: 'Data.' }
+            'vendor/wordlists/zorbel.txt' => { declared: 'CC-BY-SA-4.0', taken: 'CC-BY-SA-4.0', reason: 'Data.' },
+            'vendor/wordlists/quarnix.txt' => { declared: 'CC-BY-SA-4.0', taken: 'CC-BY-SA-4.0', reason: 'Data.' }
           }
         end
 
@@ -459,36 +494,74 @@ RSpec.describe 'Third-party license guard' do
         end
 
         it 'accepts a license off the list when the table names every file of the section with it' do
-          expect(offenses(data_notice('vendor/data/zorbel.txt', 'vendor/data/quarnix.txt'))).to be_empty
+          expect(offenses(data_notice('vendor/wordlists/zorbel.txt', 'vendor/wordlists/quarnix.txt'))).to be_empty
         end
 
         it 'gives nothing to a file the table does not name, and names that file' do
-          expect(offenses(data_notice('vendor/data/zorbel.txt', 'vendor/data/other.txt')))
-            .to contain_exactly('The notice for vendor/data/other.txt declares CC-BY-SA-4.0, not allowed: CC-BY-SA-4.0')
+          expect(offenses(data_notice('vendor/wordlists/zorbel.txt', 'vendor/wordlists/other.txt')))
+            .to contain_exactly('The notice for vendor/wordlists/other.txt declares CC-BY-SA-4.0, not allowed: CC-BY-SA-4.0')
         end
 
         it 'gives nothing to a directory line, also next to named files' do
-          expect(offenses(data_notice('vendor/data/zorbel.txt', 'vendor/data/')))
-            .to contain_exactly('The notice for vendor/data/ declares CC-BY-SA-4.0, not allowed: CC-BY-SA-4.0')
+          expect(offenses(data_notice('vendor/wordlists/zorbel.txt', 'vendor/wordlists/')))
+            .to contain_exactly('The notice for vendor/wordlists/ declares CC-BY-SA-4.0, not allowed: CC-BY-SA-4.0')
         end
 
         it 'gives nothing when the notice states another license than the entry recorded' do
-          expect(offenses(data_notice('vendor/data/zorbel.txt', license: 'CC-BY-SA-3.0')))
+          expect(offenses(data_notice('vendor/wordlists/zorbel.txt', license: 'CC-BY-SA-3.0')))
             .to contain_exactly(a_string_including('not allowed: CC-BY-SA-3.0'))
-          expect(offenses(data_notice('vendor/data/zorbel.txt', license: 'GPL-3.0-only')))
+          expect(offenses(data_notice('vendor/wordlists/zorbel.txt', license: 'GPL-3.0-only')))
             .to contain_exactly(a_string_including('not allowed: GPL-3.0-only'))
         end
 
         it 'gives nothing to a second license off the list in the same section' do
-          text = data_notice('vendor/data/zorbel.txt').sub('Path:', "  License: GPL-3.0-only\nPath:")
+          text = data_notice('vendor/wordlists/zorbel.txt').sub('Path:', "  License: GPL-3.0-only\nPath:")
 
           expect(offenses(text)).to contain_exactly(a_string_including('not allowed: CC-BY-SA-4.0, GPL-3.0-only'))
         end
 
         it 'gives nothing to a section that states no license' do
-          bare = data_notice('vendor/data/zorbel.txt').sub(/^License:.*\n/, '')
+          bare = data_notice('vendor/wordlists/zorbel.txt').sub(/^License:.*\n/, '')
 
-          expect(offenses(bare)).to contain_exactly('The notice for vendor/data/zorbel.txt declares no license')
+          expect(offenses(bare)).to contain_exactly('The notice for vendor/wordlists/zorbel.txt declares no license')
+        end
+
+        # The table is for word lists, data and not code: an entry that names
+        # code, or a license meant for code, covers nothing, even when its
+        # notice matches it word for word.
+        {
+          'a file outside vendor/wordlists/' => ['vendor/javascript/zorbel.js', 'GPL-3.0-only'],
+          'a file in a folder below it' => ['vendor/wordlists/wub/zorbel.txt', 'CC-BY-SA-4.0'],
+          'a file of vendor/wordlists/ that holds no data' => ['vendor/wordlists/zorbel.rb', 'CC-BY-SA-4.0'],
+          'a license that is not for data' => ['vendor/wordlists/zorbel.txt', 'GPL-3.0-only']
+        }.each do |label, (path, license)|
+          it "gives nothing to an entry for #{label}, even with a notice that matches it" do
+            table = { path => { declared: license, taken: license, reason: 'Data.' } }
+            sections = ThirdPartyLicenseGuard.notice_sections(data_notice(path, license: license))
+
+            expect(ThirdPartyLicenseGuard.notice_offenses(sections, exceptions: table))
+              .to contain_exactly(a_string_including(path, "not allowed: #{license}"))
+          end
+        end
+
+        it 'calls an entry invalid unless it names a data file in vendor/wordlists/ and licenses for data' do
+          table = {
+            'vendor/wordlists/zorbel.txt' => { declared: 'CC-BY-SA-4.0', taken: 'CC-BY-SA-4.0' },
+            'vendor/wordlists/quarnix.tsv' => { declared: 'CC-BY-4.0', taken: 'CC-BY-4.0' },
+            'vendor/javascript/zorbel.js' => { declared: 'CC-BY-SA-4.0', taken: 'CC-BY-SA-4.0' },
+            'vendor/wordlists/zorbel.rb' => { declared: 'CC-BY-SA-4.0', taken: 'CC-BY-SA-4.0' },
+            'vendor/wordlists/gpl.txt' => { declared: 'GPL-3.0-only', taken: 'GPL-3.0-only' },
+            'vendor/wordlists/taken.txt' => { declared: 'CC-BY-SA-4.0', taken: 'GPL-3.0-only' },
+            'vendor/wordlists/bare.txt' => { declared: 'CC-BY-SA-4.0' }
+          }
+
+          expect(ThirdPartyLicenseGuard.invalid_file_exceptions(table)).to contain_exactly(
+            a_string_including('vendor/javascript/zorbel.js', 'no data file'),
+            a_string_including('vendor/wordlists/zorbel.rb', 'no data file'),
+            a_string_including('vendor/wordlists/gpl.txt', 'GPL-3.0-only'),
+            a_string_including('vendor/wordlists/taken.txt', 'GPL-3.0-only'),
+            a_string_including('vendor/wordlists/bare.txt', 'nothing')
+          )
         end
 
         it 'calls an entry stale when its file is not tracked, no notice names it, or its notice states something else' do
@@ -627,6 +700,16 @@ RSpec.describe 'Third-party license guard' do
       stale = ThirdPartyLicenseGuard.stale_file_exceptions(ThirdPartyLicenseGuard.tracked_files, sections)
 
       expect(stale).to be_empty, "FILE_EXCEPTIONS only shrinks. Read the license again, or remove:\n#{stale.join("\n")}"
+    end
+
+    it 'keeps every file exception to a data file in vendor/wordlists/ under a license for data' do
+      invalid = ThirdPartyLicenseGuard.invalid_file_exceptions
+
+      expect(invalid).to be_empty, <<~MESSAGE
+        FILE_EXCEPTIONS is for word lists, never for code:
+
+        #{invalid.join("\n")}
+      MESSAGE
     end
 
     it 'names no file that is not there' do

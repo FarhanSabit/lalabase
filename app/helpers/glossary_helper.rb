@@ -12,7 +12,8 @@
 #
 # The review list of the extraction (K5b) follows the same rule: every
 # proposal with the projects and kinds of its sources, but the snippet of a
-# source only for a reader of that source (glossary_source_access).
+# source only for a reader of that source (glossary_source_access), and the
+# model's hint only for a reader of one of its sources (glossary_proposal_hint).
 module GlossaryHelper
   # What a row opens in the lane: a term, or a proposal of the review list.
   # They exclude each other.
@@ -28,6 +29,10 @@ module GlossaryHelper
   SourceAccess = Data.define(:readable, :present) do
     def readable?(source)
       readable.include?([source.source_type, source.source_id])
+    end
+
+    def any_readable?(sources)
+      sources.any? { |source| readable?(source) }
     end
 
     def gone?(source)
@@ -199,6 +204,16 @@ module GlossaryHelper
   # the loaded sources.
   def glossary_proposal_projects(proposal)
     proposal.glossary_proposal_sources.filter_map { |source| source.project&.name }.uniq.sort_by { |name| [name.downcase, name] }
+  end
+
+  # The model's hint, or nil: only for a reader of at least one of the
+  # proposal's sources. The model wrote it from their snippets, read with the
+  # rights of the account that started the run, so for a reader of none of
+  # them the sentence could repeat what such a source says. access is
+  # glossary_source_access for these sources: the list asks it once for the
+  # sources of every row, the lane for its own.
+  def glossary_proposal_hint(proposal, access, sources: proposal.glossary_proposal_sources)
+    proposal.hint.presence if access.any_readable?(sources)
   end
 
   # Ticket, Kommentar, Notiz, ...: what every reader may know of a source.

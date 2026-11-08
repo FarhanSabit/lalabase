@@ -68,6 +68,16 @@ RSpec.describe Glossary::Extraction, :ci_guard do
     run.reload
   end
 
+  # A later run of the same starter, once the one before it has ended. calls
+  # holds the classifier calls of this run only.
+  def run_again(everything: true)
+    calls.clear
+    later = create(:glossary_extraction_run, :running, organisation: organisation, started_by: starter,
+                                                       scope: { 'kind' => 'organisation', 'everything' => everything })
+    described_class.call(run: later)
+    later.reload
+  end
+
   # The terms stand next to no other capitalised word, so each is a candidate of its own.
   def text(*terms)
     "Wir nutzen #{terms.join(', ')} im Team."
@@ -370,6 +380,17 @@ RSpec.describe Glossary::Extraction, :ci_guard do
       expect(run.stats).to include('proposals_created' => 1, 'truncated' => true)
     end
 
+    # With the numbers of today MAX_AI_CALLS and MAX_PROPOSALS_PER_RUN never
+    # bind: the MAX_CANDIDATES a run sends fit into five calls of BATCH_SIZE
+    # (300 / 60), fewer than MAX_AI_CALLS (8), and a run cannot propose more
+    # than it sends. MAX_AI_CALLS stays as a safety net, the bound on what a run
+    # costs should one of the other numbers change. Red here means: decide
+    # whether the net may bind, then change the numbers or this example.
+    it 'fits what it sends into MAX_AI_CALLS calls and a proposal for each into MAX_PROPOSALS_PER_RUN' do
+      expect(described_class::MAX_CANDIDATES).to be <= described_class::BATCH_SIZE * described_class::MAX_AI_CALLS
+      expect(described_class::MAX_PROPOSALS_PER_RUN).to be >= described_class::MAX_CANDIDATES
+    end
+
     it 'asks the model no more once MAX_PROPOSALS_PER_RUN proposals are written' do
       stub_const('Glossary::Extraction::BATCH_SIZE', 1)
       stub_const('Glossary::Extraction::MAX_PROPOSALS_PER_RUN', 1)
@@ -379,6 +400,74 @@ RSpec.describe Glossary::Extraction, :ci_guard do
 
       expect(Glossary::Classifier).to have_received(:call).once
       expect(run.stats).to include('ai_calls' => 1, 'proposals_created' => 1, 'truncated' => true)
+    end
+  end
+
+  describe 'long texts and long scans' do
+    include ActiveSupport::Testing::TimeHelpers
+
+    after { travel_back }
+
+    # Ticket and note: "Anfrage" or "Notiz", a line break, then the content.
+    # The cut at 40 falls into Vexoria and into Glimmoxwerk; Bexlo and Plumbix
+    # stand after it.
+    it 'reads a text only up to MAX_SOURCE_CHARS, whatever its kind, and cuts it between words' do
+      stub_const('Glossary::Extraction::MAX_SOURCE_CHARS', 40)
+      ticket("#{text('Quarnix')} Vexoria #{'und ' * 20}Bexlo")
+      note("#{text('Trondel')} Glimmoxwerk und Plumbix")
+
+      extract
+
+      # Not "vexo" or "glimmo" either: the piece of a word at the cut is no word.
+      expect(sent_keys).to contain_exactly('quarnix', 'trondel')
+      expect(run.stats['sources']).to include('tickets' => 1, 'notes' => 1)
+    end
+
+    # Calls each_text for every text the scan reads, as it reads it.
+    def during_scan(&each_text)
+      allow(Glossary::CandidateScan).to receive(:call).and_wrap_original do |scan, sources:, **options|
+        scan.call(sources: sources.lazy.map { |source| source.tap(&each_text) }, **options)
+      end
+    end
+
+    # One text per batch: the one query per kind and batch repeats, and
+    # Prosopite would read the batches as an N+1 (the example with real
+    # batches below watches the queries).
+    def extract_in_batches_of_one
+      stub_const('Glossary::Extraction::LOAD_BATCH', 1)
+      Prosopite.pause { extract }
+    end
+
+    it 'touches the run before each load batch, so a scan that takes long does not turn it stale' do
+      %w[Quarnix Vexoria Plumbix].each { |term| ticket(text(term)) }
+      seen = []
+      # Six minutes per text: the three outlast STALE_AFTER (ten minutes).
+      during_scan do
+        seen << GlossaryExtractionRun.find(run.id).then { |stored| [stored.updated_at, stored.stale?] }
+        travel(6.minutes)
+      end
+
+      extract_in_batches_of_one
+
+      expect(seen.size).to eq(3)
+      expect(seen.map(&:first)).to eq(seen.map(&:first).uniq.sort)
+      expect(seen.map(&:last)).to eq([false, false, false])
+      expect(run).to have_attributes(status: 'succeeded')
+    end
+
+    it 'reads no further batch once the run was ended elsewhere during its scan' do
+      %w[Quarnix Vexoria Plumbix].each { |term| ticket(text(term)) }
+      read = 0
+      during_scan do
+        read += 1
+        GlossaryExtractionRun.find(run.id).mark_failed!('stale') if read == 1
+      end
+
+      extract_in_batches_of_one
+
+      expect(read).to eq(1)
+      expect(run).to have_attributes(status: 'failed', error_code: 'stale')
+      expect(Glossary::Classifier).not_to have_received(:call)
     end
   end
 
@@ -430,6 +519,73 @@ RSpec.describe Glossary::Extraction, :ci_guard do
       expect(Glossary::Classifier).not_to have_received(:call)
       expect(proposal.reload).to have_attributes(occurrences: 1, variants: ['Plumbix'])
       expect(run.stats['proposals_updated']).to eq(1)
+    end
+
+    # The candidates of open proposals take none of the MAX_CANDIDATES places:
+    # else the open proposals of a first run, left undecided, would fill every
+    # later run, and a new term would never reach the model.
+    it 'sends up to MAX_CANDIDATES fresh candidates besides the candidates of open proposals' do
+      stub_const('Glossary::Extraction::MAX_CANDIDATES', 1)
+      2.times { ticket(text('Quarnix')) }
+      ticket(text('Vexoria'))
+
+      extract
+      expect(sent_keys).to eq(['quarnix'])
+      expect(run.stats).to include('candidates' => 2, 'truncated' => true)
+
+      later = run_again
+
+      expect(sent_keys).to eq(['vexoria'])
+      expect(later.stats).to include('candidates' => 2, 'ai_calls' => 1, 'proposals_created' => 1, 'truncated' => false)
+      expect(proposal_terms).to contain_exactly('Quarnix', 'Vexoria')
+    end
+
+    # The count orders the review list: a place read again, by a run that reads
+    # everything or because its row changed, counts once.
+    it 'counts the occurrences of a place once, however often a run reads it again' do
+      first = ticket(text('Quarnix'))
+      ticket(text('Quarnix'))
+
+      extract
+      proposal = GlossaryProposal.find_by!(organisation: organisation, normalized_term: 'quarnix')
+      expect(proposal.occurrences).to eq(2)
+
+      # Two lines, not a loop: Prosopite reads runs started from one line as an N+1.
+      run_again
+      run_again
+      expect(proposal.reload.occurrences).to eq(2)
+
+      first.update!(content: "#{text('Quarnix')} Quarnix noch einmal.")
+      expect(run_again(everything: false).stats['sources']['tickets']).to eq(1)
+      expect(proposal.reload.occurrences).to eq(2)
+
+      ticket(text('Quarnix'))
+      run_again(everything: false)
+      expect(proposal.reload.occurrences).to eq(3)
+      expect(proposal.glossary_proposal_sources.count).to eq(3)
+    end
+
+    # The run reads the keys of the open proposals before its scan and locks
+    # the proposals after it, so a person may decide one in between, while the
+    # scan reads (here: right after it). The lock takes only a proposal that is
+    # still open.
+    {
+      'accepted' => ->(proposal, user) { Actors::AcceptGlossaryProposal.call(proposal: proposal, current_user: user) },
+      'dismissed' => ->(proposal, user) { Actors::DismissGlossaryProposal.call(proposal: proposal, current_user: user) }
+    }.each do |decision, decide|
+      it "adds nothing to a proposal #{decision} after the open ones were read" do
+        proposal = create(:glossary_proposal, organisation: organisation, term: 'Quarnix', occurrences: 3)
+        ticket(text('Quarnix', 'Quar-nix'))
+        allow(Glossary::CandidateScan).to receive(:call).and_wrap_original do |scan, **options|
+          scan.call(**options).tap { expect(decide.call(GlossaryProposal.find(proposal.id), admin)).to be_success }
+        end
+
+        extract
+
+        expect(proposal.reload).to have_attributes(status: decision, occurrences: 3, variants: [])
+        expect(proposal.glossary_proposal_sources).to be_empty
+        expect(run.stats['proposals_updated']).to eq(0)
+      end
     end
 
     it 'leaves accepted and dismissed proposals as they are and sends none of their forms' do

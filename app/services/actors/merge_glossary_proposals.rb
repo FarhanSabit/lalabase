@@ -21,8 +21,9 @@
 #   membership) :forbidden. No term is locked: no glossary term is written.
 # * The target gains the source's spelling and variants as variants, once per
 #   compared form, never its own term, at most GlossaryProposal::MAX_VARIANTS
-#   with its own first; the source's occurrences; its category and its hint
-#   only where the target has none.
+#   with its own first, but the source's spelling always (in the place of the
+#   target's last own variant when it is full); the source's occurrences; its
+#   category and its hint only where the target has none.
 # * The source's places move to the target. A place both have stays once,
 #   with the occurrences of both. Then the target keeps the
 #   GlossaryProposal::MAX_SOURCES places with the most occurrences.
@@ -79,11 +80,17 @@ module Actors
       @target.save!
     end
 
+    # The source's spelling always gets a place, if need be the place of the
+    # target's last own variant: the source is deleted, and a spelling of it
+    # nobody keeps would be proposed again by the next run. Its other variants
+    # fill what is left.
     def merged_variants
       seen = Set[@target.normalized_term]
-      [*@target.variants, @source.term, *@source.variants].grep(String)
-                                                          .select { |text| seen.add?(GlossaryText.normalize(text)) }
-                                                          .first(GlossaryProposal::MAX_VARIANTS)
+      fresh = ->(texts) { texts.grep(String).select { |text| seen.add?(GlossaryText.normalize(text)) } }
+      own = fresh.call(@target.variants)
+      spelling = fresh.call([@source.term])
+      others = fresh.call(@source.variants)
+      [*own.first(GlossaryProposal::MAX_VARIANTS - spelling.size), *spelling, *others].first(GlossaryProposal::MAX_VARIANTS)
     end
 
     # The places of both in one query. A place is its source row: kind and id.

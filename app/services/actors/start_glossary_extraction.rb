@@ -20,10 +20,12 @@
 #   in the words of the registry (FeatureRegistry.unavailable_hint, the one source
 #   of that text).
 # * The run: queued, a fresh job id, started by this person, scope kind
-#   organisation; everything only when it is true itself, a full read costs up to
-#   Glossary::Extraction::MAX_AI_CALLS calls. The partial unique index
-#   one_active_glossary_extraction_run still catches a start that raced past the
-#   check: :run_active.
+#   organisation; everything only when it is true itself: a full read reads up to
+#   Glossary::Extraction::MAX_SOURCES texts again, and like any run it sends the
+#   model at most MAX_CANDIDATES candidates, in calls of BATCH_SIZE (five calls
+#   today; MAX_AI_CALLS is the net should those numbers change). The partial
+#   unique index one_active_glossary_extraction_run still catches a start that
+#   raced past the check: :run_active.
 # * The job only after the commit, under the run's job id; an enqueue that fails
 #   ends the run (Glossary::ExtractionJob.enqueue_run).
 module Actors
