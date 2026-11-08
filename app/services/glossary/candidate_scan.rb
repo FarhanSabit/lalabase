@@ -26,9 +26,10 @@
 #   found as a word or a name.
 # * Memory: at most MAX_GROUPS keys, each with its counts, at most MAX_FORMS
 #   spellings and at most MAX_SNIPPETS snippets, never a whole text. When the
-#   keys reach MAX_GROUPS, the ones seen once in one source go; when that
-#   frees too little, no new key comes in for the rest of the scan, and the
-#   keys it has go on counting. Either way the scan says it is truncated.
+#   keys reach MAX_GROUPS, a prune makes room by the ranking: every key of one
+#   source goes, and when that frees less than MIN_FREE_SHARE, the weakest of
+#   the rest go too. A new key always comes in, and a prune makes the scan
+#   say it is truncated.
 module Glossary
   class CandidateScan
     # One text to read. type: one of GlossaryProposalSource::SOURCE_TYPES.
@@ -120,10 +121,9 @@ module Glossary
     # (Glossary::Extraction::MAX_CANDIDATES), so a term found in several
     # sources is tracked long before that cut.
     MAX_GROUPS = 20_000
-    # A prune that leaves less than this share of MAX_GROUPS free ends the
-    # tracking of new keys: each prune reads every key, and one that freed
-    # little would come again at once. With a quarter, the prunes read at
-    # most four keys for each new key they make room for.
+    # The share of MAX_GROUPS a prune leaves free at least. Each prune reads
+    # every key, so it makes room for many new keys at once: with a quarter,
+    # the next prune comes only after MAX_GROUPS / 4 new keys.
     MIN_FREE_SHARE = Rational(1, 4)
 
     # What the rules say about a word, the same wherever it stands. noise: no
@@ -156,16 +156,13 @@ module Glossary
       @stop_words = stop_words || Glossary::WordLists.stop_words
       @max_candidates = max_candidates
       @groups = {}
-      # cut: a prune ran, so the result may miss a key. full: no new key is
-      # taken any more.
+      # A prune ran, so the result may miss a key or a count.
       @cut = false
-      @full = false
     end
 
     def call
       @sources.each { |source| read(source) }
-      ranked = @groups.select { |_key, group| candidate?(group) }
-                      .sort_by { |key, group| [-group.sources, -group.occurrences, key] }
+      ranked = @groups.select { |_key, group| candidate?(group) }.sort_by { |key, group| rank(key, group) }
       Scan.new(candidates: ranked.first(@max_candidates).map { |key, group| candidate(key, group) },
                total: ranked.size, truncated: @cut || ranked.size > @max_candidates)
     end
@@ -308,8 +305,6 @@ module Glossary
 
     def add(key, entry, source, text)
       group = @groups[key] || track(key)
-      return unless group
-
       group.sources += 1
       group.occurrences += entry.occurrences
       entry.forms.each { |form, count| add_form(group, form, count) }
@@ -318,26 +313,36 @@ module Glossary
       keep_snippet(group, source, text, entry)
     end
 
-    # A new key, while there is room. At MAX_GROUPS the long tail goes first
-    # (prune); nil once a prune freed too little.
+    # A new key. At MAX_GROUPS a prune makes room first, so there are never
+    # more than MAX_GROUPS keys, and a new key always comes in: a scan that
+    # stopped taking keys would miss every term of the sources after that.
     def track(key)
-      prune if !@full && @groups.size >= MAX_GROUPS
-      return if @full
-
+      prune if @groups.size >= MAX_GROUPS
       @groups[key] = Group.new(forms: Hash.new(0), sources: 0, occurrences: 0, snippets: [],
                                found: false, common_name: false)
     end
 
-    # Drops the long tail: the keys seen once in one source (rare words,
-    # typos, names that stand once). They rank below every key seen more
-    # often, and most keys are such keys. When that leaves less than
-    # MIN_FREE_SHARE of MAX_GROUPS free, no new key is taken for the rest of
-    # the scan. Either way the result may miss a key or a count, so the scan
-    # says it is truncated.
+    # Makes room by the ranking. First every key of one source goes, whatever
+    # its occurrences: it ranks behind every key of two sources, and most keys
+    # are such keys (rare words, typos, names in one text, a long text's words
+    # that repeat only there). When that leaves less than MIN_FREE_SHARE of
+    # MAX_GROUPS free, the weakest of the rest go too, from the end of the
+    # ranking, until that share is free. A key dropped may come back, with the
+    # counts from then on, so the scan says it is truncated.
     def prune
       @cut = true
-      @groups.delete_if { |_key, group| group.sources == 1 && group.occurrences == 1 }
-      @full = MAX_GROUPS - @groups.size < MAX_GROUPS * MIN_FREE_SHARE
+      @groups.delete_if { |_key, group| group.sources == 1 }
+      excess = @groups.size - (MAX_GROUPS * (1 - MIN_FREE_SHARE)).floor
+      return unless excess.positive?
+
+      weakest = @groups.max_by(excess) { |key, group| rank(key, group) }.map(&:first)
+      weakest.each { |key| @groups.delete(key) }
+    end
+
+    # The order of the result: the most sources first, then the most
+    # occurrences, then by key. A prune drops from its end.
+    def rank(key, group)
+      [-group.sources, -group.occurrences, key]
     end
 
     # At most MAX_FORMS spellings; one seen after them is not kept.

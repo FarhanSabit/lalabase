@@ -320,11 +320,12 @@ RSpec.describe Glossary::CandidateScan do
     end
   end
 
-  # Review round 2 of #129. Every rare word and every name of two or three
-  # words is a key, so without a bound the keys grow with the texts (some 1.1
-  # million keys and 1.5 GB for 200 texts of 15,000 words). MAX_GROUPS bounds
-  # them: at the bound the keys seen once in one source go, and once that
-  # frees too little no new key comes in.
+  # Review rounds 2 and 3 of #129. Every rare word and every name of two or
+  # three words is a key, so without a bound the keys grow with the texts
+  # (some 1.1 million keys and 1.5 GB for 200 texts of 15,000 words).
+  # MAX_GROUPS bounds them: at the bound a prune makes room by the ranking,
+  # first every key of one source, then if need be the weakest of the rest,
+  # and a new key always comes in.
   describe 'the bound on keys' do
     # The bound is on memory, which the result does not show: these examples
     # watch the one hash that grows, and note its size after every key it
@@ -340,7 +341,7 @@ RSpec.describe Glossary::CandidateScan do
       [scan.call, sizes, groups]
     end
 
-    it 'tracks at most MAX_GROUPS keys, keeps a key of two sources, drops the ones seen once, and says it cut' do
+    it 'tracks at most MAX_GROUPS keys, keeps a key of two sources, drops the keys of one source, and says it cut' do
       stub_const('Glossary::CandidateScan::MAX_GROUPS', 6)
 
       result, sizes, groups = watched_scan('Zorbel, Wubbix.', 'Zorbel, Bexlo.', 'Glimmox, Trondel, Plumbix, Vexoria, Fizzbo.')
@@ -349,35 +350,57 @@ RSpec.describe Glossary::CandidateScan do
       expect(sizes.max).to eq(6)
       expect(groups.size).to be <= 6
       expect(result.truncated).to be(true)
-      # Vexoria found the keys full: Wubbix, Bexlo and the three before it,
-      # each seen once in one source, went. Zorbel, of two sources, stayed.
+      # Vexoria found the keys full: every key of one source went (Wubbix,
+      # Bexlo and the three before Vexoria). Zorbel, of two sources, stayed.
       expect(result.candidates.map(&:key)).to eq(%w[zorbel fizzbo vexoria])
       expect(result.candidates.first).to have_attributes(source_count: 2, occurrences: 2)
     end
 
-    it 'takes no new key once a prune frees too little, and goes on counting the keys it has' do
-      stub_const('Glossary::CandidateScan::MAX_GROUPS', 4)
+    # Review round 3 of #129. Two large new texts whose rare words repeat
+    # inside each text filled the keys with keys of one source and two
+    # occurrences. A prune that kept those freed nothing, the scan took no new
+    # key, and a term of many older texts never became a candidate. Each small
+    # text also names two rare words once, as small texts do, so prunes come
+    # between them as well: a prune that kept keys of one source with two
+    # occurrences would drop the term every time before its second source.
+    it 'still takes a term of many older sources after large texts filled the keys' do
+      stub_const('Glossary::CandidateScan::MAX_GROUPS', 8)
+      large = [%w[Wubbix Bexlo Glimmox Trondel Plumbix], %w[Fizzbo Vexoria Morbax Ustrel Krapto]].map { |words| (words * 2).join(', ') }
+      small = ('aa'..'at').map { |pair| "Zorbel#{pair}" }.each_slice(2).map { |one, two| "Wir nutzen Quobbelix heute, #{one}, #{two}." }
 
-      result, sizes, = watched_scan('Zorbel, Zorbel, Wubbix, Wubbix, Bexlo, Bexlo, Glimmox, Glimmox, Trondel.',
-                                    'Zorbel, Plumbix.')
+      result, sizes, = watched_scan(*large, *small)
 
-      expect(sizes.max).to eq(4)
+      expect(sizes.max).to eq(8)
       expect(result.truncated).to be(true)
-      # Each of the four was seen twice, so the prune at Trondel freed nothing.
-      expect(result.candidates.map(&:key)).to eq(%w[zorbel bexlo glimmox wubbix])
+      expect(result.candidates.first).to have_attributes(key: 'quobbelix', source_count: 10, occurrences: 10)
+    end
+
+    # When no key of one source is left to drop, the prune drops the weakest by
+    # the ranking until MIN_FREE_SHARE is free: here two of eight, Wubbix and
+    # Vexoria, the last two of the keys of two sources and two occurrences.
+    # The key that found the keys full comes in all the same.
+    it 'drops the weakest by the ranking when every key has two sources, and still takes the new key' do
+      stub_const('Glossary::CandidateScan::MAX_GROUPS', 8)
+      words = %w[Zorbel Wubbix Bexlo Glimmox Trondel Plumbix Vexoria Fizzbo]
+
+      result, sizes, = watched_scan(words.join(', '), ['Zorbel', *words, 'Krapto'].join(', '))
+
+      expect(sizes.max).to eq(8)
+      expect(result.truncated).to be(true)
+      expect(result.candidates.map(&:key)).to eq(%w[zorbel bexlo fizzbo glimmox plumbix trondel krapto])
       expect(result.candidates.first).to have_attributes(source_count: 2, occurrences: 3)
     end
 
-    # Too little is less than MIN_FREE_SHARE of MAX_GROUPS: a quarter of four
-    # keys is one. Here each prune frees exactly one place, so new keys still
-    # come in.
-    it 'goes on taking new keys while a prune frees MIN_FREE_SHARE of MAX_GROUPS' do
+    # The prune drops a key of two sources only while less than MIN_FREE_SHARE
+    # is free: here the one key of one source frees a quarter of four, so the
+    # three keys of two sources stay.
+    it 'keeps every key of two sources when the keys of one source free MIN_FREE_SHARE' do
       stub_const('Glossary::CandidateScan::MAX_GROUPS', 4)
 
-      result, sizes, = watched_scan('Zorbel, Zorbel, Wubbix, Wubbix, Bexlo, Bexlo, Glimmox.', 'Trondel, Plumbix.')
+      result, sizes, = watched_scan('Zorbel, Wubbix, Bexlo.', 'Zorbel, Wubbix, Bexlo, Glimmox, Trondel.')
 
       expect(sizes.max).to eq(4)
-      expect(result.candidates.map(&:key)).to eq(%w[bexlo wubbix zorbel plumbix])
+      expect(result.candidates.map(&:key)).to eq(%w[bexlo wubbix zorbel trondel])
       expect(described_class::MIN_FREE_SHARE).to eq(Rational(1, 4))
     end
 

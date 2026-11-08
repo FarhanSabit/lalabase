@@ -247,7 +247,7 @@ Verzeichnis-Übersicht (Auswahl):
   K5b (08.11.2026), die Extraktion von Vorschlägen: `word_lists.rb` (`common` = die beiden
   50k-Listen, die Stoppwörter von PostgreSQL zur Laufzeit gelesen, mit Rückfall, und unsere
   `EXTRA_COMMON_WORDS`; `stop_words` allein eine Teilmenge), `candidate_scan.rb` (das Sieb ohne KI,
-  ein Strom; höchstens `MAX_GROUPS` Schlüssel (20.000, rund 30 MB): beim Erreichen gehen die nur einmal in einer Quelle gesehenen, bleibt danach weniger als ein Viertel frei, kommen keine neuen dazu, beides setzt `truncated`; je Schlüssel nur Zähler, höchstens `MAX_FORMS` Schreibweisen und höchstens `MAX_SOURCES` Ausschnitte; ein
+  ein Strom; höchstens `MAX_GROUPS` Schlüssel (20.000, rund 30 MB): beim Erreichen gehen zuerst alle nur in einer Quelle gesehenen, reicht das nicht für ein Viertel freien Platz, auch die schwächsten nach Rang; neue Schlüssel kommen immer dazu, sonst hielten wenige große Texte das Sieb an (Review-Runde 3 von #129); ein Kürzen setzt `truncated`; je Schlüssel nur Zähler, höchstens `MAX_FORMS` Schreibweisen und höchstens `MAX_SOURCES` Ausschnitte; ein
   Name aus zwei oder drei großgeschriebenen Wörtern beginnt und endet nie mit einem Stoppwort),
   `classifier.rb` (ein Chat-Aufruf je Stapel von höchstens 60 auf `:glossary_extraction`, der
   eigenen Stufe der Organisation; zuerst das Tor; die Antwort wird gegen das Gesendete geprüft;
