@@ -38,6 +38,8 @@ module ThirdPartyLicenseGuard
   # whose notice no longer declares what the entry recorded, is red. And it is for
   # data only: an entry holds for a DATA_FILE under DATA_LICENSES (declared and
   # taken), anything else covers nothing and is red (invalid_file_exceptions).
+  # And it names these two files: a new entry is a decision, and the example
+  # "excepts exactly the two word lists" changes with it.
   FILE_EXCEPTIONS = {
     'vendor/wordlists/de_50k.txt' => {
       declared: 'CC-BY-SA-4.0', taken: 'CC-BY-SA-4.0',
@@ -700,6 +702,16 @@ RSpec.describe 'Third-party license guard' do
       stale = ThirdPartyLicenseGuard.stale_file_exceptions(ThirdPartyLicenseGuard.tracked_files, sections)
 
       expect(stale).to be_empty, "FILE_EXCEPTIONS only shrinks. Read the license again, or remove:\n#{stale.join("\n")}"
+    end
+
+    # Every other check here holds for any number of entries: a new word list
+    # with its notice and its entry would pass them all. A share-alike file is
+    # a decision, not a routine entry, so this example names the two lists the
+    # table was written for. A new entry is such a decision and changes this
+    # example too, in the same diff.
+    it 'excepts exactly the two word lists of Glossary::WordLists' do
+      expect(ThirdPartyLicenseGuard::FILE_EXCEPTIONS.keys)
+        .to contain_exactly('vendor/wordlists/de_50k.txt', 'vendor/wordlists/en_50k.txt')
     end
 
     it 'keeps every file exception to a data file in vendor/wordlists/ under a license for data' do

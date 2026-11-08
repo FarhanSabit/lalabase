@@ -18,7 +18,8 @@ RSpec.describe Actors::MergeGlossaryProposalIntoTerm, :ci_guard, type: :service 
   let(:manager) { member_with(role_with('manage_glossary')) }
   let(:viewer) { member_with(role_with('view_glossary')) }
   let(:project) { create(:project, organisation: organisation) }
-  let(:term) { create(:glossary_term, :proposed, organisation: organisation, term: 'Zorbel', category: 'company') }
+  # Confirmed: the only kind of term the page offers to merge into.
+  let(:term) { create(:glossary_term, organisation: organisation, term: 'Zorbel', category: 'company') }
   let(:proposal) do
     create(:glossary_proposal, organisation: organisation, term: 'Zorbel-Hub', category: 'product',
                                variants: ['Zorbelhub', 'Zorbl Hub'], occurrences: 7)
@@ -75,7 +76,7 @@ RSpec.describe Actors::MergeGlossaryProposalIntoTerm, :ci_guard, type: :service 
     merge(variants: ['Zorbelhub'])
 
     term.reload
-    expect([term.term, term.category, term.status]).to eq(%w[Zorbel company proposed])
+    expect([term.term, term.category, term.status]).to eq(%w[Zorbel company confirmed])
   end
 
   it 'skips a form that is the term itself and one the term has already' do
@@ -128,6 +129,39 @@ RSpec.describe Actors::MergeGlossaryProposalIntoTerm, :ci_guard, type: :service 
       expect(result.code).to eq(:not_found)
       expect(proposal.reload).to be_open
       expect(TermCorrection.count).to eq(0)
+    end
+
+    # Review round 2 of #129. The page offers only confirmed terms, and the
+    # lock reads the row again: a term rejected after the page loaded it
+    # would take heard forms that work nowhere, and the proposal would count
+    # as accepted, its spelling never proposed again.
+    it 'refuses a term rejected after it was loaded, by the status of its row' do
+      loaded = GlossaryTerm.find(term.id)
+      GlossaryTerm.where(id: term.id).update_all(status: 'rejected')
+      expect(loaded).to be_confirmed
+
+      result = merge(into: loaded, variants: ['Zorbelhub'])
+
+      expect(result.code).to eq(:term_not_confirmed)
+      expect(result.errors.join).to eq(I18n.t('controllers.glossary.proposals.term_not_confirmed'))
+      expect(proposal.reload).to have_attributes(status: 'open', glossary_term_id: nil, decided_by_id: nil)
+      expect(TermCorrection.count).to eq(0)
+    end
+
+    it 'refuses a term that is still a proposal' do
+      proposed = create(:glossary_term, :proposed, organisation: organisation, term: 'Quarnix')
+
+      expect(merge(into: proposed, variants: ['Zorbelhub']).code).to eq(:term_not_confirmed)
+      expect(proposal.reload).to be_open
+      expect(proposed.reload).to be_proposed
+      expect(TermCorrection.count).to eq(0)
+    end
+
+    # A refusal of the term's state answers only someone who may decide.
+    it 'asks for the right before it reads the status of the term' do
+      GlossaryTerm.where(id: term.id).update_all(status: 'rejected')
+
+      expect(merge(user: viewer, variants: ['Zorbelhub']).code).to eq(:forbidden)
     end
 
     it 'refuses a proposal accepted or dismissed before' do

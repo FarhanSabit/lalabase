@@ -41,10 +41,11 @@
 #   (a start that found it stale) reads and writes nothing more, and a run that
 #   moves does not turn stale.
 # * Memory and time: the texts are loaded LOAD_BATCH at a time, each cut to
-#   MAX_SOURCE_CHARS, and read once by the scan, which keeps counts and snippets,
-#   never a whole text.
+#   MAX_SOURCE_CHARS, and read once by the scan, which keeps counts and snippets
+#   of at most CandidateScan::MAX_GROUPS keys, never a whole text.
 # * stats: the shape in the header of GlossaryExtractionRun, plus parse_errors and
-#   since. truncated says whether MAX_SOURCES, MAX_CANDIDATES, MAX_AI_CALLS or
+#   since. truncated says whether MAX_SOURCES, MAX_SOURCE_CHARS, the scan's bound
+#   on keys (CandidateScan::MAX_GROUPS), MAX_CANDIDATES, MAX_AI_CALLS or
 #   MAX_PROPOSALS_PER_RUN cut anything.
 #
 # Entry point: .call(run:), for a run the job has claimed (running).
@@ -240,9 +241,11 @@ module Glossary
     # At most MAX_SOURCE_CHARS, cut between words as the scan cuts a snippet
     # (CandidateScan#beginning): the piece of a word at the cut would be a
     # candidate of its own. A text without a break keeps its first characters.
+    # A cut text was read only in part, so the run says it cut.
     def cut_to_size(text)
       return text if text.nil? || text.length <= MAX_SOURCE_CHARS
 
+      cut!
       piece = text[0, MAX_SOURCE_CHARS]
       return piece if text[MAX_SOURCE_CHARS].match?(/[[:space:]]/)
 

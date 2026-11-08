@@ -24,8 +24,11 @@
 #   not all capitalised make no candidate of their own; when every one of
 #   them is uncommon ("zorbel hub") they count as a spelling of a candidate
 #   found as a word or a name.
-# * Memory: per key the counts, the spellings and at most MAX_SNIPPETS
-#   snippets, never a whole text.
+# * Memory: at most MAX_GROUPS keys, each with its counts, at most MAX_FORMS
+#   spellings and at most MAX_SNIPPETS snippets, never a whole text. When the
+#   keys reach MAX_GROUPS, the ones seen once in one source go; when that
+#   frees too little, no new key comes in for the rest of the scan, and the
+#   keys it has go on counting. Either way the scan says it is truncated.
 module Glossary
   class CandidateScan
     # One text to read. type: one of GlossaryProposalSource::SOURCE_TYPES.
@@ -105,6 +108,23 @@ module Glossary
     # Bytes read on each side of an occurrence for its snippet: MAX_SNIPPET
     # characters even when each takes four bytes.
     SNIPPET_REACH = MAX_SNIPPET * 4
+    # The spellings a key keeps: as many as a proposal holds, its term and
+    # GlossaryProposal::MAX_VARIANTS variants. A spelling seen after these
+    # adds its occurrences to the key, but not itself to the list.
+    MAX_FORMS = GlossaryProposal::MAX_VARIANTS + 1
+    # The keys tracked at most. Every rare word and every name of two or three
+    # words is a key, so without a bound the keys grow with the texts: 200
+    # texts of 15,000 words made 1.1 million keys and 1.5 GB more memory. A
+    # key with its spellings and snippets takes some 1.5 KB, so 20,000 stay
+    # near 30 MB. And they are far more than the candidates a run sends
+    # (Glossary::Extraction::MAX_CANDIDATES), so a term found in several
+    # sources is tracked long before that cut.
+    MAX_GROUPS = 20_000
+    # A prune that leaves less than this share of MAX_GROUPS free ends the
+    # tracking of new keys: each prune reads every key, and one that freed
+    # little would come again at once. With a quarter, the prunes read at
+    # most four keys for each new key they make room for.
+    MIN_FREE_SHARE = Rational(1, 4)
 
     # What the rules say about a word, the same wherever it stands. noise: no
     # term and no word of a name either. stop: a stop word, which no name
@@ -136,6 +156,10 @@ module Glossary
       @stop_words = stop_words || Glossary::WordLists.stop_words
       @max_candidates = max_candidates
       @groups = {}
+      # cut: a prune ran, so the result may miss a key. full: no new key is
+      # taken any more.
+      @cut = false
+      @full = false
     end
 
     def call
@@ -143,7 +167,7 @@ module Glossary
       ranked = @groups.select { |_key, group| candidate?(group) }
                       .sort_by { |key, group| [-group.sources, -group.occurrences, key] }
       Scan.new(candidates: ranked.first(@max_candidates).map { |key, group| candidate(key, group) },
-               total: ranked.size, truncated: ranked.size > @max_candidates)
+               total: ranked.size, truncated: @cut || ranked.size > @max_candidates)
     end
 
     private
@@ -283,14 +307,42 @@ module Glossary
     end
 
     def add(key, entry, source, text)
-      group = @groups[key] ||= Group.new(forms: Hash.new(0), sources: 0, occurrences: 0, snippets: [],
-                                         found: false, common_name: false)
+      group = @groups[key] || track(key)
+      return unless group
+
       group.sources += 1
       group.occurrences += entry.occurrences
-      entry.forms.each { |form, count| group.forms[form] += count }
+      entry.forms.each { |form, count| add_form(group, form, count) }
       group.found ||= entry.found
       group.common_name ||= entry.common_name
       keep_snippet(group, source, text, entry)
+    end
+
+    # A new key, while there is room. At MAX_GROUPS the long tail goes first
+    # (prune); nil once a prune freed too little.
+    def track(key)
+      prune if !@full && @groups.size >= MAX_GROUPS
+      return if @full
+
+      @groups[key] = Group.new(forms: Hash.new(0), sources: 0, occurrences: 0, snippets: [],
+                               found: false, common_name: false)
+    end
+
+    # Drops the long tail: the keys seen once in one source (rare words,
+    # typos, names that stand once). They rank below every key seen more
+    # often, and most keys are such keys. When that leaves less than
+    # MIN_FREE_SHARE of MAX_GROUPS free, no new key is taken for the rest of
+    # the scan. Either way the result may miss a key or a count, so the scan
+    # says it is truncated.
+    def prune
+      @cut = true
+      @groups.delete_if { |_key, group| group.sources == 1 && group.occurrences == 1 }
+      @full = MAX_GROUPS - @groups.size < MAX_GROUPS * MIN_FREE_SHARE
+    end
+
+    # At most MAX_FORMS spellings; one seen after them is not kept.
+    def add_form(group, form, count)
+      group.forms[form] += count if group.forms.key?(form) || group.forms.size < MAX_FORMS
     end
 
     # Keeps this source among the MAX_SNIPPETS with the most occurrences. A

@@ -41,7 +41,7 @@ RSpec.describe Actors::MergeGlossaryProposals, :ci_guard, type: :service do
     described_class.call(source: from, target: into, current_user: user)
   end
 
-  def source_of(proposal, occurrences:, ticket: create(:ticket, organisation: organisation, project: project))
+  def source_of(proposal, occurrences:, project: self.project, ticket: create(:ticket, organisation: organisation, project: project))
     create(:glossary_proposal_source, organisation: organisation, glossary_proposal: proposal, project: project,
                                       source: ticket, occurrences: occurrences)
   end
@@ -160,6 +160,43 @@ RSpec.describe Actors::MergeGlossaryProposals, :ci_guard, type: :service do
 
       expect(sources_of(target).order(occurrences: :desc).pluck(:occurrences)).to eq([9, 8, 4, 3, 2])
       expect(GlossaryProposal::MAX_SOURCES).to eq(5)
+    end
+  end
+
+  # Review round 2 of #129. The model wrote the target's hint from some of the
+  # target's own places. The page shows it only to a reader of every place the
+  # proposal holds, so once the trim drops one of those, a reader of the places
+  # left may not read the dropped one, and the hint could repeat what it says.
+  describe 'the hint of the target' do
+    let(:project_a) { create(:project, organisation: organisation) }
+    let(:project_b) { create(:project, organisation: organisation) }
+    let(:quarnix) { create(:glossary_proposal, organisation: organisation, term: 'Quarnix', hint: 'Geheim aus A') }
+    let(:wubbel) { create(:glossary_proposal, organisation: organisation, term: 'Wubbel') }
+
+    it 'goes when the trim drops one of its own places' do
+      Prosopite.pause do
+        source_of(quarnix, occurrences: 1, project: project_a)
+        GlossaryProposal::MAX_SOURCES.times { source_of(wubbel, occurrences: 9, project: project_b) }
+      end
+
+      expect(merge(from: wubbel, into: quarnix)).to be_success
+
+      expect(sources_of(quarnix).pluck(:project_id)).to eq([project_b.id] * GlossaryProposal::MAX_SOURCES)
+      expect(quarnix.reload.hint).to eq('')
+    end
+
+    # The trim drops a place of the source here, never one of the target.
+    it 'stays when every one of its own places stays' do
+      Prosopite.pause do
+        source_of(quarnix, occurrences: 9, project: project_a)
+        GlossaryProposal::MAX_SOURCES.times { source_of(wubbel, occurrences: 1, project: project_b) }
+      end
+
+      expect(merge(from: wubbel, into: quarnix)).to be_success
+
+      expect(sources_of(quarnix).where(project_id: project_a.id).pluck(:occurrences)).to eq([9])
+      expect(sources_of(quarnix).count).to eq(GlossaryProposal::MAX_SOURCES)
+      expect(quarnix.reload.hint).to eq('Geheim aus A')
     end
   end
 

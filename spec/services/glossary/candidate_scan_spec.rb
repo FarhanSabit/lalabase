@@ -320,6 +320,90 @@ RSpec.describe Glossary::CandidateScan do
     end
   end
 
+  # Review round 2 of #129. Every rare word and every name of two or three
+  # words is a key, so without a bound the keys grow with the texts (some 1.1
+  # million keys and 1.5 GB for 200 texts of 15,000 words). MAX_GROUPS bounds
+  # them: at the bound the keys seen once in one source go, and once that
+  # frees too little no new key comes in.
+  describe 'the bound on keys' do
+    # The bound is on memory, which the result does not show: these examples
+    # watch the one hash that grows, and note its size after every key it
+    # takes in.
+    def watched_scan(*texts)
+      scan = described_class.new(sources: sources_of(texts), known: [], common_words: common_words,
+                                 stop_words: stop_words, max_candidates: 100)
+      groups = scan.instance_variable_get(:@groups)
+      sizes = []
+      allow(groups).to receive(:[]=).and_wrap_original do |store, key, group|
+        store.call(key, group).tap { sizes << groups.size }
+      end
+      [scan.call, sizes, groups]
+    end
+
+    it 'tracks at most MAX_GROUPS keys, keeps a key of two sources, drops the ones seen once, and says it cut' do
+      stub_const('Glossary::CandidateScan::MAX_GROUPS', 6)
+
+      result, sizes, groups = watched_scan('Zorbel, Wubbix.', 'Zorbel, Bexlo.', 'Glimmox, Trondel, Plumbix, Vexoria, Fizzbo.')
+
+      expect(sizes).not_to be_empty
+      expect(sizes.max).to eq(6)
+      expect(groups.size).to be <= 6
+      expect(result.truncated).to be(true)
+      # Vexoria found the keys full: Wubbix, Bexlo and the three before it,
+      # each seen once in one source, went. Zorbel, of two sources, stayed.
+      expect(result.candidates.map(&:key)).to eq(%w[zorbel fizzbo vexoria])
+      expect(result.candidates.first).to have_attributes(source_count: 2, occurrences: 2)
+    end
+
+    it 'takes no new key once a prune frees too little, and goes on counting the keys it has' do
+      stub_const('Glossary::CandidateScan::MAX_GROUPS', 4)
+
+      result, sizes, = watched_scan('Zorbel, Zorbel, Wubbix, Wubbix, Bexlo, Bexlo, Glimmox, Glimmox, Trondel.',
+                                    'Zorbel, Plumbix.')
+
+      expect(sizes.max).to eq(4)
+      expect(result.truncated).to be(true)
+      # Each of the four was seen twice, so the prune at Trondel freed nothing.
+      expect(result.candidates.map(&:key)).to eq(%w[zorbel bexlo glimmox wubbix])
+      expect(result.candidates.first).to have_attributes(source_count: 2, occurrences: 3)
+    end
+
+    # Too little is less than MIN_FREE_SHARE of MAX_GROUPS: a quarter of four
+    # keys is one. Here each prune frees exactly one place, so new keys still
+    # come in.
+    it 'goes on taking new keys while a prune frees MIN_FREE_SHARE of MAX_GROUPS' do
+      stub_const('Glossary::CandidateScan::MAX_GROUPS', 4)
+
+      result, sizes, = watched_scan('Zorbel, Zorbel, Wubbix, Wubbix, Bexlo, Bexlo, Glimmox.', 'Trondel, Plumbix.')
+
+      expect(sizes.max).to eq(4)
+      expect(result.candidates.map(&:key)).to eq(%w[bexlo wubbix zorbel plumbix])
+      expect(described_class::MIN_FREE_SHARE).to eq(Rational(1, 4))
+    end
+
+    it 'cuts nothing while the keys fit MAX_GROUPS' do
+      stub_const('Glossary::CandidateScan::MAX_GROUPS', 3)
+
+      expect(scan('Zorbel, Wubbix, Bexlo.')).to have_attributes(total: 3, truncated: false)
+      expect(scan('Zorbel, Wubbix, Bexlo, Glimmox.').truncated).to be(true)
+    end
+
+    it 'keeps at most MAX_FORMS spellings of a key, and still counts the others' do
+      stub_const('Glossary::CandidateScan::MAX_FORMS', 2)
+
+      found = candidate('zorbel', 'Zorbel, ZORBEL.', 'zorbel, zorbel, zorbel.')
+
+      expect(found.forms).to eq(%w[Zorbel ZORBEL])
+      expect(found).to have_attributes(source_count: 2, occurrences: 5)
+    end
+
+    # A proposal holds its term and at most MAX_VARIANTS variants: a spelling
+    # past those could never be written.
+    it 'keeps as many spellings as a proposal holds' do
+      expect(described_class::MAX_FORMS).to eq(GlossaryProposal::MAX_VARIANTS + 1)
+    end
+  end
+
   describe 'with the lists of Glossary::WordLists' do
     # No stop_words given: the scan takes Glossary::WordLists.stop_words.
     def keys_with_word_lists(*texts)

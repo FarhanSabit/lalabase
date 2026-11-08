@@ -230,6 +230,23 @@ RSpec.describe Glossary::Extraction, :ci_guard do
       end
     end
 
+    # Review round 2 of #129. The reach gives the projects. The policy scope of
+    # each kind may hold back a row in a project the starter reaches, and the
+    # run reads what the scope gives, not what the reach alone would. Here the
+    # scope of notes holds back one note.
+    it "never reads a row its kind's policy scope holds back, in a project the starter reaches" do
+      note(text('Trondel'))
+      held_back = note(text('Vexoria'))
+      allow_any_instance_of(NotePolicy::Scope).to receive(:resolve).and_wrap_original do |resolve|
+        resolve.call.where.not(id: held_back.id)
+      end
+
+      extract
+
+      expect(sent_keys).to eq(['trondel'])
+      expect(run.stats['sources']['notes']).to eq(1)
+    end
+
     context 'with notes and documents in a project where the starter may read tickets only' do
       let(:starter) { reader }
 
@@ -421,6 +438,29 @@ RSpec.describe Glossary::Extraction, :ci_guard do
       # Not "vexo" or "glimmo" either: the piece of a word at the cut is no word.
       expect(sent_keys).to contain_exactly('quarnix', 'trondel')
       expect(run.stats['sources']).to include('tickets' => 1, 'notes' => 1)
+    end
+
+    # Review of K5c: the run line says whether a limit cut anything, and a text
+    # read only in part is such a cut. The bound is the length of the ticket's
+    # own text, so the example holds whatever the text around the content.
+    it 'says it cut when a text is longer than MAX_SOURCE_CHARS' do
+      length = ticket(text('Quarnix', 'Vexoria')).plain_text_version.length
+      stub_const('Glossary::Extraction::MAX_SOURCE_CHARS', length - 1)
+
+      extract
+
+      expect(sent_keys).to contain_exactly('quarnix', 'vexoria')
+      expect(run.stats['truncated']).to be(true)
+    end
+
+    it 'says nothing was cut when a text fits MAX_SOURCE_CHARS exactly' do
+      length = ticket(text('Quarnix', 'Vexoria')).plain_text_version.length
+      stub_const('Glossary::Extraction::MAX_SOURCE_CHARS', length)
+
+      extract
+
+      expect(sent_keys).to contain_exactly('quarnix', 'vexoria')
+      expect(run.stats['truncated']).to be(false)
     end
 
     # Calls each_text for every text the scan reads, as it reads it.

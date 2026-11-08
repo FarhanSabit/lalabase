@@ -4,7 +4,8 @@
 #
 # Merges one glossary term into another (K4a, plan §6): two spellings of the
 # same thing stood as two terms. The heard forms of the source move to the
-# target, its applications (K4d) too, then the source is deleted. The target keeps its spelling, its
+# target, its applications (K4d) and the proposals accepted into it (K5b) too, then
+# the source is deleted. The target keeps its spelling, its
 # category and its status, so no spelling can collide. Rights are the
 # caller's (GlossaryPolicy, manage_glossary); the caller resolves the target
 # through the policy scope, never from a raw id.
@@ -35,6 +36,9 @@ module Actors
       lock_both
       TermCorrection.where(glossary_term_id: @source.id).update_all(glossary_term_id: @target.id, updated_at: Time.current)
       TermApplication.where(glossary_term_id: @source.id).update_all(glossary_term_id: @target.id, updated_at: Time.current)
+      # Under the lock of both terms: the term before the proposal.
+      GlossaryProposal.where(organisation_id: @target.organisation_id, glossary_term_id: @source.id)
+                      .update_all(glossary_term_id: @target.id, updated_at: Time.current)
       @target.touch
       @source.destroy!
     end
