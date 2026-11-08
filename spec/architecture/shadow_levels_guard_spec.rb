@@ -13,32 +13,43 @@ require 'rails_helper'
 # doc/schatten_stufen_plan.md.
 #
 # What this holds:
-#   A. Written values (shadow-[2px_2px_0_...]) in templates, components, scripts, helpers
-#      and services: the count per file on 2026-11-08, which may only shrink.
+#   A. Written values (shadow-[...] whose value is hard, _ read as a space) in templates,
+#      components, scripts, helpers and services: the count per file on 2026-11-08,
+#      which may only shrink.
+#   A2. Hard box-shadow literals in the same files (a style attribute, a CSS string, a
+#      boxShadow in a script): a list of the same kind. These keep their shadow in the
+#      dark theme until a later slice.
 #   B. The three named hard tokens of config/tailwind.config.js stay with their owners.
-#   C. Hard shadows declared in stylesheets: a closed list of file and selector.
-#   D. Each of them, token or stylesheet rule, is turned off in the dark theme, and the
+#      A stylesheet that uses one through @apply is never an owner.
+#   C. Hard shadows declared in stylesheets, a written hard value through @apply
+#      included: a closed list of file and selector.
+#   D. Each token and each stylesheet shadow is turned off in the dark theme, and the
 #      rule that turns off every written value is still there.
 #
 # It runs through the directory entry spec/architecture/ of the CI guard list.
 #
-# What it does NOT see: a shadow built at run time (a class put together from parts, a
-# style set by a script), a shadow through a CSS variable, a token used through @apply in
-# a stylesheet (rule B reads templates, Ruby and scripts), soft shadows (shadow-sm and the
-# like), and the role of an element. A panel that gets shadow-lift in an owner's file
-# passes here; that is for the person who reads the diff.
+# What it does NOT see: a shadow built at run time (a class or a style put together from
+# parts, a value from a variable or a template expression), a shadow through a CSS
+# variable, soft shadows (shadow-sm and the like), and the role of an element. A panel
+# that gets shadow-lift in an owner's file passes here; that is for the person who reads
+# the diff.
 module ShadowLevels
   STYLESHEETS = Rails.root.join('app/assets/stylesheets')
   TAILWIND_CONFIG = Rails.root.join('config/tailwind.config.js')
 
-  # Rules A and B read these directories, files ending in .erb, .rb and .js.
+  # Rules A, A2 and B read these directories, files ending in .erb, .rb and .js.
   APP_DIRS = %w[app/views app/components app/javascript app/helpers app/services].freeze
   APP_FILES = '**/*.{erb,rb,js}'
 
-  # A written hard value: shadow-[Xpx_Ypx_0...], a blur of 0 after two offsets.
-  WRITTEN_HARD = /shadow-\[-?\d+px_-?\d+px_0/
+  # A written value, with any variant prefix: shadow-[2px_2px_0_0_#000], hover:shadow-[...].
+  WRITTEN_VALUE = /shadow-\[([^\]]+)\]/
 
-  # Rule A only. Rule B reads these directories as well.
+  # A box-shadow literal: a CSS declaration in the text (a style attribute, a CSS string),
+  # and a boxShadow in a script, quoted with ', " or a backtick.
+  CSS_LITERAL = /box-shadow\s*:\s*([^;"'}<>\n]+)/
+  SCRIPT_LITERAL = /boxShadow\s*[:=]\s*(['"`])((?:(?!\1).)*)\1/
+
+  # Rules A and A2 only. Rule B reads these directories as well.
   WRITTEN_EXCLUDED = {
     'app/views/admin/' => 'the admin area has a style guide of its own (owner decision 2026-06-01)',
     'app/views/style_guide/' => 'shows samples; brought in line in its own slice, S5'
@@ -92,6 +103,7 @@ module ShadowLevels
     'app/views/organisations/ticket_attribute_definitions/merge_option.html.erb' => 1,
     'app/views/organisations/tickets/_detail_settings_modal.html.erb' => 1,
     'app/views/organisations/tickets/_timeline_frame_content.html.erb' => 1,
+    'app/views/organisations/time_sessions/_bulk_action_bar.html.erb' => 1,
     'app/views/organisations/time_sessions/index.html.erb' => 1,
     'app/views/shared/_brand_mark.html.erb' => 1, # the logo tile, as on the website; not a token
     'app/views/shared/_pagination_nav.html.erb' => 2,
@@ -99,6 +111,16 @@ module ShadowLevels
     'app/views/users/personal_access_tokens/created.html.erb' => 1,
     'app/views/users/personal_access_tokens/edit.html.erb' => 2,
     'app/views/users/personal_access_tokens/new.html.erb' => 5
+  }.freeze
+
+  # Shrink only: path => hard box-shadow literals on 2026-11-08, lowered and deleted like
+  # LEGACY. These keep their shadow in the dark theme until a later slice: the attribute
+  # rule of the dark theme (.dark [class*="shadow-["]) cannot reach a style attribute.
+  INLINE_LEGACY = {
+    'app/components/neo_toggle_component.rb' => 1,
+    'app/javascript/controllers/neo_notification_bulk_action_controller.js' => 1,
+    'app/javascript/controllers/neo_toggle_controller.js' => 1,
+    'app/javascript/controllers/time_session_popup_controller.js' => 1
   }.freeze
 
   # The hard tokens of config/tailwind.config.js, all drawn from --ink.
@@ -116,8 +138,9 @@ module ShadowLevels
     'app/components/neo_card_component.rb' => 'shadow: :hover, a card that is wholly a link or a button, lifted while hovered'
   }.freeze
 
-  # token group => its owners. Rule B reads the admin area and the style guide too: a
-  # token name is a promise about the role wherever it stands.
+  # token group => its owners. Rule B reads the admin area, the style guide and every
+  # stylesheet too: a token name is a promise about the role wherever it stands, and a
+  # stylesheet is never an owner.
   OWNER_GROUPS = { %w[press press-hover] => PRESS_USERS, %w[lift] => LIFT_USERS }.freeze
   TOKEN_OWNERS = OWNER_GROUPS.flat_map { |tokens, owners| tokens.map { [_1, owners] } }.to_h.freeze
 
@@ -168,25 +191,26 @@ module ShadowLevels
     def off? = box_shadow? && value.sub(IMPORTANT, '').strip.casecmp?('none')
   end
 
+  # A named token in an @apply of a stylesheet.
+  AppliedToken = Data.define(:file, :line, :selectors, :token)
+
   # Reads rule blocks with nesting (@layer, @media). Braces and semicolons inside quotes
   # or parentheses are text.
   class StylesheetParser
-    def initialize(css, file)
-      @text = ShadowLevels.blank_comments(css)
-      @file = file
-    end
+    attr_reader :declarations, :applied_tokens
 
-    def declarations
+    def initialize(css, file)
+      @file = file
+      @declarations = []
+      @applied_tokens = []
       @preludes = []
-      @found = []
       @buffer = +''
       @start = nil
       @line = 1
       @quote = nil
       @depth = 0
       @escape = false
-      @text.each_char { |char| read(char) }
-      @found
+      ShadowLevels.blank_comments(css).each_char { |char| read(char) }
     end
 
     private
@@ -229,11 +253,35 @@ module ShadowLevels
     def record
       return if @preludes.empty?
 
-      match = @buffer.strip.match(/\A([\w-]+)\s*:\s*(.*)\z/m)
-      return unless match
+      text = @buffer.strip
+      return record_apply(text.delete_prefix('@apply')) if text.start_with?('@apply')
 
-      @found << Declaration.new(file: @file, line: @start, selectors: @preludes.last,
-                                property: match[1].downcase, value: match[2].strip.gsub(/\s+/, ' '))
+      match = text.match(/\A([\w-]+)\s*:\s*(.*)\z/m)
+      add_declaration(match[1].downcase, match[2]) if match
+    end
+
+    # In an @apply a written hard value is a box-shadow declaration of the block, and a
+    # named token is a use of that token. Variants (hover:, md:) and a leading ! go first.
+    def record_apply(list)
+      words = ShadowLevels.split_outside(list) { _1.match?(/\s/) }
+      all_important = words.delete('!important')
+      words.each do |word|
+        utility = ShadowLevels.utility(word)
+        important = all_important || utility.start_with?('!')
+        utility = utility.delete_prefix('!')
+        value = utility[/\Ashadow-\[(.+)\]\z/m, 1]
+        token = utility[/\Ashadow-([\w-]+)\z/, 1]
+        if value && ShadowLevels.written_hard?(value)
+          add_declaration('box-shadow', "#{value.tr('_', ' ')}#{' !important' if important}")
+        elsif TOKEN_OWNERS.key?(token)
+          @applied_tokens << AppliedToken.new(file: @file, line: @start, selectors: @preludes.last, token: token)
+        end
+      end
+    end
+
+    def add_declaration(property, value)
+      @declarations << Declaration.new(file: @file, line: @start, selectors: @preludes.last,
+                                       property: property, value: value.strip.gsub(/\s+/, ' '))
     end
   end
 
@@ -247,17 +295,46 @@ module ShadowLevels
             .to_h { |path| [relative(path), File.read(path)] }
   end
 
-  # Every file rule A reads, relative path => number of written hard values.
-  def written_counts
-    app_texts.reject { |path, _| WRITTEN_EXCLUDED.keys.any? { path.start_with?(_1) } }
-             .transform_values { _1.scan(WRITTEN_HARD).size }
+  # Every file rules A and A2 read, relative path => text.
+  def written_texts = app_texts.reject { |path, _| WRITTEN_EXCLUDED.keys.any? { path.start_with?(_1) } }
+
+  def written_hard?(value) = hard?(value.tr('_', ' '))
+
+  def written_count(text) = text.scan(WRITTEN_VALUE).count { |(value)| written_hard?(value) }
+
+  def inline_literals(text)
+    text.scan(CSS_LITERAL).map(&:first) + text.scan(SCRIPT_LITERAL).map(&:last).reject { _1.include?('${') }
+  end
+
+  def inline_count(text) = inline_literals(text).count { hard?(_1) }
+
+  # A file above its entry; a file without an entry allows none.
+  def over_legacy(counts, legacy)
+    counts.filter_map do |path, count|
+      allowed = legacy.fetch(path, 0)
+      "  #{path}: #{count} found, #{allowed} allowed" if count > allowed
+    end
+  end
+
+  # An entry above its file: lower it, or delete it at zero.
+  def stale_legacy(counts, legacy)
+    legacy.filter_map do |path, allowed|
+      count = counts.fetch(path, 0)
+      if count.zero?
+        "  #{path}: none left (or no such file), delete the line"
+      elsif count < allowed
+        "  #{path}: listed #{allowed}, the file has #{count}, lower the entry to #{count}"
+      end
+    end
   end
 
   def token_class(token) = /(?<![\w-])shadow-#{Regexp.escape(token)}(?![\w-])/
 
+  def dark_token_selector(token) = %(.dark [class*="shadow-#{token}"])
+
   def tailwind_tokens
     block = TAILWIND_CONFIG.read[/boxShadow:\s*\{(.*?)\}/m, 1].to_s
-    block.scan(/['"]?([\w-]+)['"]?\s*:\s*'([^']*)'/).to_h
+    block.scan(/['"]?([\w-]+)['"]?\s*:\s*(['"])(.*?)\2/).to_h { |name, _quote, value| [name, value] }
   end
 
   def hard_tokens = tailwind_tokens.select { |_, value| hard?(value) }
@@ -286,6 +363,18 @@ module ShadowLevels
     parts.map { _1.strip.gsub(/\s+/, ' ') }.reject(&:empty?)
   end
 
+  # A class without its variants (up to the last : outside brackets): hover:!x is !x.
+  def utility(word)
+    depth = 0
+    cut = -1
+    word.each_char.with_index do |char, index|
+      depth += 1 if char == '['
+      depth -= 1 if char == ']'
+      cut = index if char == ':' && depth.zero?
+    end
+    word[(cut + 1)..]
+  end
+
   # Hard: a layer without inset, with an x or y offset other than 0 and a blur of 0 or none.
   def hard?(value)
     split_outside(value.sub(IMPORTANT, '')) { _1 == ',' }.any? { hard_layer?(_1) }
@@ -304,7 +393,9 @@ module ShadowLevels
   # Comments become spaces, so every line keeps its number.
   def blank_comments(css) = css.gsub(%r{/\*.*?\*/}m) { _1.gsub(/[^\n]/, ' ') }
 
-  def declarations(css, file = nil) = StylesheetParser.new(css, file).declarations
+  def parse(css, file = nil) = StylesheetParser.new(css, file)
+
+  def declarations(css, file = nil) = parse(css, file).declarations
 
   def declarations_of(file)
     path = STYLESHEETS.join(file)
@@ -318,22 +409,26 @@ module ShadowLevels
   end
 
   def stylesheet_shadows = stylesheet_files.flat_map { declarations_of(_1) }.select(&:box_shadow?)
+
+  # Every token use through @apply, in every stylesheet, without rule C's exclusions.
+  def applied_tokens
+    Dir[STYLESHEETS.join('**/*.css').to_s].sort.flat_map do |path|
+      parse(File.read(path), relative(path, STYLESHEETS)).applied_tokens
+    end
+  end
 end
 
 RSpec.describe 'shadow levels guard' do
   describe 'A, written hard values' do
-    let(:written) { ShadowLevels.written_counts }
+    let(:written) { ShadowLevels.written_texts.transform_values { ShadowLevels.written_count(_1) } }
 
     it 'stay within the legacy entry of their file, and a file without an entry has none' do
-      offenders = written.filter_map do |path, count|
-        allowed = ShadowLevels::LEGACY.fetch(path, 0)
-        "  #{path}: #{count} written hard shadow(s), #{allowed} allowed" if count > allowed
-      end
+      offenders = ShadowLevels.over_legacy(written, ShadowLevels::LEGACY)
 
       expect(offenders).to be_empty, <<~MSG
-        A file writes a hard offset shadow (shadow-[Xpx_Ypx_0...]) beyond the legacy list.
-        A hard shadow says "press me". For the main action render a Neo button with
-        variant: :primary; for a card that is wholly a link or a button render
+        A file writes a hard offset shadow (shadow-[...] with an offset and no blur) beyond
+        the legacy list. A hard shadow says "press me". For the main action render a Neo
+        button with variant: :primary; for a card that is wholly a link or a button render
         NeoCardComponent with shadow: :hover. Anything else takes a border or a soft
         shadow, and never a written hard value.
 
@@ -342,19 +437,12 @@ RSpec.describe 'shadow levels guard' do
     end
 
     it 'keep the legacy list honest: an entry falls with its file' do
-      stale = ShadowLevels::LEGACY.filter_map do |path, allowed|
-        count = written.fetch(path, 0)
-        if count.zero?
-          "  #{path}: no written hard shadow left (or no such file), delete the line"
-        elsif count < allowed
-          "  #{path}: listed #{allowed}, the file has #{count}, lower the entry to #{count}"
-        end
-      end
+      stale = ShadowLevels.stale_legacy(written, ShadowLevels::LEGACY)
 
       expect(stale).to be_empty, <<~MSG
-        The legacy list allows more written hard shadows than a file still has. Lower the
-        entry, or delete the line at zero, so the room a fixed file leaves is not a budget
-        for the next one.
+        LEGACY allows more written hard shadows than a file still has. Lower the entry, or
+        delete the line at zero, so the room a fixed file leaves is not a budget for the
+        next one.
 
         #{stale.join("\n")}
       MSG
@@ -364,6 +452,52 @@ RSpec.describe 'shadow levels guard' do
       # Without this every example above passes the day a directory moves.
       expect(written.size).to be > 500
       expect(written['app/views/shared/_brand_mark.html.erb']).to eq(1)
+    end
+  end
+
+  describe 'A2, hard box-shadow literals' do
+    let(:inline) { ShadowLevels.written_texts.transform_values { ShadowLevels.inline_count(_1) } }
+
+    it 'stay within the legacy entry of their file, and a file without an entry has none' do
+      offenders = ShadowLevels.over_legacy(inline, ShadowLevels::INLINE_LEGACY)
+
+      expect(offenders).to be_empty, <<~MSG
+        A file writes a hard box-shadow literal (a style attribute, a CSS string, a
+        boxShadow in a script) beyond INLINE_LEGACY. It keeps its shadow in the dark
+        theme, where no hard shadow belongs, because no dark rule reaches a style. For the
+        main action render a Neo button with variant: :primary; for a card that is wholly
+        a link or a button render NeoCardComponent with shadow: :hover. Anything else
+        takes a border or a soft shadow.
+
+        #{offenders.join("\n")}
+      MSG
+    end
+
+    it 'keep the legacy list honest: an entry falls with its file' do
+      stale = ShadowLevels.stale_legacy(inline, ShadowLevels::INLINE_LEGACY)
+
+      expect(stale).to be_empty, <<~MSG
+        INLINE_LEGACY allows more hard box-shadow literals than a file still has. Lower the
+        entry, or delete the line at zero, so the room a fixed file leaves is not a budget
+        for the next one.
+
+        #{stale.join("\n")}
+      MSG
+    end
+
+    it 'are read at all: more than 500 files, and both forms of a literal' do
+      # Without this every example above passes the day a directory moves or a pattern breaks.
+      samples = {
+        %(<div style="box-shadow: 4px 4px 0 #000"></div>) => 1,
+        %('background: white; box-shadow:2px 2px 0 0 #000000 !important;') => 1,
+        %(label.style.boxShadow = '2px 2px 0 0 #000000') => 1,
+        %(Object.assign(el.style, { boxShadow: "3px 3px 0 #000" })) => 1,
+        %(el.style.boxShadow = `${x}px 4px 0 #000`) => 0,
+        %(<p style="box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1)"></p>) => 0
+      }
+
+      expect(inline.size).to be > 500
+      expect(samples.to_h { |text, _| [text, ShadowLevels.inline_count(text)] }).to eq(samples)
     end
   end
 
@@ -380,20 +514,26 @@ RSpec.describe 'shadow levels guard' do
       MSG
     end
 
-    it 'are used only by their owners' do
-      offenders = texts.flat_map do |path, text|
+    it 'are used only by their owners, and never through @apply in a stylesheet' do
+      in_files = texts.flat_map do |path, text|
         ShadowLevels::TOKEN_OWNERS.filter_map do |token, owners|
           next if owners.key?(path) || !text.match?(ShadowLevels.token_class(token))
 
           "  #{path}: shadow-#{token} (owners: #{owners.keys.join(', ')})"
         end
       end
+      in_stylesheets = ShadowLevels.applied_tokens.map do |use|
+        "  app/assets/stylesheets/#{use.file}:#{use.line} #{use.selectors.join(', ')} { @apply shadow-#{use.token} }"
+      end
+      offenders = in_files + in_stylesheets
 
       expect(offenders).to be_empty, <<~MSG
-        A file uses a hard shadow token outside its owner list. shadow-press and
+        A hard shadow token is used outside its owner list. shadow-press and
         shadow-press-hover belong to the main action: render a Neo button with
         variant: :primary. shadow-lift belongs to a card that is wholly a link or a
-        button: render NeoCardComponent with shadow: :hover.
+        button: render NeoCardComponent with shadow: :hover. A stylesheet is never an
+        owner: a CSS main action writes its own value, with a CSS_HARD entry and a dark
+        rule.
 
         #{offenders.join("\n")}
       MSG
@@ -429,10 +569,10 @@ RSpec.describe 'shadow levels guard' do
       end
 
       expect(offenders).to be_empty, <<~MSG
-        A stylesheet declares a hard offset shadow (an offset, no blur) outside CSS_HARD.
-        A hard shadow says "press me": a main action may carry one, and then it needs an
-        entry with its reason and a .dark rule with box-shadow: none. Anything else takes
-        a border or a soft shadow.
+        A stylesheet declares a hard offset shadow (an offset, no blur; a written hard
+        value through @apply counts) outside CSS_HARD. A hard shadow says "press me": a
+        main action may carry one, and then it needs an entry with its reason and a .dark
+        rule with box-shadow: none. Anything else takes a border or a soft shadow.
 
         #{offenders.join("\n")}
       MSG
@@ -465,9 +605,13 @@ RSpec.describe 'shadow levels guard' do
               '0 4px 0 #000', '2px 2px #000']
       not_hard = ['0 0 0 2px rgb(var(--ink))', 'inset 0 -2px 0 rgb(var(--ink))', '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
                   '0 1px 3px rgb(var(--stroke) / 0.06), 0 3px 10px rgb(var(--stroke) / 0.06)', 'none']
+      written_hard = ['0_-4px_0_0_#14110c']
+      written_not_hard = ['inset_3px_0_0_0_#fbbf24', '4px_0_12px_-6px_rgba(0,0,0,0.25)', '0_0_0_1px_theme(colors.cream.400)']
 
       expect(hard.reject { ShadowLevels.hard?(_1) }).to be_empty
       expect(not_hard.select { ShadowLevels.hard?(_1) }).to be_empty
+      expect(written_hard.reject { ShadowLevels.written_hard?(_1) }).to be_empty
+      expect(written_not_hard.select { ShadowLevels.written_hard?(_1) }).to be_empty
     end
 
     it 'take a transition of box-shadow for no box-shadow declaration' do
@@ -486,22 +630,32 @@ RSpec.describe 'shadow levels guard' do
       expect(declaration).to be_hard
       expect(declaration).to be_important
     end
+
+    it 'read an @apply: a written hard value is a box-shadow of the block, a token a use of it' do
+      css = '.y { @apply flex hover:!shadow-[2px_2px_0_0_#000] shadow-[0_1px_3px_#000] md:shadow-lift shadow-sm; }'
+      parsed = ShadowLevels.parse(css, 'probe.css')
+
+      expect(parsed.declarations.map { [_1.selectors, _1.value] }).to eq([[['.y'], '2px 2px 0 0 #000 !important']])
+      expect(parsed.applied_tokens.map { [_1.selectors, _1.token] }).to eq([[['.y'], 'lift']])
+    end
   end
 
   describe 'D, the dark theme' do
     let(:tailwind_css) { ShadowLevels::STYLESHEETS.join('application.tailwind.css') }
 
-    it 'turns off every hard token in application.tailwind.css' do
+    it 'turns off every hard token in application.tailwind.css, through the class attribute and with !important' do
       declarations = ShadowLevels.declarations_of('application.tailwind.css')
       missing = ShadowLevels.hard_tokens.keys.reject do |token|
-        selectors = [%(.dark [class*="shadow-#{token}"]), ".dark .shadow-#{token}"]
-        declarations.any? { _1.off? && _1.selectors.intersect?(selectors) }
+        declarations.any? { _1.off? && _1.important? && _1.selectors.include?(ShadowLevels.dark_token_selector(token)) }
       end
 
       expect(missing).to be_empty, <<~MSG
-        A hard shadow token has no dark rule. Add one line per token to
+        A hard shadow token has no dark rule that holds. Each token needs its own line in
         application.tailwind.css, next to the others:
-        #{missing.map { %(  .dark [class*="shadow-#{_1}"] { box-shadow: none !important; }) }.join("\n")}
+        #{missing.map { "  #{ShadowLevels.dark_token_selector(_1)} { box-shadow: none !important; }" }.join("\n")}
+        The attribute selector, because .dark .shadow-<token> never matches a variant
+        class such as hover:shadow-lift. And !important, because at equal specificity the
+        hover utility comes later in the build and wins.
       MSG
     end
 
