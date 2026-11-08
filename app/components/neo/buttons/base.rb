@@ -26,7 +26,7 @@ module Neo
       # One primary surface per visible area; no other element carries the
       # ink edge or the offset shadow. Soft shadows stay with layers and modals.
       PRIMARY = 'bg-btn-primary text-ink font-semibold border border-ink ' \
-                'shadow-[2px_2px_0_0_rgb(var(--ink))] hover:shadow-[3px_3px_0_0_rgb(var(--ink))] ' \
+                'shadow-press hover:shadow-press-hover ' \
                 'active:shadow-none active:translate-x-[2px] active:translate-y-[2px] ' \
                 'disabled:bg-selected disabled:border-edge disabled:text-faint disabled:shadow-none ' \
                 'disabled:translate-x-0 disabled:translate-y-0 disabled:cursor-default'
