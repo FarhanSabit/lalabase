@@ -1,9 +1,9 @@
 {
   "header": {
     "regenerate": "RAILS_ENV=test bin/rails mcp:contract",
-    "core_commit": "e1b3b680e7f4a14809e6b6d4c2fcf4c550e6bc9e",
+    "core_commit": "6035dcdfbb940b476f3505d45000844fd258acee",
     "core_dirty": false,
-    "contract_sha256": "fd693705980fbe78b4ba74435fdd56e7ac70355f9f48b84cf921bd2d4442f952"
+    "contract_sha256": "33df61c255e2c300ca0fdbf4f5b679ff0c4e7f024910c4dd1589b92e62375145"
   },
   "contract": {
     "mcp": {
@@ -5288,13 +5288,14 @@
                     "all_projects": true
                   }
                 ],
-                "api_version": "1.11.0",
+                "api_version": "1.12.0",
                 "capabilities": [
                   "error_codes",
                   "idempotency",
                   "knowledge.search",
                   "me.show",
                   "meetings.create",
+                  "meetings.glossary_replacements",
                   "meetings.list",
                   "meetings.show",
                   "notifications.archive",
@@ -5358,13 +5359,14 @@
                     "all_projects": true
                   }
                 ],
-                "api_version": "1.11.0",
+                "api_version": "1.12.0",
                 "capabilities": [
                   "error_codes",
                   "idempotency",
                   "knowledge.search",
                   "me.show",
                   "meetings.create",
+                  "meetings.glossary_replacements",
                   "meetings.list",
                   "meetings.show",
                   "notifications.archive",
@@ -8622,6 +8624,7 @@
                 "generated_summary": "**Ergebnis:** Start im März.",
                 "notes": "Termin im März halten.",
                 "transcript": "Anna: Wir starten im März.",
+                "glossary_replacements": [],
                 "updated_at": "2026-01-05T09:36:00Z",
                 "path": "/org/00000000-0000-4000-8000-000000000001/projects/00000000-0000-4000-8000-000000000031/meetings/00000000-0000-4000-8000-000000000101"
               }
@@ -8650,6 +8653,7 @@
                 "generated_summary": "",
                 "notes": null,
                 "transcript": null,
+                "glossary_replacements": [],
                 "updated_at": "2026-01-05T09:36:00Z",
                 "path": "/org/00000000-0000-4000-8000-000000000001/projects/00000000-0000-4000-8000-000000000031/meetings/00000000-0000-4000-8000-000000000102"
               }
@@ -8678,6 +8682,7 @@
                 "generated_summary": "",
                 "notes": null,
                 "transcript": null,
+                "glossary_replacements": [],
                 "updated_at": "2026-01-05T09:36:00Z",
                 "path": "/org/00000000-0000-4000-8000-000000000001/projects/00000000-0000-4000-8000-000000000032/meetings/00000000-0000-4000-8000-000000000106"
               }
