@@ -113,6 +113,16 @@ RSpec.describe 'config/recurring.yml' do
         expect(entry).to be_present
         expect(entry['class']).to eq('FounderSignupCallbackNumberCleanupJob')
       end
+
+      # K5b: a place of a glossary proposal keeps up to 240 characters of a
+      # source that has no foreign key, so a deleted ticket leaves its text
+      # behind until this runs. Pinned by name for the same reason as the GC.
+      it 'contains the purge of glossary snippets of gone sources (K5b retention)' do
+        entry = schedule.fetch(env)['glossary_gone_source_snippet_purge']
+        expect(entry).to be_present
+        expect(entry['class']).to eq('Glossary::GoneSourceSnippetPurgeJob')
+        expect(Fugit.parse(entry['schedule'])).to be_present
+      end
     end
   end
 

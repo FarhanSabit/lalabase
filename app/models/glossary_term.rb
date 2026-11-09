@@ -46,6 +46,16 @@ class GlossaryTerm < ApplicationRecord
   # spelling.
   scope :ordered, -> { in_order_of(:status, STATUSES).order(:normalized_term, :id) }
 
+  # Confirms the open heard forms of this term, in one UPDATE (K4b, E3): they
+  # came with the proposed term, and whoever confirms the term decides for
+  # them. The writes that confirm a PROPOSED term call it under the term's
+  # lock (Actors::SetGlossaryTermStatus, Actors::AcceptGlossaryProposal); a
+  # rejected term confirmed again keeps what is open, form by form.
+  def confirm_open_forms!
+    TermCorrection.where(organisation_id: organisation_id, glossary_term_id: id, status: 'proposed')
+                  .update_all(status: 'confirmed', updated_at: Time.current)
+  end
+
   private
 
   def normalize_term

@@ -816,4 +816,55 @@ RSpec.describe Glossary::Extraction, :ci_guard do
     expect(run.stats['sources'].values.sum).to eq(30)
     expect(run.stats).to include('proposals_created' => 30, 'proposals_updated' => 2)
   end
+
+  # The classifier runs for real here, against a provider double: hint_sources_for
+  # and Classifier#payload are two selections of the same passages, and only a test
+  # that sees the payload can say that they name the same sources. More sources than
+  # passages per candidate, so the two cannot agree by accident.
+  describe 'the provenance of the hint against the payload the model gets' do
+    let(:payloads) { [] }
+
+    before do
+      allow(Glossary::Classifier).to receive(:call).and_call_original
+      allow_any_instance_of(Organisation).to receive(:ai_available_for?).with(:glossary_extraction)
+                                                                        .and_return(Lalabase::Llm::FeatureRegistry::Availability.new(available: true))
+      provider = double('provider')
+      allow(Lalabase::Llm::Factory).to receive(:for_feature).with(:glossary_extraction, organisation).and_return(provider)
+      allow(Lalabase::Llm::UsageTracking).to receive(:record)
+      allow(provider).to receive(:chat) do |messages:, **|
+        payload = JSON.parse(messages.last[:content])
+        payloads << payload
+        rows = payload.map do |row|
+          { candidate: row['candidate'], keep: true, term: row['candidate'], category: 'product', variants: [],
+            hint: 'Ein erfundener Begriff.' }
+        end
+        { content: rows.to_json, model_used: 'test-model', token_usage: {} }
+      end
+    end
+
+    it 'names exactly the sources whose passages the model got, across every candidate of the batch' do
+      sources = {
+        ticket("#{text('Quarnix')} Quarnix hier, Quarnix dort.") => 3,
+        ticket("#{text('Quarnix')} Quarnix noch einmal.") => 2,
+        ticket("#{text('Quarnix')} Das war heute.") => 1,
+        ticket("#{text('Quarnix')} Das war gestern.") => 1,
+        ticket(text('Vexoria')) => 1
+      }
+
+      extract
+
+      expect(run).to have_attributes(status: 'succeeded', error_code: nil)
+      expect(payloads.size).to eq(1)
+      contexts = payloads.first.flat_map { |row| row['context'] }
+      sent = sources.keys.select { |source| contexts.any? { |context| context.include?(source.content.to_plain_text) } }
+      expect(sent.size).to eq(Glossary::Classifier::SNIPPETS_PER_CANDIDATE + 1)
+      expect(sent.size).to be < sources.size
+
+      quarnix = GlossaryProposal.find_by!(term: 'Quarnix')
+      expect(quarnix.glossary_proposal_sources.count).to eq(4)
+      expected = sent.map { |source| { 'source_type' => 'Ticket', 'source_id' => source.id } }
+      expect(quarnix.hint_sources).to match_array(expected)
+      expect(GlossaryProposal.find_by!(term: 'Vexoria').hint_sources).to match_array(expected)
+    end
+  end
 end

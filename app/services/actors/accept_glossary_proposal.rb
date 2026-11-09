@@ -12,6 +12,10 @@
 #   proposal's organisation is found and confirmed: an import or a correction
 #   in a meeting may have left it proposed, and a person accepts it now. It
 #   gets a category only when it has none (the form's, else the proposal's).
+#   A term that was PROPOSED takes its open heard forms along into confirmed
+#   (GlossaryTerm#confirm_open_forms!), as Actors::SetGlossaryTermStatus does:
+#   both ways to "confirmed" hand the device the same forms. A rejected term
+#   keeps what is open, form by form.
 #   Without such a term one is created, confirmed, by this person, with that
 #   category; one that someone else created at the same moment is that term
 #   (as in Actors::CorrectMeetingTerm).
@@ -138,11 +142,13 @@ module Actors
 
     # Under the lock. A term this accept created is confirmed and has its
     # category already; a found one is confirmed now and keeps a category it
-    # has.
+    # has. A found term that was proposed takes its open heard forms along.
     def adopt_term
+      was_proposed = @term.proposed?
       @term.status = 'confirmed'
       @term.category ||= @category
       @term.save! if @term.changed?
+      @term.confirm_open_forms! if was_proposed
     end
 
     def existing_term

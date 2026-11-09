@@ -1,4 +1,4 @@
-# Karte: app/models (Stand: 2026-11-08)
+# Karte: app/models (Stand: 2026-11-09)
 
 ~80 Modelle liegen flach in diesem Verzeichnis; Namespaces existieren nur für `admin/`,
 `knowledge/`, `overview/`, `smart_folders/`, `time_sessions/`, `user/`. Die Domänen-Zugehörigkeit ist am
@@ -149,7 +149,8 @@ Verzeichnis-Layout nicht ablesbar — diese Karte gruppiert sie:
   verborgen; `hint_source_references` lehnt auch teilweise fehlerhafte Herkunft vollständig ab.
   `glossary_proposal_source`: polymorph OHNE Fremdschlüssel; eine gelöschte Quelle lässt die Zeile
   stehen, die Seite fragt beim Rendern, ob sie noch da und für den Leser lesbar ist
-  (`GlossaryHelper#glossary_source_access`); beim Schreiben muss die Quelle zur Organisation
+  (`GlossaryHelper#glossary_source_access`); ihren Ausschnitt und den Hinweis des Vorschlags leert
+  `Glossary::GoneSourceSnippetPurgeJob` täglich (Karte `app/services/CLAUDE.md`); beim Schreiben muss die Quelle zur Organisation
   gehören. Die Datenbank löscht: Organisation und Vorschlag kaskadieren, Lauf, Begriff, Projekt und
   Konto leeren nur den Verweis. `GlossaryPolicy` für alle vier Modelle (Begriff, gehörte Form,
   Lauf, Vorschlag). `term_corrections.origin` (`meeting`/`extraction`/`import`, Check-Constraint,

@@ -1,4 +1,4 @@
-# Karte: app/services (Stand: 2026-11-08)
+# Karte: app/services (Stand: 2026-11-09)
 
 **Entry-Point-Konvention für NEUE Services: `Klass.call(**kwargs)`** (Klassenmethode; eine
 Instanz-`#call`-Implementierung dahinter ist erlaubt). Pflicht: mindestens 1 Kommentarzeile
@@ -207,6 +207,9 @@ Verzeichnis-Übersicht (Auswahl):
   Vorschläge ans Ziel, unter beiden Sperren; `merge_glossary_proposals` behält den Hinweis des Ziels samt
   `hint_sources`, auch wenn das Kürzen auf `MAX_SOURCES` eigene Beispielstellen streicht. Seine Anzeige
   prüft die vollständige Modellherkunft unabhängig von diesen Beispielen.
+  Zweitreview 09.11.2026: `accept_glossary_proposal` bestätigt mit einem VORGESCHLAGENEN Begriff dessen offene
+  gehörte Formen (`GlossaryTerm#confirm_open_forms!`, geteilt mit `set_glossary_term_status`), damit beide Wege
+  zu „bestätigt" dem Gerät dieselben Formen liefern; ein verworfener Begriff behält seine offenen Formen.
   Glossar-Seite ruft sie aus `Organisations::GlossaryController` (Prüfliste, `?view=proposals`).
   Registrierung (Website-Schnitt W2, 15.09.2026): `create_signup` ist die EINE
   Selbst-Registrierung für das Formular und später den Provisioning-Endpunkt. Tier 2: Sprache
@@ -264,8 +267,15 @@ Verzeichnis-Übersicht (Auswahl):
   `hint_sources` hält deren Arten und IDs, auch für verworfene Kandidaten, unabhängig von den
   Beispielstellen des Vorschlags. Alte Hinweise ohne diese Herkunft bleiben verborgen; beim
   Zusammenführen wandert der Hinweis der Quelle nicht mit, die Herkunft des Zielhinweises bleibt.
+  `run_heartbeat.rb` (09.11.2026) berührt den Lauf aus einem eigenen Thread alle `STALE_AFTER / 5`, solange der
+  Modellaufruf läuft (ein Anbieter-Aufruf kann `STALE_AFTER` überdauern; ein dabei als `stale` beendeter Lauf
+  wäre doppelt bezahlt); nur unter `status = 'running'`, nie in den Speicher, ein Fehlschlag wird geloggt.
   `Glossary::ExtractionJob`
   (`app/jobs/`): Advisory Lock, EIN Claim, `interrupted`, `internal_error`, kein Retry.
+  `Glossary::GoneSourceSnippetPurgeJob` (`app/jobs/`, täglich 04:50, `config/recurring.yml`): leert den
+  Ausschnitt einer Stelle, deren Quelle nicht mehr existiert (ein UPDATE je Art, NOT EXISTS gegen die Tabelle
+  der Art), und den Hinweis eines Vorschlags, sobald eine Quelle seines Modellaufrufs fehlt oder die Herkunft
+  leer oder unlesbar ist; die Zeilen bleiben.
 * `people/` — `directory.rb`, das Lese-Objekt der Personenliste (seit 26.10.2026): Mitglieder
   über `MembershipPolicy::Scope` (dieselbe Reichweite wie die Mitgliederseite), dazu die
   Zeilen ohne aktives Mitglied als Kontakte; Suche in Ruby über `PersonName.normalize`.

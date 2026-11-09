@@ -9,7 +9,8 @@
 # later is allowed. The term is locked first (Glossary::TermLock), so a term
 # deleted or merged away in the meantime is refused as gone.
 #
-# Confirming a PROPOSED term confirms its open heard forms with it (K4b, E3):
+# Confirming a PROPOSED term confirms its open heard forms with it (K4b, E3,
+# GlossaryTerm#confirm_open_forms!, shared with Actors::AcceptGlossaryProposal):
 # they came with the proposal, and the lane shows them to whoever confirms.
 # Rejecting leaves them as they are (at a rejected term no form works), and so
 # does confirming a rejected term later: what is open then is confirmed form
@@ -35,15 +36,11 @@ module Actors
       Glossary::TermLock.call(term: @term)
       was_proposed = @term.proposed?
       @term.update!(status: @status)
-      confirm_open_forms if was_proposed && @term.confirmed?
+      @term.confirm_open_forms! if was_proposed && @term.confirmed?
     end
 
     private
 
     attr_reader :current_user
-
-    def confirm_open_forms
-      TermCorrection.where(glossary_term_id: @term.id, status: 'proposed').update_all(status: 'confirmed', updated_at: Time.current)
-    end
   end
 end

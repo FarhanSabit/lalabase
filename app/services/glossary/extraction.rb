@@ -39,7 +39,10 @@
 # * Every write first touches the run while it is running, in the same
 #   transaction, and so does every load batch of the scan: a run ended elsewhere
 #   (a start that found it stale) reads and writes nothing more, and a run that
-#   moves does not turn stale.
+#   moves does not turn stale. While the model answers, Glossary::RunHeartbeat
+#   touches it from a thread of its own: a call to the provider can outlast
+#   STALE_AFTER, and a run ended as stale in the middle of one would be paid
+#   for twice.
 # * Memory and time: the texts are loaded LOAD_BATCH at a time, each cut to
 #   MAX_SOURCE_CHARS, and read once by the scan, which keeps counts and snippets
 #   of at most CandidateScan::MAX_GROUPS keys, never a whole text.
@@ -432,11 +435,14 @@ module Glossary
       e.code
     end
 
-    # One call, counted whatever it answers. nil when the answer could not be
-    # read: that batch is skipped. Any other failure ends the run.
+    # One call, counted whatever it answers, with the run's heartbeat around
+    # it. nil when the answer could not be read: that batch is skipped. Any
+    # other failure ends the run.
     def ask(batch)
       @counts['ai_calls'] += 1
-      Classifier.call(organisation: @organisation, user: @starter, run: @run, candidates: batch)
+      RunHeartbeat.call(run: @run) do
+        Classifier.call(organisation: @organisation, user: @starter, run: @run, candidates: batch)
+      end
     rescue Classifier::Failure => e
       raise unless e.code == 'parse_error'
 

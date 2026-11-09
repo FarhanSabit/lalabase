@@ -179,6 +179,17 @@ production:
     class: AcquisitionPurgeJob
     queue: default
     schedule: every day at 3:40am
+  # K5b: a place of a glossary proposal keeps up to 240 characters of a source
+  # that has no foreign key, so a deleted ticket or comment leaves its text
+  # behind, and the model's hint may repeat it; the page shows neither once the
+  # source is gone. Daily, like the embedding GC and for the same reason: the
+  # text of deleted content lives at most a day longer than its source. In BOTH
+  # environments. 04:50, after the embedding GC (4:30), before the blob purge
+  # (5:15).
+  glossary_gone_source_snippet_purge:
+    class: Glossary::GoneSourceSnippetPurgeJob
+    queue: default
+    schedule: "50 4 * * *"
 
   # The public demo (Lalabase::Demo::Reset): empties what visitors wrote and builds
   # the world again. A no-op on every instance without both demo latches. The hour
@@ -256,3 +267,14 @@ staging:
     class: AcquisitionPurgeJob
     queue: default
     schedule: every day at 3:40am
+  # K5b: a place of a glossary proposal keeps up to 240 characters of a source
+  # that has no foreign key, so a deleted ticket or comment leaves its text
+  # behind, and the model's hint may repeat it; the page shows neither once the
+  # source is gone. Daily, like the embedding GC and for the same reason: the
+  # text of deleted content lives at most a day longer than its source. In BOTH
+  # environments. 04:50, after the embedding GC (4:30), before the blob purge
+  # (5:15).
+  glossary_gone_source_snippet_purge:
+    class: Glossary::GoneSourceSnippetPurgeJob
+    queue: default
+    schedule: "50 4 * * *"

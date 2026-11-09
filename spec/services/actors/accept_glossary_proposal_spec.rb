@@ -149,6 +149,35 @@ RSpec.describe Actors::AcceptGlossaryProposal, :ci_guard, type: :service do
       expect(rejected.reload).to be_confirmed
     end
 
+    # K4b (E3), as Actors::SetGlossaryTermStatus confirms a proposed term: its
+    # open heard forms came with it, and they are confirmed with it, so both
+    # ways to "confirmed" hand the device the same forms. A rejected term
+    # confirmed again keeps what is open (form by form, Actors::ConfirmHeardForm).
+    it 'confirms the open heard forms of a proposed term with it, and leaves those of other terms open' do
+      proposed = create(:glossary_term, :proposed, organisation: organisation, term: 'Zorbel-Hub')
+      open_form = create(:term_correction, organisation: organisation, glossary_term: proposed, heard: 'sorbel hab', status: 'proposed')
+      confirmed_form = create(:term_correction, organisation: organisation, glossary_term: proposed, heard: 'zorbel hap', status: 'confirmed')
+      other = create(:glossary_term, :proposed, organisation: organisation, term: 'Wub')
+      elsewhere = create(:term_correction, organisation: organisation, glossary_term: other, heard: 'wubb', status: 'proposed')
+
+      expect(accept).to be_success
+
+      expect(open_form.reload).to be_confirmed
+      expect(confirmed_form.reload).to be_confirmed
+      expect(elsewhere.reload).to be_proposed
+      expect(TermCorrection.effective.where(glossary_term_id: proposed.id).pluck(:heard)).to contain_exactly('sorbel hab', 'zorbel hap')
+    end
+
+    it 'leaves the open heard forms of a rejected term as they are when it is confirmed' do
+      rejected = create(:glossary_term, :rejected, organisation: organisation, term: 'Zorbel-Hub')
+      open_form = create(:term_correction, organisation: organisation, glossary_term: rejected, heard: 'sorbel hab', status: 'proposed')
+
+      expect(accept).to be_success
+
+      expect(rejected.reload).to be_confirmed
+      expect(open_form.reload).to be_proposed
+    end
+
     it 'gets a category only when it has none: the form’s, else the proposal’s' do
       with_one = create(:glossary_term, organisation: organisation, term: 'Zorbel-Hub', category: 'company')
       without_one = create(:glossary_term, organisation: organisation, term: 'Wub')
