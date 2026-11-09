@@ -23,16 +23,31 @@ const MAX_TIMEOUT_DELAY = 2_147_483_647
 // the right was taken) stops the polling. Transient HTTP and network failures
 // ask again after a delay while this bar remains active and connected.
 // A tab in the background asks only once it is shown again.
+// A document may never yield text (failed extraction or a missing file).
+// Its optional maxWait bounds that wait, retries included. The deadline lives
+// on the outer frame so replacing this controller cannot restart it; an
+// unbounded run clears it once the text is ready.
 export default class extends Controller {
   static values = {
     active: Boolean,
     url: String,
     frame: String,
+    maxWait: Number,
     interval: { type: Number, default: 5000 }
   }
 
   connect() {
     this.connected = true
+    this.deadline = null
+    const frame = document.getElementById(this.frameValue)
+    if (frame) {
+      if (this.hasMaxWaitValue) {
+        frame.dataset.glossaryRunPollDeadline ||= String(Date.now() + this.maxWaitValue)
+        this.deadline = Number(frame.dataset.glossaryRunPollDeadline)
+      } else {
+        delete frame.dataset.glossaryRunPollDeadline
+      }
+    }
     this.schedule()
   }
 
@@ -45,7 +60,11 @@ export default class extends Controller {
   }
 
   canPoll() {
-    return this.connected && this.activeValue && this.element.isConnected
+    return this.connected && this.activeValue && this.element.isConnected && this.withinDeadline()
+  }
+
+  withinDeadline() {
+    return this.deadline == null || Date.now() < this.deadline
   }
 
   schedule(delay = this.intervalValue) {

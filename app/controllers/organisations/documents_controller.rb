@@ -311,7 +311,7 @@ class Organisations::DocumentsController < Organisations::BaseController
 
     raise ActiveRecord::RecordNotFound unless document.current_version
 
-    render partial: 'organisations/documents/glossary_source', locals: { document: document }
+    render partial: 'organisations/documents/glossary_source', formats: [:html], locals: { document: document }
   end
 
   # K5c: a glossary run over this document, the button in its lane. Reading

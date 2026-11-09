@@ -4,7 +4,7 @@ require 'rails_helper'
 
 # The page is already open when the processing job finishes. Request specs
 # alone cannot catch a button that keeps its initial disabled state.
-RSpec.describe 'Document glossary source readiness', type: :system do
+RSpec.describe 'Document glossary source readiness', :ci_guard, type: :system do
   let(:organisation) { create(:organisation) }
   let(:user) { create(:user) }
   let(:project) { create(:project, organisation: organisation) }

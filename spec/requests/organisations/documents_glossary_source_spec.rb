@@ -303,6 +303,19 @@ RSpec.describe 'Organisations::Documents as a glossary source', :ci_guard, type:
       page.at_css('[data-controller="glossary-run-poll"]')['data-glossary-run-poll-active-value'] == 'true'
     end
 
+    %w[turbo_stream json].each do |format|
+      it "returns an HTML fragment even when #{format} is requested" do
+        sign_in manager
+
+        get glossary_source_organisation_project_document_path(organisation, project, document, format: format)
+
+        expect(response).to have_http_status(:ok)
+        expect(response.media_type).to eq('text/html')
+        expect(page.at_css("turbo-frame#document_#{document.id}_glossary_source")).to be_present
+        expect(propose_button['disabled']).to be_nil
+      end
+    end
+
     it 'refreshes only the control and stops polling once the text is available' do
       bare = document_with(text: nil)
       sign_in manager
@@ -314,6 +327,7 @@ RSpec.describe 'Organisations::Documents as a glossary source', :ci_guard, type:
       expect(page.at_css('.document-content')).to be_nil
       expect(page.at_css('button[disabled]')).to be_present
       expect(polling?).to be(true)
+      expect(page.at_css('[data-glossary-run-poll-max-wait-value]')['data-glossary-run-poll-max-wait-value'].to_i).to eq(600_000)
 
       Prosopite.pause { DocumentVersionProcessingJob.perform_now(bare.current_version) }
       refresh_control(bare)
@@ -321,6 +335,7 @@ RSpec.describe 'Organisations::Documents as a glossary source', :ci_guard, type:
       expect(page.at_css('button[disabled]')).to be_nil
       expect(reason).to be_nil
       expect(polling?).to be(false)
+      expect(page.at_css('[data-glossary-run-poll-max-wait-value]')).to be_nil
     end
 
     it 'stops polling when the file has been read and is empty' do
@@ -344,6 +359,7 @@ RSpec.describe 'Organisations::Documents as a glossary source', :ci_guard, type:
 
       expect(propose_button['disabled']).to eq('disabled')
       expect(polling?).to be(true)
+      expect(page.at_css('[data-glossary-run-poll-max-wait-value]')).to be_nil
 
       run.mark_failed!('interrupted')
       refresh_control

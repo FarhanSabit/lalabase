@@ -23,6 +23,7 @@
   <%= tag.div class: 'flex flex-wrap items-center gap-x-3 gap-y-1.5',
               data: { document_glossary_source: true, controller: 'glossary-run-poll',
                       glossary_run_poll_active_value: (text_status == 'unavailable' || run_active).to_s,
+                      glossary_run_poll_max_wait_value: (10.minutes.in_milliseconds if text_status == 'unavailable'),
                       glossary_run_poll_url_value: glossary_source_organisation_project_document_path(**path_args),
                       glossary_run_poll_frame_value: frame_id } do %>
     <%= render Neo::Buttons::ButtonComponent.new(
