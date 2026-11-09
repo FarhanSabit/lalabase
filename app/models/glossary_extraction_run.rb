@@ -9,7 +9,7 @@
 # One active run (queued or running) per organisation: the partial unique
 # index one_active_glossary_extraction_run refuses a second one, also for two
 # starts at the same moment. A run that has not moved for STALE_AFTER is
-# stale; mark_failed! ends it by the row, not by the copy in memory.
+# stale; mark_stale! checks the timestamp again in the update that ends it.
 #
 # Both JSONB columns read with string keys, also right after a Hash with
 # symbol keys was assigned (the JSONB type casts through JSON).
@@ -70,6 +70,15 @@ class GlossaryExtractionRun < ApplicationRecord
     scope.is_a?(Hash) && scope['everything'] == true
   end
 
+  # Check the stored timestamp in the same UPDATE that ends the run. A
+  # worker claim or heartbeat after stale? keeps its fresh, active row.
+  def mark_stale!
+    now = Time.current
+    stale = self.class.unscoped.where(id: id, organisation_id: organisation_id, status: ACTIVE_STATUSES)
+                .where('updated_at < ?', now - STALE_AFTER)
+    fail_run(stale, 'stale', now: now)
+  end
+
   # Ends the run as failed with an error code, in ONE update_all whose
   # condition is the status of the row: true only when it changed the row,
   # then the copy in memory says the same. A run that already left the given
@@ -81,17 +90,21 @@ class GlossaryExtractionRun < ApplicationRecord
   def mark_failed!(code, from: ACTIVE_STATUSES)
     raise ArgumentError, "unknown error code: #{code.inspect}" unless ERROR_CODES.include?(code)
 
-    now = Time.current
+    eligible = self.class.unscoped.where(id: id, organisation_id: organisation_id, status: from)
+    fail_run(eligible, code, now: Time.current)
+  end
+
+  private
+
+  def fail_run(eligible, code, now:)
     values = { status: 'failed', error_code: code, finished_at: now, updated_at: now }
-    changed = self.class.unscoped.where(id: id, organisation_id: organisation_id, status: from).update_all(values) == 1
+    changed = eligible.update_all(values) == 1
     return false unless changed
 
     values.each { |name, value| self[name] = value }
     clear_attribute_changes(values.keys)
     true
   end
-
-  private
 
   def scope_kind_known
     kind = scope['kind'] if scope.is_a?(Hash)

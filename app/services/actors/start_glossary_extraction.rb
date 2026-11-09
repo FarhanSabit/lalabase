@@ -74,7 +74,7 @@ module Actors
     # By the row: a run that moved or ended in the meantime keeps its state.
     def end_stale_runs
       runs.where(status: GlossaryExtractionRun::ACTIVE_STATUSES).find_each do |run|
-        run.mark_failed!('stale') if run.stale?
+        run.mark_stale! if run.stale?
       end
     end
 

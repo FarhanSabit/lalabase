@@ -201,3 +201,73 @@ RSpec.describe Actors::StartGlossaryExtraction, :ci_guard do
     end
   end
 end
+
+# A worker commits after the starter reads a stale snapshot. Its write must
+# survive a refused start, so these examples use a separate database connection.
+RSpec.describe Actors::StartGlossaryExtraction, 'beside a worker update', type: :service do
+  self.use_transactional_tests = false
+
+  around do |example|
+    original = ActiveJob::Base.queue_adapter
+    ActiveJob::Base.queue_adapter = :test
+    example.run
+  ensure
+    ActiveJob::Base.queue_adapter = original
+  end
+
+  before do
+    DatabaseCleaner.clean
+    DatabaseCleaner.strategy = :truncation
+    DatabaseCleaner.start
+    Prosopite.pause
+  end
+
+  after do
+    Prosopite.resume
+    ActsAsTenant.current_tenant = nil
+  end
+
+  %w[queued running].each do |status|
+    it "keeps a #{status} run refreshed after the stale snapshot was read" do
+      organisation = create(:organisation)
+      ActsAsTenant.current_tenant = organisation
+      role = create(:role, organisation: organisation, title: Role::ACCOUNT_ADMIN_TITLE)
+      manager = create(:user)
+      create(:membership, organisation: organisation, user: manager, role: role)
+      run = create(:glossary_extraction_run, organisation: organisation, status: status,
+                                             updated_at: (GlossaryExtractionRun::STALE_AFTER + 1.minute).ago)
+      allow(organisation).to receive(:ai_available_for?).with(:glossary_extraction).and_return(double(available?: true))
+      worker = nil
+      refreshed_at = nil
+      allow_any_instance_of(GlossaryExtractionRun).to receive(:stale?).and_wrap_original do |original|
+        original.call.tap do |stale|
+          next unless original.receiver.id == run.id && stale
+
+          # The job claim and extraction heartbeat both refresh updated_at.
+          worker = Thread.new do
+            ActiveRecord::Base.connection_pool.with_connection do
+              GlossaryExtractionRun.unscoped.where(id: run.id, status: status)
+                                   .update_all(status: 'running', updated_at: Time.current)
+              GlossaryExtractionRun.unscoped.find(run.id).updated_at
+            end
+          end
+          raise 'worker update did not finish' unless worker.join(5)
+
+          refreshed_at = worker.value
+        end
+      end
+
+      result = described_class.call(organisation: organisation, current_user: manager)
+
+      expect(refreshed_at).to be_present
+      expect(result.code).to eq(:run_active)
+      expect(result).not_to be_success
+      expect(run.reload).to have_attributes(status: 'running', updated_at: refreshed_at, error_code: nil, finished_at: nil)
+      expect(GlossaryExtractionRun.where(organisation: organisation).count).to eq(1)
+      expect(enqueued_jobs).to be_empty
+    ensure
+      worker&.kill if worker&.alive?
+      worker&.join
+    end
+  end
+end

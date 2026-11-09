@@ -135,6 +135,56 @@ RSpec.describe GlossaryExtractionRun, :ci_guard, type: :model do
     end
   end
 
+  describe '#mark_stale!' do
+    %w[queued running].each do |status|
+      [-1, 0, 1].each do |seconds_from_boundary|
+        it "checks the stale boundary for #{status} at #{seconds_from_boundary} seconds" do
+          freeze_time do
+            run = run_with(status: status, updated_at: described_class::STALE_AFTER.ago + seconds_from_boundary.seconds)
+            stored = run.reload.attributes
+
+            expect(run.mark_stale!).to be(seconds_from_boundary.negative?)
+
+            if seconds_from_boundary.negative?
+              expect(run).to have_attributes(status: 'failed', error_code: 'stale', finished_at: Time.current, updated_at: Time.current)
+              expect(run.changed?).to be(false)
+              expect(run.reload).to have_attributes(status: 'failed', error_code: 'stale', finished_at: Time.current, updated_at: Time.current)
+              expect(run.mark_stale!).to be(false)
+            else
+              expect(run.reload.attributes).to eq(stored)
+            end
+          end
+        end
+      end
+    end
+
+    it 'leaves completed runs unchanged even when their timestamp is old' do
+      Prosopite.pause do
+        %w[succeeded failed].each do |status|
+          run = run_with(status: status, error_code: (status == 'failed' ? 'interrupted' : nil),
+                         finished_at: 1.hour.ago, updated_at: 1.hour.ago)
+          stored = run.reload.attributes
+
+          expect(run.mark_stale!).to be(false)
+          expect(run.reload.attributes).to eq(stored)
+        end
+      end
+    end
+
+    %w[queued running].each do |status|
+      it "keeps a refreshed #{status} row even when the instance is stale" do
+        freeze_time do
+          run = run_with(status: status, updated_at: 1.hour.ago)
+          described_class.where(id: run.id).update_all(status: 'running', updated_at: Time.current)
+
+          expect(run).to be_stale
+          expect(run.mark_stale!).to be(false)
+          expect(run.reload).to have_attributes(status: 'running', updated_at: Time.current, error_code: nil, finished_at: nil)
+        end
+      end
+    end
+  end
+
   describe '#mark_failed!' do
     it 'fails an active run once, with the code and the time it ended' do
       run = run_with(status: 'running', updated_at: 1.hour.ago)

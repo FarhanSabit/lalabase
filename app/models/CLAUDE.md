@@ -139,8 +139,9 @@ Verzeichnis-Layout nicht ablesbar — diese Karte gruppiert sie:
   K5b (08.11.2026, Extraktion): `GlossaryText.compact` ist der Schlüssel, der die Schreibweisen
   eines Begriffs gruppiert (ohne Leerraum und Bindestriche), nie ein gespeicherter Begriff.
   `glossary_extraction_run`: höchstens EIN aktiver Lauf je Organisation (partieller Unique-Index
-  `one_active_glossary_extraction_run`), `stale?` nach `STALE_AFTER`, `mark_failed!` ist EIN
-  `update_all` unter der Status-Bedingung; die Formen von `scope` und `stats` stehen im Kopf der
+  `one_active_glossary_extraction_run`), `stale?` nach `STALE_AFTER`, `mark_stale!` prüft den
+  gespeicherten Zeitstempel im selben Update erneut; `mark_failed!` ist EIN `update_all`
+  unter der Status-Bedingung; die Formen von `scope` und `stats` stehen im Kopf der
   Datei. `glossary_proposal`: einer je `normalized_term` und Organisation, `variants` als
   JSONB-Liste mit Check-Constraint, Status `open`/`accepted`/`dismissed`. `hint_sources` hält
   unabhängig von den Beispielstellen die Quellarten und IDs aller an den Modellaufruf
