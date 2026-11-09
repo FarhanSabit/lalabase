@@ -267,6 +267,22 @@ de:
       custom_attribute_mapping:
         unknown_action: "Unbekannte Action für %{type} '%{name}': %{action}"
         target_blank: "Zielwert darf nicht leer sein für %{type}"
+    # Why a run of the glossary extraction failed (K5b, one text per
+    # GlossaryExtractionRun::ERROR_CODES), in the line about the last run above
+    # the review list of the glossary.
+    glossary_extraction:
+      errors:
+        starter_inactive: "Wer die Suche gestartet hat, ist kein aktives Mitglied mehr. Bitte starten Sie die Suche neu."
+        ai_unavailable: "Für die Suche nach Vorschlägen ist keine KI eingerichtet."
+        ai_disabled: "KI-Funktionen sind für diese Organisation ausgeschaltet."
+        not_configured: "Es ist kein gültiger KI-Zugang eingerichtet."
+        quota_exceeded: "Das KI-Kontingent der Organisation ist aufgebraucht."
+        invalid_key: "Der KI-Zugang ist ungültig. Bitte prüfen Sie ihn in den KI-Einstellungen."
+        provider_error: "Der KI-Anbieter hat nicht geantwortet. Bitte versuchen Sie es später noch einmal."
+        parse_error: "Die Antwort der KI ließ sich nicht lesen. Bitte versuchen Sie es noch einmal."
+        interrupted: "Die Suche wurde unterbrochen. Bitte starten Sie sie neu."
+        stale: "Die Suche kam nicht weiter und wurde beendet. Bitte starten Sie sie neu."
+        internal_error: "Bei der Suche ist ein Fehler aufgetreten. Bitte starten Sie sie neu."
   jobs:
     ai_chat:
       unauthorized: "Entschuldigung, der AI-Service ist derzeit nicht verfügbar. Bitte versuchen Sie es später erneut."

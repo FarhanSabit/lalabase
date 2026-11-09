@@ -29,4 +29,13 @@ module GlossaryText
   def self.normalize(value)
     clean(value).downcase
   end
+
+  # The key that groups the spelling variants of a term (K5b): the compared
+  # form without any whitespace and without the three hyphens that join a
+  # word (hyphen-minus U+002D, hyphen U+2010, non-breaking hyphen U+2011), so
+  # "Zorbel-Hub", "Zorbelhub" and "zorbel hub" are one key. Only a key for
+  # grouping, never stored as a term: umlauts and ß stay, as in normalize.
+  def self.compact(value)
+    normalize(value).gsub(/[[:space:]\u{002D}\u{2010}\u{2011}]/, '')
+  end
 end

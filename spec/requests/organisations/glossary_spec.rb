@@ -1152,6 +1152,54 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
     end
   end
 
+  # K5b: a heard form from the glossary extraction or from an import says so
+  # after its project. It has no meeting, so it never stands where a meeting
+  # would, and a form from a meeting stays as it was.
+  describe 'the origin of a heard form in the lane' do
+    def origin_of(heard)
+      get organisation_glossary_term_path(organisation, term), headers: frame_headers
+      group = Nokogiri::HTML(response.body).css('.glossary-heard__group').find { |node| node.at_css('.glossary-heard__form').text.include?(heard) }
+      group.at_css('.glossary-heard__origin').text.squish
+    end
+
+    let(:origins) { 'views.organisations.glossary.heard_origins' }
+
+    before do
+      create(:term_correction, organisation: organisation, glossary_term: term, heard: 'lalabeis', project: open_project,
+                               origin: 'extraction')
+      create(:term_correction, organisation: organisation, glossary_term: term, heard: 'lalabais', origin: 'import')
+    end
+
+    it 'names the extraction and an import after the project, for every reader' do
+      sign_in viewer
+
+      expect(origin_of('lalabeis')).to eq("Projekt Ahorn · #{I18n.t("#{origins}.extraction")}")
+      expect(origin_of('lalabais')).to eq("#{I18n.t('views.organisations.glossary.show.no_project')} · #{I18n.t("#{origins}.import")}")
+      expect(origin_of('lala bass')).to eq('Projekt Ahorn')
+    end
+
+    it 'keeps the meeting of a form from a meeting, and names none for the others' do
+      sign_in admin
+
+      expect(origin_of('lala bass')).to eq('Projekt Ahorn · Abstimmung Ahorn')
+      get organisation_glossary_term_path(organisation, term), headers: frame_headers
+      page = Nokogiri::HTML(response.body)
+      expect(page.css('.glossary-heard__origin a').map(&:text)).to contain_exactly('Abstimmung Ahorn', 'Geheimrunde Birke')
+    end
+
+    %w[de en].each do |locale|
+      it "names the origins in #{locale}" do
+        admin.update!(language_preference: locale)
+        sign_in admin
+
+        I18n.with_locale(locale) do
+          expect(origin_of('lalabeis')).to end_with(I18n.t("#{origins}.extraction"))
+        end
+        expect(response.body).not_to include('translation missing', 'Translation missing')
+      end
+    end
+  end
+
   # Prosopite watches every example: the list preloads heard forms, speakers
   # and projects, and asks the write right once, however many rows.
   describe 'queries' do

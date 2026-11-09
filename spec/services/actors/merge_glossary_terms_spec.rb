@@ -49,6 +49,21 @@ RSpec.describe Actors::MergeGlossaryTerms, :ci_guard, type: :service do
       .to eq(['lala bass', project.id, person.id, 2, 5])
   end
 
+  # Review round 2 of #129. An accepted proposal names the term it became or
+  # was merged into (K5b); the source going would leave it naming none (the
+  # foreign key clears it), so it names the target from now on.
+  it 'moves the proposals accepted into the source to the target' do
+    moved = create(:glossary_proposal, :accepted, organisation: organisation, term: 'Zorbel-Hub', glossary_term: source)
+    own = create(:glossary_proposal, :accepted, organisation: organisation, term: 'Quarnix', glossary_term: target)
+    open = create(:glossary_proposal, organisation: organisation, term: 'Wubbel')
+
+    expect(merge).to be_success
+
+    expect(moved.reload).to have_attributes(status: 'accepted', glossary_term_id: target.id)
+    expect(own.reload.glossary_term_id).to eq(target.id)
+    expect(open.reload).to have_attributes(status: 'open', glossary_term_id: nil)
+  end
+
   it 'deletes the source and keeps spelling, category and status of the target' do
     merge
 
@@ -118,8 +133,11 @@ RSpec.describe Actors::MergeGlossaryTerms, :ci_guard, type: :service do
 
     lock = statements.index { |sql| sql.include?('FROM "glossary_terms"') && sql.include?('FOR UPDATE') }
     move = statements.index { |sql| sql.start_with?('UPDATE "term_corrections"') }
-    expect([lock, move]).to all(be_present)
+    # The term before the proposal, the one lock order of the glossary.
+    proposals = statements.index { |sql| sql.start_with?('UPDATE "glossary_proposals"') }
+    expect([lock, move, proposals]).to all(be_present)
     expect(statements[lock]).to include('ORDER BY "glossary_terms"."id"')
     expect(lock).to be < move
+    expect(lock).to be < proposals
   end
 end

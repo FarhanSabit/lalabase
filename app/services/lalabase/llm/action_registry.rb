@@ -33,6 +33,7 @@ module Lalabase
       PARTICIPANT_DETECTION = 'participant_detection'
       MEETING_ANALYSIS      = 'meeting_analysis'
       TICKET_SUGGESTIONS    = 'ticket_suggestions'
+      GLOSSARY_EXTRACTION   = 'glossary_extraction'
 
       ACTIONS = {
         CHAT_MESSAGE => { credits: 2, per_tokens: nil },
@@ -52,7 +53,14 @@ module Lalabase
         # (transcript/notes) — same input profile as SUMMARY, so the same flat price.
         # The per-suggestion similarity matching bills separately via SEMANTIC_SEARCH
         # (QueryEmbedding self-meters each call), so a run costs 2 + N credits (F14).
-        TICKET_SUGGESTIONS => { credits: 2, per_tokens: nil }
+        TICKET_SUGGESTIONS => { credits: 2, per_tokens: nil },
+        # Glossary extraction (K5b): one call classifies up to 60 candidate terms,
+        # each with one or two passages of context (at most 240 characters each),
+        # and answers a short JSON object per candidate. That is less input than a
+        # capped meeting transcript and less output than a meeting analysis, so the
+        # same flat price per call. A run makes at most 8 calls, so a whole run costs
+        # at most 16 credits, and the flat price lets the run say so before it starts.
+        GLOSSARY_EXTRACTION => { credits: 2, per_tokens: nil }
       }.freeze
 
       LABEL_SCOPE = 'shared.ai.actions'

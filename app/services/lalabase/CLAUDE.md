@@ -1,4 +1,4 @@
-# Karte: app/services/lalabase (Stand: 2026-11-06)
+# Karte: app/services/lalabase (Stand: 2026-11-08)
 
 AI/RAG-Domäne (Produktname „Lalabase"): alles rund um LLM-Aufrufe, Embeddings und
 Codebase-Verständnis.
@@ -199,7 +199,8 @@ Wichtig:
    Gate dieselbe Zeile liest. Vorher war das Disziplin und ging dreimal in einer Woche
    schief. Plan: `doc/ki_provider_reichweite_plan.md`.
    **Gate und Routing lesen dieselbe Registry-Zeile** (`llm/feature_registry.rb`,
-   12 Einträge — je eine Routing-Entscheidung, Plan `doc/ai_feature_registry_plan.md`).
+   13 Einträge — je eine Routing-Entscheidung, Plan `doc/ai_feature_registry_plan.md`; seit K5b
+   `:glossary_extraction` als letzte Zeile).
    Seit R3 gilt das nicht mehr nur theoretisch (erster Produktivaufrufer:
    `CustomerDescriptionGenerator`), und seit **KI-Pakete P3 (2026-08-02) routen
    sechs weitere Seams über `Factory.for_feature`**: `TicketSummaryService`,
@@ -228,6 +229,10 @@ Wichtig:
      liegen, ein Gate ohne den Kwarg beurteilt also eine andere Zeile als die
      Anfrage nutzt. `pin:` + `utility:` an derselben Zeile wirft beim LADEN
      (widersprüchlich, keine definierte Vorrangregel).
+     `:glossary_extraction` (K5b, 08.11.2026, Seam `Glossary::Classifier`) ist eine Chat-Zeile und
+     bewusst NICHT utility: Fachbegriffe und Namen einer Organisation von gewöhnlichen Wörtern zu
+     trennen ist hier das Produkt selbst, also läuft sie auf der eigenen Stufe der Organisation.
+     Die Utility-Liste bleibt bei fünf.
    * **`organisation.ai_available_for?(:feature_key)` ist DER Weg für ein Gate** und der
      einzige, der auch den Grund benennen kann (`Availability`: `available?`, `reason`,
      `required_provider`, `lane`). Gegenstück beim Routing:

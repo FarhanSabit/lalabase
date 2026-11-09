@@ -2562,6 +2562,7 @@ de:
         content_indexing: Inhalts-Indexierung
         semantic_search: Semantische Suche
         repository_indexing: Repository-Indexierung
+        glossary_extraction: Glossar-Vorschläge
       # Kontingent-Aktions-Labels (ai_usages.action). Guard-Spec erzwingt DE UND EN
       # für jede Registry-Aktion — Lalabase::Llm::ActionRegistry.
       actions:
@@ -2574,6 +2575,7 @@ de:
         participant_detection: Teilnehmer-Erkennung
         meeting_analysis: Meeting-Analyse
         ticket_suggestions: Ticket-Vorschläge
+        glossary_extraction: Glossar-Vorschläge
       # Kontingent-UI (Verbrauchsbalken, Banner, Historie) — geteilte Partials
       # shared/ai/*, verwendet von Org-KI-Einstellungen UND Admin-Backend.
       quota:

@@ -13,7 +13,11 @@ RSpec.describe GlossaryPolicy, :ci_guard, type: :policy do
   after { ActsAsTenant.current_tenant = nil }
 
   let(:reads) { %i[index? show?] }
-  let(:all_predicates) { reads + %i[create? update? destroy? confirm? reject? merge?] }
+  # start? asks for no record (it starts a run of the extraction, K5b);
+  # accept?, dismiss? and restore? decide a proposal.
+  let(:extraction) { %i[start? accept? dismiss? restore?] }
+  let(:all_predicates) { reads + %i[create? update? destroy? confirm? reject? merge?] + extraction }
+  let(:record_free) { %i[index? create? start?] }
 
   def role_with(*actions, billable: true, title: nil)
     role = create(:role, organisation: organisation, billable: billable, **{ title: title }.compact)
@@ -100,8 +104,8 @@ RSpec.describe GlossaryPolicy, :ci_guard, type: :policy do
       [found, create(:term_correction, organisation: other_organisation, glossary_term: found)]
     end
 
-    expect(allowed(admin, foreign_term)).to eq(%i[index? create?])
-    expect(allowed(admin, foreign_correction)).to eq(%i[index? create?])
+    expect(allowed(admin, foreign_term)).to eq(record_free)
+    expect(allowed(admin, foreign_correction)).to eq(record_free)
   end
 
   it 'answers for a heard form of this organisation like for its term' do
@@ -109,6 +113,70 @@ RSpec.describe GlossaryPolicy, :ci_guard, type: :policy do
 
     expect(allowed(viewer, correction)).to eq(reads)
     expect(allowed(manager, correction)).to eq(all_predicates)
+  end
+
+  # The extraction (K5b): its runs and proposals share the one right of the
+  # glossary.
+  describe 'runs and proposals of the extraction' do
+    let(:run) { create(:glossary_extraction_run, organisation: organisation) }
+    let(:proposal) { create(:glossary_proposal, organisation: organisation, glossary_extraction_run: run) }
+
+    it 'is the policy of runs and proposals too' do
+      expect(Pundit::PolicyFinder.new(GlossaryExtractionRun.new).policy).to eq(described_class)
+      expect(Pundit::PolicyFinder.new(GlossaryProposal.new).policy).to eq(described_class)
+    end
+
+    it 'lets manage_glossary start a run and decide a proposal' do
+      expect(allowed(manager, proposal)).to eq(all_predicates)
+      expect(allowed(manager, run)).to eq(all_predicates)
+    end
+
+    it 'lets an account admin start and decide without a permission row' do
+      expect(allowed(admin, proposal)).to eq(all_predicates)
+      expect(Permission.where(category: 'glossary').exists?).to be(false)
+    end
+
+    it 'lets view_glossary see runs and proposals, not start or decide' do
+      expect(allowed(viewer, proposal)).to eq(reads)
+      expect(allowed(viewer, run)).to eq(reads)
+    end
+
+    it 'denies a deactivated member who still holds manage_glossary, and a deactivated admin' do
+      expect(allowed(member_with(role_with('manage_glossary'), active: false), proposal)).to be_empty
+      expect(allowed(member_with(role_with(title: Role::ACCOUNT_ADMIN_TITLE), active: false), proposal)).to be_empty
+    end
+
+    it 'starts a run without a record' do
+      expect(described_class.new(manager, GlossaryExtractionRun).start?).to be(true)
+      expect(described_class.new(viewer, GlossaryExtractionRun).start?).to be(false)
+      expect(described_class.new(nobody, GlossaryExtractionRun).start?).to be(false)
+    end
+
+    it 'never takes a class for a record of this organisation' do
+      [GlossaryProposal, GlossaryExtractionRun].each do |klass|
+        expect(allowed(admin, klass)).to eq(record_free)
+      end
+    end
+
+    it 'answers no for a run or a proposal of another organisation' do
+      foreign_run, foreign_proposal = ActsAsTenant.with_tenant(other_organisation) do
+        found = create(:glossary_extraction_run, organisation: other_organisation)
+        [found, create(:glossary_proposal, organisation: other_organisation, glossary_extraction_run: found)]
+      end
+
+      expect(allowed(admin, foreign_proposal)).to eq(record_free)
+      expect(allowed(manager, foreign_proposal)).to eq(record_free)
+      expect(allowed(admin, foreign_run)).to eq(record_free)
+    end
+
+    it 'lists the runs and proposals of this organisation with the right, nothing without' do
+      mine = proposal
+      ActsAsTenant.with_tenant(other_organisation) { create(:glossary_proposal, organisation: other_organisation) }
+
+      expect(described_class::Scope.new(viewer, GlossaryProposal).resolve).to contain_exactly(mine)
+      expect(described_class::Scope.new(viewer, GlossaryExtractionRun).resolve).to contain_exactly(run)
+      expect(described_class::Scope.new(nobody, GlossaryProposal).resolve).to be_empty
+    end
   end
 
   describe 'Scope' do

@@ -59,6 +59,30 @@ de:
           invalid:
             one: "1 ungültige Zeile"
             other: "%{count} ungültige Zeilen"
+      # The decisions on a proposal of the extraction (K5b): the refusals of the
+      # actors (Actors::AcceptGlossaryProposal and its siblings), then the
+      # notices of the page.
+      proposals:
+        already_processed: "Über diesen Vorschlag hat inzwischen jemand anderes entschieden."
+        forbidden: "Du darfst über Vorschläge für das Glossar nicht entscheiden."
+        same_proposal: "Ein Vorschlag lässt sich nicht mit sich selbst zusammenführen."
+        accept:
+          success: "Vorschlag übernommen."
+        merge:
+          success: "Vorschlag zusammengeführt."
+          no_target: "Bitte einen Begriff oder Vorschlag wählen, mit dem zusammengeführt wird."
+        dismiss:
+          success: "Vorschlag verworfen."
+        restore:
+          success: "Vorschlag zurückgeholt."
+        term_changed: "Der Begriff im Glossar wurde inzwischen umbenannt. Bitte prüfe den Vorschlag und übernimm ihn erneut."
+        term_not_confirmed: "Dieser Begriff ist nicht mehr bestätigt."
+      # The start of a run of the extraction (K5b, Actors::StartGlossaryExtraction).
+      # Without AI the actor refuses in the words of the AI registry.
+      runs:
+        forbidden: "Nach Vorschlägen suchen darf nur, wer das Glossar pflegt."
+        run_active: "Die Suche nach Vorschlägen läuft schon. Warte bitte, bis sie fertig ist."
+        success: "Die Suche nach Vorschlägen läuft. Die Prüfliste füllt sich gleich."
   views:
     organisations:
       glossary:
@@ -205,3 +229,80 @@ de:
             categorized:
               one: "1 bekommt eine Kategorie"
               other: "%{count} bekommen eine Kategorie"
+        # The review list of the extraction (K5b, ?view=proposals): the pill
+        # above the terms, the status pills, a row, and a proposal in the lane.
+        proposals:
+          review_list: "Prüfliste"
+          back_to_terms: "Zurück zu den Begriffen"
+          status_filter_label: "Status der Vorschläge"
+          statuses:
+            open: "Offen"
+            accepted: "Angenommen"
+            dismissed: "Verworfen"
+          placeholder_title: "Kein Vorschlag gewählt"
+          placeholder_body: "Wähle links einen Vorschlag aus."
+          empty_title: "Noch keine Vorschläge"
+          empty_description: "Hier stehen Begriffe, die die Suche in Tickets, Kommentaren, Notizen und Dokumenten gefunden hat. Wer das Glossar pflegt, entscheidet, was davon ins Glossar kommt."
+          empty_open: "Kein offener Vorschlag. Über alle ist entschieden."
+          empty_no_results: "Kein Vorschlag in dieser Auswahl."
+          variants: "auch: %{forms}"
+          occurrences:
+            one: "1 Vorkommen"
+            other: "%{count} Vorkommen"
+          accept: "Übernehmen"
+          dismiss: "Verwerfen"
+          restore: "Zurückholen"
+          show:
+            hint: "Hinweis der KI: %{hint}"
+            term_hint: "So steht der Begriff im Glossar. Änderst du die Schreibweise, kommt die gefundene als gehörte Form dazu."
+            variants_legend: "Weitere Schreibweisen"
+            variant_take: "als gehörte Form übernehmen"
+            merge_label: "Ist eine Schreibweise von …"
+            merge_hint: "Bei einem Begriff wird der Vorschlag dort eine gehörte Form, bei einem Vorschlag eine weitere Schreibweise."
+            merge_choose: "Begriff oder Vorschlag wählen"
+            merge_terms: "Begriffe im Glossar"
+            merge_proposals: "Andere Vorschläge"
+            merge_submit: "Zusammenführen"
+            merge_confirm: "„%{term}“ mit der Auswahl zusammenführen?"
+            sources_title: "Fundstellen"
+            no_sources: "Keine Fundstelle gespeichert."
+            source_kinds:
+              ticket: "Ticket"
+              post: "Kommentar"
+              ticket_document: "Datei an einem Ticket"
+              post_document: "Datei an einem Kommentar"
+              note: "Notiz"
+              document_version: "Dokument"
+            source_hidden: "Ausschnitt nicht sichtbar"
+            source_gone: "Quelle nicht mehr vorhanden"
+            decided_accepted: "Übernommen am %{date}."
+            decided_dismissed: "Verworfen am %{date}."
+            open_term: "Begriff „%{term}“ öffnen"
+            read_only: "Du kannst die Prüfliste ansehen, aber nicht über Vorschläge entscheiden."
+        # The bar on top of the review list (K5b): the start of a run and the
+        # line about the last one.
+        runs:
+          start: "Begriffe vorschlagen"
+          everything: "Alles erneut lesen"
+          everything_hint: "Sonst liest die Suche nur, was sich seit der letzten Suche geändert hat."
+          running_since: "Läuft seit %{time}."
+          never: "Noch keine Suche nach Vorschlägen."
+          last_run: "Letzte Suche am %{date}. %{summary}."
+          failed: "Letzte Suche am %{date} fehlgeschlagen."
+          sources_read:
+            one: "1 Quelle gelesen"
+            other: "%{count} Quellen gelesen"
+          projects:
+            one: "aus %{reached} von 1 Projekt"
+            other: "aus %{reached} von %{count} Projekten"
+          proposals_created:
+            zero: "keine neuen Vorschläge"
+            one: "1 neuer Vorschlag"
+            other: "%{count} neue Vorschläge"
+          truncated: "gekürzt"
+          truncated_hint: "Die Suche hat an einer ihrer Grenzen aufgehört und nicht alles gelesen."
+        # Where a heard form came from when not from a meeting (K5b,
+        # term_corrections.origin), after its project in the lane of a term.
+        heard_origins:
+          extraction: "aus der Extraktion"
+          import: "aus einem Import"

@@ -289,6 +289,10 @@ module UserDataExports
       'glossary_terms' => 'Org-wide glossary (K4a, role model); created_by_id is authoring metadata on ' \
                           'shared org knowledge, like analysis_prompts. The heard forms a person spoke are ' \
                           'exported as term_corrections.json',
+      'glossary_extraction_runs' => 'Org-wide glossary extraction runs (K5b, role model); started_by_id is trigger ' \
+                                    'metadata on org infrastructure, like documentation_sync_runs',
+      'glossary_proposals' => 'Org-wide proposals for the glossary (K5b, role model); decided_by_id is editor ' \
+                              'metadata on shared org knowledge, like glossary_terms.created_by_id',
       'user_deletions' => 'Deletion audit log, metadata only by design; core state is in account.json',
       'user_data_exports' => 'The export mechanism itself; state is visible on the export page',
       'attachment_deletion_records' => 'Deletion proof owed to the CONTROLLER, not to the user ' \

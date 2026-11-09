@@ -59,6 +59,30 @@ en:
           invalid:
             one: "1 invalid line"
             other: "%{count} invalid lines"
+      # The decisions on a proposal of the extraction (K5b): the refusals of the
+      # actors (Actors::AcceptGlossaryProposal and its siblings), then the
+      # notices of the page.
+      proposals:
+        already_processed: "Someone else has decided on this proposal in the meantime."
+        forbidden: "You may not decide on proposals for the glossary."
+        same_proposal: "A proposal cannot be merged with itself."
+        accept:
+          success: "Proposal accepted."
+        merge:
+          success: "Proposal merged."
+          no_target: "Please choose the term or proposal to merge with."
+        dismiss:
+          success: "Proposal dismissed."
+        restore:
+          success: "Proposal restored."
+        term_changed: "The glossary term was renamed in the meantime. Please review and accept the proposal again."
+        term_not_confirmed: "This term is no longer confirmed."
+      # The start of a run of the extraction (K5b, Actors::StartGlossaryExtraction).
+      # Without AI the actor refuses in the words of the AI registry.
+      runs:
+        forbidden: "Only someone who keeps the glossary can search for proposals."
+        run_active: "The search for proposals is already running. Please wait until it is done."
+        success: "The search for proposals is running. The review list will fill up shortly."
   views:
     organisations:
       glossary:
@@ -205,3 +229,80 @@ en:
             categorized:
               one: "1 gets a category"
               other: "%{count} get a category"
+        # The review list of the extraction (K5b, ?view=proposals): the pill
+        # above the terms, the status pills, a row, and a proposal in the lane.
+        proposals:
+          review_list: "Review list"
+          back_to_terms: "Back to the terms"
+          status_filter_label: "Status of the proposals"
+          statuses:
+            open: "Open"
+            accepted: "Accepted"
+            dismissed: "Dismissed"
+          placeholder_title: "No proposal selected"
+          placeholder_body: "Pick a proposal on the left."
+          empty_title: "No proposals yet"
+          empty_description: "This is where the terms show up that the search found in tickets, comments, notes and documents. Whoever keeps the glossary decides what goes into it."
+          empty_open: "No open proposal. Every one is decided."
+          empty_no_results: "No proposal in this selection."
+          variants: "also: %{forms}"
+          occurrences:
+            one: "1 occurrence"
+            other: "%{count} occurrences"
+          accept: "Accept"
+          dismiss: "Dismiss"
+          restore: "Restore"
+          show:
+            hint: "Note from the AI: %{hint}"
+            term_hint: "This is how the term stands in the glossary. If you change the spelling, the one found becomes a heard form."
+            variants_legend: "Other spellings"
+            variant_take: "take as a heard form"
+            merge_label: "Is a spelling of …"
+            merge_hint: "With a term the proposal becomes a heard form there, with a proposal another spelling."
+            merge_choose: "Choose a term or a proposal"
+            merge_terms: "Terms in the glossary"
+            merge_proposals: "Other proposals"
+            merge_submit: "Merge"
+            merge_confirm: "Merge “%{term}” with the choice?"
+            sources_title: "Where it was found"
+            no_sources: "No place stored."
+            source_kinds:
+              ticket: "Ticket"
+              post: "Comment"
+              ticket_document: "File of a ticket"
+              post_document: "File of a comment"
+              note: "Note"
+              document_version: "Document"
+            source_hidden: "Snippet not visible"
+            source_gone: "Source no longer there"
+            decided_accepted: "Accepted on %{date}."
+            decided_dismissed: "Dismissed on %{date}."
+            open_term: "Open the term “%{term}”"
+            read_only: "You can view the review list, but not decide on proposals."
+        # The bar on top of the review list (K5b): the start of a run and the
+        # line about the last one.
+        runs:
+          start: "Suggest terms"
+          everything: "Read everything again"
+          everything_hint: "Otherwise the search reads only what changed since the last search."
+          running_since: "Running since %{time}."
+          never: "No search for proposals yet."
+          last_run: "Last search on %{date}. %{summary}."
+          failed: "Last search on %{date} failed."
+          sources_read:
+            one: "1 source read"
+            other: "%{count} sources read"
+          projects:
+            one: "from %{reached} of 1 project"
+            other: "from %{reached} of %{count} projects"
+          proposals_created:
+            zero: "no new proposals"
+            one: "1 new proposal"
+            other: "%{count} new proposals"
+          truncated: "cut short"
+          truncated_hint: "The search stopped at one of its limits and did not read everything."
+        # Where a heard form came from when not from a meeting (K5b,
+        # term_corrections.origin), after its project in the lane of a term.
+        heard_origins:
+          extraction: "from extraction"
+          import: "from an import"

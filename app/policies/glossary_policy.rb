@@ -1,21 +1,27 @@
 # frozen_string_literal: true
 
 # The glossary of an organisation (GlossaryTerm and its heard forms,
-# TermCorrection; K4a). A right of its own (Permission::CATEGORIES[:glossary],
-# E2): account admins have it without a row, every other role only when an
-# admin grants it; no role gets it by itself. manage_glossary (create, change,
-# confirm, reject, merge, delete) implies view_glossary
-# (Permission::IMPLIED_BY). Grantable to billable: false roles.
+# TermCorrection; K4a) and the extraction that proposes terms for it
+# (GlossaryExtractionRun and its GlossaryProposal rows; K5b). A right of its
+# own (Permission::CATEGORIES[:glossary], E2): account admins have it without
+# a row, every other role only when an admin grants it; no role gets it by
+# itself. manage_glossary (create, change, confirm, reject, merge, delete;
+# start a run, which needs no record; accept, dismiss or restore a proposal)
+# implies view_glossary (Permission::IMPLIED_BY). Grantable to billable: false
+# roles.
 #
 # view_glossary shows the WHOLE glossary with its heard forms and their
-# projects, also from projects the reader may not read (E3). Three things are
-# not part of that and are asked where they are shown (GlossaryHelper): the
-# title and the link of a meeting (read access to the meeting,
-# MeetingPolicy); the name of a speaker (only someone the reader may see on
-# the members page, MembershipPolicy::Scope, or on the people page,
-# PersonPolicy::Scope, so a guest of one project sees no names from other
-# projects; anyone else shows as a neutral word); and the link to a speaker
-# (view_people as well, PersonPolicy).
+# projects, also from projects the reader may not read (E3), and the runs and
+# proposals of the extraction. Four things are not part of that and are asked
+# where they are shown (the first three in GlossaryHelper): the title and the
+# link of a meeting (read access to the meeting, MeetingPolicy); the name of a
+# speaker (only someone the reader may see on the members page,
+# MembershipPolicy::Scope, or on the people page, PersonPolicy::Scope, so a
+# guest of one project sees no names from other projects; anyone else shows
+# as a neutral word); the link to a speaker (view_people as well,
+# PersonPolicy); and a source of a proposal with its snippet
+# (GlossaryProposalSource: still there, and readable by the reader, because
+# the run read it with the rights of the account that started it).
 #
 # Every predicate asks for an ACTIVE membership itself:
 # User#has_permission_in_organisation? reads the role and does not look at
@@ -96,6 +102,23 @@ class GlossaryPolicy < ApplicationPolicy
     update?
   end
 
+  # Starts a run of the extraction: asks for no record, like create?.
+  def start?
+    create?
+  end
+
+  def accept?
+    update?
+  end
+
+  def dismiss?
+    update?
+  end
+
+  def restore?
+    update?
+  end
+
   private
 
   def can_view?
@@ -110,8 +133,14 @@ class GlossaryPolicy < ApplicationPolicy
     self.class.manage_allowed?(user, organisation)
   end
 
-  # A term or a heard form of the current organisation, never a class.
+  # A term, a heard form, a run or a proposal of the current organisation,
+  # never a class.
   def same_organisation?
-    (record.is_a?(GlossaryTerm) || record.is_a?(TermCorrection)) && record.organisation_id == organisation.id
+    case record
+    when GlossaryTerm, TermCorrection, GlossaryExtractionRun, GlossaryProposal
+      record.organisation_id == organisation.id
+    else
+      false
+    end
   end
 end

@@ -19,14 +19,26 @@ RSpec.describe Lalabase::Llm::FeatureRegistry do
 
   describe 'the table' do
     # The count is pinned deliberately: E2 decided "one entry per routing decision"
-    # and arrived at twelve. A thirteenth entry is not wrong — but it means a routing
-    # decision was added or split, and that is a decision, not a detail.
-    it 'holds the twelve v1 entries' do
+    # and arrived at twelve. A new entry is not wrong, but it means a routing
+    # decision was added or split, and that is a decision, not a detail. The
+    # thirteenth is the glossary extraction (K5b), a decision of its own: its
+    # classifier sends texts of the whole organisation and runs on the org rung.
+    it 'holds the twelve v1 entries and the glossary extraction' do
       expect(described_class.keys).to contain_exactly(
         :chat, :document_summary, :ticket_summary, :ask_ai_post, :customer_description,
         :meeting_participant_detection, :meeting_summary, :meeting_analysis,
-        :meeting_ticket_suggestions, :content_indexing, :semantic_search, :repository_indexing
+        :meeting_ticket_suggestions, :content_indexing, :semantic_search, :repository_indexing,
+        :glossary_extraction
       )
+    end
+
+    # Written out with literals, so the row cannot drift to a sibling's seam,
+    # action or rung while every generic check above stays green.
+    it 'routes the glossary extraction through its classifier, on its own action, unpinned' do
+      feature = described_class.fetch(:glossary_extraction)
+
+      expect([feature.lanes, feature.seam, feature.action, feature.pin])
+        .to eq([%i[chat], 'Glossary::Classifier', 'glossary_extraction', nil])
     end
 
     it 'raises loudly for an unknown key — a typo must not read as "not available"' do
@@ -163,10 +175,14 @@ RSpec.describe Lalabase::Llm::FeatureRegistry do
       )
     end
 
+    # :glossary_extraction is on this side on purpose: telling the product and
+    # field names of an organisation from ordinary words over its whole
+    # catalogue is the product there, not a helper, and a person decides on
+    # every proposal a weaker model gets wrong.
     it 'leaves the paths the customer reads on the org rung' do
       expect(described_class.all.reject(&:utility?).map(&:key)).to contain_exactly(
         :chat, :ask_ai_post, :customer_description, :meeting_summary, :meeting_analysis,
-        :content_indexing, :semantic_search
+        :content_indexing, :semantic_search, :glossary_extraction
       )
     end
 

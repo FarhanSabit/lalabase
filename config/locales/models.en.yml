@@ -13,6 +13,7 @@ en:
         project: "Project"
         meeting: "Meeting"
         glossary_term: "Term"
+        origin: "Origin"
       organisation:
         meeting_inbox_project_id: "Inbox project"
       person:
@@ -89,6 +90,30 @@ en:
         valid_from: "Valid from"
         locator: "Location in document"
         file: "PDF"
+      # The glossary extraction (K5b): its runs, their proposals and where a
+      # proposal was found.
+      glossary_extraction_run:
+        status: "Status"
+        scope: "Scope"
+        error_code: "Error"
+        started_by: "Started by"
+      glossary_proposal:
+        term: "Term"
+        category: "Category"
+        variants: "Spellings"
+        hint: "Hint"
+        occurrences: "Occurrences"
+        status: "Status"
+        glossary_term: "Glossary term"
+        glossary_extraction_run: "Run"
+        decided_by: "Decided by"
+      glossary_proposal_source:
+        source: "Source"
+        source_type: "Kind of source"
+        snippet: "Snippet"
+        occurrences: "Occurrences"
+        project: "Project"
+        glossary_proposal: "Proposal"
     errors:
       models:
         glossary_term:
@@ -433,6 +458,17 @@ en:
           attributes:
             event_type:
               preference_exists: "preference already exists for this combination"
+        # A proposal of the glossary extraction (K5b): one per compared form,
+        # and its other spellings as a list of texts.
+        glossary_proposal:
+          attributes:
+            term:
+              taken: "has already been proposed"
+            variants:
+              not_a_list: "(not a list)"
+              too_many: "(at most %{count} allowed)"
+              not_text: "(no. %{position}): not text"
+              variant_too_long: "(no. %{position}): too long (at most %{count} characters)"
   models:
     document:
       untitled: "Untitled"

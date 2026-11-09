@@ -1,4 +1,4 @@
-# Karte: app/services (Stand: 2026-11-06)
+# Karte: app/services (Stand: 2026-11-09)
 
 **Entry-Point-Konvention für NEUE Services: `Klass.call(**kwargs)`** (Klassenmethode; eine
 Instanz-`#call`-Implementierung dahinter ist erlaubt). Pflicht: mindestens 1 Kommentarzeile
@@ -200,6 +200,21 @@ Verzeichnis-Übersicht (Auswahl):
   Läuft ganz unter dem Mandanten seiner Organisation (`ActsAsTenant.with_tenant`, wie `Glossary::Lookup`), egal
   welchen der Aufrufer gesetzt hat. Trennt Begriff und Kategorie am ersten `;` oder Tabulator, vor dem Bereinigen;
   eine Zeile endet auch an VT, FF, NEL, U+2028 und U+2029 (Review-Runde 2 von #128).
+  K5b (08.11.2026, Extraktion): `start_glossary_extraction` (Zeilensperre der Organisation, ein
+  festgefahrener Lauf endet als `failed`/`stale`, EIN aktiver Lauf), `accept_glossary_proposal`,
+  `merge_glossary_proposal_into_term`, `merge_glossary_proposals`, `dismiss_glossary_proposal`
+  (auch Zurückholen). Begriff vor Vorschlag, nie umgekehrt; `manage_allowed?` unter der Sperre; der
+  Claim ist EIN `update_all` unter der Status-Bedingung (`status = 'open'`, beim Zurückholen
+  `'dismissed'`); zwei Vorschläge sperrt das Zusammenführen in EINER Abfrage nach ID. Die
+  K5b Runde 2: `merge_glossary_proposal_into_term` nimmt unter der Sperre nur einen bestätigten Begriff
+  (`:term_not_confirmed`, nach der Rechteprüfung); `merge_glossary_terms` hängt die in die Quelle übernommenen
+  Vorschläge ans Ziel, unter beiden Sperren; `merge_glossary_proposals` behält den Hinweis des Ziels samt
+  `hint_sources`, auch wenn das Kürzen auf `MAX_SOURCES` eigene Beispielstellen streicht. Seine Anzeige
+  prüft die vollständige Modellherkunft unabhängig von diesen Beispielen.
+  Zweitreview 09.11.2026: `accept_glossary_proposal` bestätigt mit einem VORGESCHLAGENEN Begriff dessen offene
+  gehörte Formen (`GlossaryTerm#confirm_open_forms!`, geteilt mit `set_glossary_term_status`), damit beide Wege
+  zu „bestätigt" dem Gerät dieselben Formen liefern; ein verworfener Begriff behält seine offenen Formen.
+  Glossar-Seite ruft sie aus `Organisations::GlossaryController` (Prüfliste, `?view=proposals`).
   Registrierung (Website-Schnitt W2, 15.09.2026): `create_signup` ist die EINE
   Selbst-Registrierung für das Formular und später den Provisioning-Endpunkt. Tier 2: Sprache
   und tenant-freier Rahmen umschließen den ganzen Lauf (die Bestätigungsmail rendert beim
@@ -237,6 +252,34 @@ Verzeichnis-Übersicht (Auswahl):
   außerhalb), Sprecher nur mit dem Personenrecht über `People::Directory#entry_for_participant`,
   Seiten (`InvalidArgument`). Setzt den Mandanten selbst. Eine neue Regel dieser Antwort gehört
   hierher, nicht in eine der beiden Türen.
+  K5b (08.11.2026), die Extraktion von Vorschlägen: `word_lists.rb` (`common` = die beiden
+  50k-Listen, die Stoppwörter von PostgreSQL zur Laufzeit gelesen, mit Rückfall, und unsere
+  `EXTRA_COMMON_WORDS`; `stop_words` allein eine Teilmenge), `candidate_scan.rb` (das Sieb ohne KI,
+  ein Strom; höchstens `MAX_GROUPS` Schlüssel (20.000, rund 30 MB): beim Erreichen gehen zuerst alle nur in einer Quelle gesehenen, reicht das nicht für ein Viertel freien Platz, auch die schwächsten nach Rang; neue Schlüssel kommen immer dazu, sonst hielten wenige große Texte das Sieb an (Review-Runde 3 von #129); ein Kürzen setzt `truncated`; je Schlüssel nur Zähler, höchstens `MAX_FORMS` Schreibweisen und höchstens `MAX_SOURCES` Ausschnitte; ein
+  Name aus zwei oder drei großgeschriebenen Wörtern beginnt und endet nie mit einem Stoppwort),
+  `classifier.rb` (ein Chat-Aufruf je Stapel von höchstens 60 auf `:glossary_extraction`, der
+  eigenen Stufe der Organisation; zuerst das Tor; die Antwort wird gegen das Gesendete geprüft;
+  bucht den eigenen Verbrauch; `Failure` mit einem Fehlercode des Laufs), `extraction.rb`
+  (Reichweite des Startenden zur Laufzeit je Bereich plus der Policy-Scope jeder Art; Kommentare
+  nur über `public_posts.readable_by`, auch für Admins; keine Meetings; die neuesten `MAX_SOURCES`
+  über sechs Arten; inkrementell ab dem Start des letzten erfolgreichen Laufs; offene Vorschläge
+  bekommen Vorkommen, Schreibweisen und Stellen statt eines Modellaufrufs; geschrieben je Stapel;
+  jeder Write berührt den Lauf unter `status = 'running'`). Offene Vorschläge nehmen keinen der
+  `MAX_CANDIDATES`-Plätze; ein Vorschlag bekommt nur die Vorkommen neuer Stellen; jeder Text höchstens
+  `MAX_SOURCE_CHARS` (zwischen Wörtern geschnitten), der Lauf wird vor jedem Ladestapel berührt. Den
+  Hinweis des Modells sieht nur, wer jede Quelle seines gesamten Modellaufrufs aktuell lesen darf:
+  `hint_sources` hält deren Arten und IDs, auch für verworfene Kandidaten, unabhängig von den
+  Beispielstellen des Vorschlags. Alte Hinweise ohne diese Herkunft bleiben verborgen; beim
+  Zusammenführen wandert der Hinweis der Quelle nicht mit, die Herkunft des Zielhinweises bleibt.
+  `run_heartbeat.rb` (09.11.2026) berührt den Lauf aus einem eigenen Thread alle `STALE_AFTER / 5`, solange der
+  Modellaufruf läuft (ein Anbieter-Aufruf kann `STALE_AFTER` überdauern; ein dabei als `stale` beendeter Lauf
+  wäre doppelt bezahlt); nur unter `status = 'running'`, nie in den Speicher, ein Fehlschlag wird geloggt.
+  `Glossary::ExtractionJob`
+  (`app/jobs/`): Advisory Lock, EIN Claim, `interrupted`, `internal_error`, kein Retry.
+  `Glossary::GoneSourceSnippetPurgeJob` (`app/jobs/`, täglich 04:50, `config/recurring.yml`): leert den
+  Ausschnitt einer Stelle, deren Quelle nicht mehr existiert (ein UPDATE je Art, NOT EXISTS gegen die Tabelle
+  der Art), und den Hinweis eines Vorschlags, sobald eine Quelle seines Modellaufrufs fehlt oder die Herkunft
+  leer oder unlesbar ist; die Zeilen bleiben.
 * `people/` — `directory.rb`, das Lese-Objekt der Personenliste (seit 26.10.2026): Mitglieder
   über `MembershipPolicy::Scope` (dieselbe Reichweite wie die Mitgliederseite), dazu die
   Zeilen ohne aktives Mitglied als Kontakte; Suche in Ruby über `PersonName.normalize`.

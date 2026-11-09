@@ -4,10 +4,13 @@
     the project it came from (a name for every reader of the glossary), the
     meeting (title and link only when the reader may read it, meetings holds
     those), the date and how often it was replaced. Deleting is the whole
-    heard form's (_detail). %>
+    heard form's (_detail). A form from the glossary extraction or from an
+    import (K5b, origin) has no meeting: it names where it came from after
+    the project instead. %>
 <% speaker = glossary_speaker_name(correction) %>
 <% speaker_url = glossary_speaker_url(correction) %>
 <% meeting_title = meetings[correction.meeting_id] %>
+<% origin = (t("views.organisations.glossary.heard_origins.#{correction.origin}") unless correction.origin == 'meeting') %>
 <li class="glossary-heard__row">
   <span class="glossary-heard__speaker">
     <% if speaker_url %>
@@ -20,7 +23,9 @@
   </span>
   <span class="glossary-heard__origin">
     <%= correction.project&.name || t('views.organisations.glossary.show.no_project') %>
-    <% if meeting_title %>
+    <% if origin %>
+      · <span data-glossary-heard-origin="<%= correction.origin %>"><%= origin %></span>
+    <% elsif meeting_title %>
       · <%= link_to meeting_title, organisation_meetings_path(@current_organisation, meeting_id: correction.meeting_id),
                     class: 'people-fields__link', data: { turbo_frame: '_top' } %>
     <% end %>
