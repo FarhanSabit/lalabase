@@ -183,6 +183,23 @@ Verzeichnis-Übersicht (Auswahl):
   auch an einem bestätigten Begriff. `confirm_heard_form`/`reject_heard_form`: die offenen
   Zeilen einer Form bestätigen oder löschen (bestätigte bleiben). `set_glossary_term_status`
   bestätigt mit einem VORGESCHLAGENEN Begriff seine offenen Formen.
+  K5a (08.11.2026): `import_glossary_terms` liest eine eingefügte Liste (`Begriff` oder
+  `Begriff;Kategorie`, höchstens 500 nicht leere Zeilen; Kategorie als Schlüssel oder Anzeigename DE/EN).
+  Doppelte nach `GlossaryText.normalize`, vorhandene Begriffe jedes Status übersprungen (verworfene bleiben
+  verworfen); mit `manage_glossary` bestätigt, sonst Vorschlag (`GlossaryPolicy.manage_allowed?`, wie K4b).
+  Der Trockenlauf der Vorschau ist derselbe Code in einem Savepoint, der zurückgerollt wird
+  (`requires_new: true` trägt das). Erst die Kategorien vorhandener Begriffe unter
+  Zeilensperre (EINE Abfrage nach ID, unter der Sperre neu gelesen), DANN neue Begriffe in der Reihenfolge
+  ihrer Form: der Import wartet nie auf eine Begriffssperre, während er Index-Einträge neuer Begriffe hält
+  (andersherum Deadlock mit einer Umbenennung, Review-Runde 1 von #128). `Line#category_applied` sagt, ob die
+  Kategorie einer Zeile ankommt; nur dann zeigt die Prüfung sie. `#report` liest der Aufrufer nach `.new(...).call`.
+  Soll eine Kategorie gesetzt werden und ist die normalisierte Schreibweise inzwischen geändert, lehnt
+  der ganze Import mit `:stale_object` ab (HTTP 422); zuvor ergänzte Kategorien rollen mit zurück.
+  Bei gleicher normalisierter Schreibweise übernimmt der Bericht Status und Urteil aus der gesperrten
+  Zeile, auch wenn diese inzwischen eine Kategorie hat und deshalb unverändert bleibt.
+  Läuft ganz unter dem Mandanten seiner Organisation (`ActsAsTenant.with_tenant`, wie `Glossary::Lookup`), egal
+  welchen der Aufrufer gesetzt hat. Trennt Begriff und Kategorie am ersten `;` oder Tabulator, vor dem Bereinigen;
+  eine Zeile endet auch an VT, FF, NEL, U+2028 und U+2029 (Review-Runde 2 von #128).
   Registrierung (Website-Schnitt W2, 15.09.2026): `create_signup` ist die EINE
   Selbst-Registrierung für das Formular und später den Provisioning-Endpunkt. Tier 2: Sprache
   und tenant-freier Rahmen umschließen den ganzen Lauf (die Bestätigungsmail rendert beim

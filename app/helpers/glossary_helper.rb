@@ -14,6 +14,9 @@ module GlossaryHelper
   SELECTION_PARAMS = %w[term_id].freeze
   # The distinct heard forms a row names before "…".
   ROW_FORMS_SHOWN = 4
+  # The characters of a line without a term the check of an import shows
+  # (K5): such a line can be as long as anything pasted.
+  IMPORT_LINE_SHOWN = 60
 
   # The page wrapper's data: the lane (layout-toggle, index-page) and the
   # desktop/mobile switch, the controllers of the people page

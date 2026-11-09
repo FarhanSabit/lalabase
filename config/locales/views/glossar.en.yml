@@ -30,6 +30,35 @@ en:
           success: "Heard form confirmed."
         reject:
           success: "Proposal rejected."
+      # The import of a pasted list (K5, Actors::ImportGlossaryTerms): the
+      # refusals of the actor, then the notice, built from the counts that are
+      # not zero.
+      import:
+        too_many_lines: "At most %{max} lines at once. Please split the list."
+        empty: "Enter at least one term, one per line."
+        success: "List imported: %{summary}."
+        counts:
+          created:
+            one: "1 term created"
+            other: "%{count} terms created"
+          proposed:
+            one: "1 proposal created"
+            other: "%{count} proposals created"
+          categorized:
+            one: "1 category added"
+            other: "%{count} categories added"
+          existing:
+            one: "1 already there"
+            other: "%{count} already there"
+          rejected:
+            one: "1 rejected, stays rejected"
+            other: "%{count} rejected, stay rejected"
+          duplicate:
+            one: "1 twice in the list"
+            other: "%{count} twice in the list"
+          invalid:
+            one: "1 invalid line"
+            other: "%{count} invalid lines"
   views:
     organisations:
       glossary:
@@ -130,3 +159,49 @@ en:
           no_category: "No category"
           save: "Save"
           cancel: "Cancel"
+        # The import of a pasted list (K5): the button in the head of the list,
+        # the textarea in the lane (?new=import) and the check of the list.
+        import:
+          open: "Import list"
+          title: "Import list"
+          text_label: "Terms"
+          hint: "One term per line, with a category if you like: Term;Category or term and category separated by a tab"
+          categories: "Categories: %{names}"
+          limit: "At most %{max} lines at once."
+          proposals: "New terms come in as proposals, not confirmed. Someone who keeps the glossary can confirm them."
+          check: "Check"
+          cancel: "Cancel"
+          preview_title: "Check list"
+          preview_hint: "Nothing is saved yet. This is how the import would take the list:"
+          submit: "Import"
+          back: "Change list"
+          columns:
+            line: "Line"
+            term: "Term"
+            category: "Category"
+            verdict: "Result"
+          verdicts:
+            new: "new"
+            existing: "already there"
+            duplicate: "twice in the list"
+            invalid: "invalid"
+            rejected: "rejected, stays rejected"
+          counts:
+            new:
+              one: "1 new term"
+              other: "%{count} new terms"
+            existing:
+              one: "1 already there"
+              other: "%{count} already there"
+            duplicate:
+              one: "1 twice in the list"
+              other: "%{count} twice in the list"
+            invalid:
+              one: "1 invalid line"
+              other: "%{count} invalid lines"
+            rejected:
+              one: "1 rejected, stays rejected"
+              other: "%{count} rejected, stay rejected"
+            categorized:
+              one: "1 gets a category"
+              other: "%{count} get a category"

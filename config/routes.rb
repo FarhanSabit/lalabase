@@ -341,6 +341,13 @@ Rails.application.routes.draw do
     # index with ?term_id= or ?new=term. Confirm, reject, merge and deleting one
     # heard form (named by one of its corrections) are writes on a term.
     resources :glossary_terms, path: 'glossary', controller: 'glossary' do
+      # K5: a pasted list of terms, from the import lane (?new=import). The
+      # check runs the import in a savepoint and rolls it back, so it is a
+      # POST as well; it answers the lane frame, the import leaves it (_top).
+      collection do
+        post :import_preview
+        post :import
+      end
       member do
         patch :confirm
         patch :reject
