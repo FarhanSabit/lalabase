@@ -8,8 +8,9 @@ require 'rails_helper'
 # only: on the main action (Neo::Buttons, the tokens shadow-press and shadow-press-hover),
 # on a card that is wholly a link or a button while it is hovered (NeoCardComponent with
 # shadow: :hover, the token shadow-lift), and on the logo tile. Anywhere else it says
-# "press me" about something that cannot be pressed. The dark theme has no hard shadow at
-# all. Source: rule 5 of the Belegungstabelle (doc/belegungstabelle_oberflaeche.md) and
+# "press me" about something that cannot be pressed. The dark theme turns off the tokens,
+# the written values and the stylesheet shadows; the inline literals of A2 still draw one
+# there. Source: rule 5 of the Belegungstabelle (doc/belegungstabelle_oberflaeche.md) and
 # doc/schatten_stufen_plan.md.
 #
 # What this holds:
@@ -674,9 +675,9 @@ RSpec.describe 'shadow levels guard' do
       end
 
       expect(offenders).to be_empty, <<~MSG
-        The dark theme has no hard shadow. Every CSS_HARD selector needs a rule in its own
-        file that turns its shadow off; without !important it loses to a light rule that
-        carries one.
+        The dark theme draws no hard shadow from a stylesheet. Every CSS_HARD selector needs
+        a rule in its own file that turns its shadow off; without !important it loses to a
+        light rule that carries one.
 
         #{offenders.join("\n")}
       MSG
