@@ -88,6 +88,10 @@
 .attr-defs-sortable .sortable-chosen {
   box-shadow: 2px 2px 0 0 #14110c;
 }
+/* D3: the dark theme has no hard shadow. */
+.dark .attr-defs-sortable .sortable-chosen {
+  box-shadow: none;
+}
 
 /* --- Inbox ticket pane: hide the column close button in the embedded ticket --- */
 #ticket_pane [data-action*="layout-toggle#closeContent"] {
@@ -910,6 +914,9 @@
   background-color: rgb(var(--white));
   color: rgb(var(--cream-900));
   box-shadow: 4px 4px 0 rgb(var(--ink));
+}
+.dark #ticket-index-container .ticket-bulk-panel .tbp-dialog {
+  box-shadow: none;
 }
 #ticket-index-container .ticket-bulk-panel .tbp-dialog::backdrop { background-color: rgb(0 0 0 / 0.35); }
 

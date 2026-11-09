@@ -23,10 +23,10 @@ class NeoCardComponent < ViewComponent::Base
   # P1/P6: shadow = elevation (card "sits on the surface"); hover lift = "clickable".
   # :always = static elevation WITHOUT hover motion (non-interactive content panels).
   # :hover  = lift only on hover — use ONLY for genuinely clickable/interactive cards.
-  # Micro-shadow in ink (warm black) instead of hard #000 — button DNA (Part F2/G).
+  # :hover draws the `lift` token in ink (tailwind.config.js); :always still writes its value (later slice).
   SHADOWS = {
     none: '',
-    hover: 'hover:shadow-[4px_4px_0_0_#14110c] hover:-translate-x-0.5 hover:-translate-y-0.5',
+    hover: 'hover:shadow-lift hover:-translate-x-0.5 hover:-translate-y-0.5',
     always: 'shadow-[2px_2px_0_0_#14110c]'
   }.freeze
 

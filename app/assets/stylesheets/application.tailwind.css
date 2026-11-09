@@ -9,6 +9,8 @@
   .members-tools { @apply flex flex-wrap items-center gap-4; }
   .members-text-action { color: rgb(var(--text-action)); @apply text-sm hover:underline; }
   .members-invite { @apply inline-flex items-center rounded-lg border border-ink bg-btn-primary px-4 py-2 text-sm font-semibold text-heading; box-shadow: 2px 2px 0 rgb(var(--ink)); }
+  /* D3: the dark theme has no hard shadow. */
+  .dark .members-invite { box-shadow: none; }
   .members-layout { display: grid; grid-template-columns: minmax(0, 1fr); max-width: var(--width-capped-wide); gap: 24px; align-items: start; }
   .members-list { min-width: 0; }
   .members-table { width: 100%; table-layout: fixed; border-collapse: collapse; }
@@ -259,6 +261,12 @@
 
 /* 1) Shadows: brutalist #000 shadows gone in Dark -> elevation via border. */
 .dark [class*="shadow-["] { box-shadow: none !important; }
+/* The selector above matches written values only. A named hard shadow token
+   (tailwind.config.js) needs its own line, one line per token, so a guard can
+   find each. */
+.dark [class*="shadow-press"] { box-shadow: none !important; }
+.dark [class*="shadow-press-hover"] { box-shadow: none !important; }
+.dark [class*="shadow-lift"] { box-shadow: none !important; }
 
 /* 2) Dampen status/tint washes (bg-*-50/100/200) -> dark tinted surface.
       Values centrally from --wash-* tokens (see .dark block above). lime/cobalt-200..900

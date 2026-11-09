@@ -131,6 +131,17 @@ module.exports = {
           '100%': { transform: 'translateX(-50%)' },
         },
       },
+      // Hard offset shadows (blur 0) mean one thing: "press me".
+      // press = the main action at rest, press-hover = the main action hovered,
+      // lift = a card that is wholly a link or button, while hovered.
+      // Drawn from --ink so every theme follows; the dark theme drops them
+      // (application.tailwind.css). Soft shadows for menus and modals come
+      // later, not here. Held by spec/architecture/shadow_levels_guard_spec.rb.
+      boxShadow: {
+        press: '2px 2px 0 0 rgb(var(--ink))',
+        'press-hover': '3px 3px 0 0 rgb(var(--ink))',
+        lift: '4px 4px 0 0 rgb(var(--ink))',
+      },
       zIndex: {
         'base': '0',
         'sticky': '10',

@@ -12,12 +12,16 @@
   background-color: rgb(247 254 231) !important; /* lime-50 */
   box-shadow: 2px 2px 0 0 #000000 !important;
 }
+/* D3: the dark theme has no hard shadow. */
+.dark .ss-main:hover { box-shadow: none !important; }
 
 .ss-main:focus,
 .ss-main.ss-open {
   box-shadow: 2px 2px 0 0 #000000 !important;
   outline: none !important;
 }
+.dark .ss-main:focus,
+.dark .ss-main.ss-open { box-shadow: none !important; }
 
 /* Dark mode */
 .dark .ss-main {
@@ -57,6 +61,7 @@
   margin-top: 0.25rem !important;
   box-shadow: 4px 4px 0 0 #000000 !important;
 }
+.dark .ss-content { box-shadow: none !important; }
 
 .dark .ss-content {
   background-color: black !important;
@@ -154,6 +159,7 @@
   outline: none !important;
   box-shadow: 2px 2px 0 0 #000000 !important;
 }
+.dark .ss-search input:focus { box-shadow: none !important; }
 
 /* Disabled state */
 .ss-disabled {
