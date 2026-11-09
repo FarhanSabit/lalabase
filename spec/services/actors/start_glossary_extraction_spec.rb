@@ -200,6 +200,186 @@ RSpec.describe Actors::StartGlossaryExtraction, :ci_guard do
       expect(old.reload.status).to eq('running')
     end
   end
+
+  # K5c: the start of a run over one document, from the button in its lane.
+  # Under the same lock the actor asks both rights again (the glossary right
+  # and the read right on the document) and whether the version is still the
+  # current one and has text.
+  describe 'a run over one document' do
+    let(:project) { create(:project, organisation: organisation) }
+    let(:document) { create(:document, organisation: organisation, project: project) }
+    let(:version) { version_of(document, text: 'Wir nutzen Quarnix im Team.') }
+
+    before do
+      document.update!(current_version: version)
+      grant(manager, documents_access: 'read_only')
+    end
+
+    def version_of(document, text:, file: nil)
+      create(:document_version, organisation: organisation, document: document, title: 'Zorbel-Handbuch',
+                                plain_text_version: text, **{ document_version_file: file }.compact)
+    end
+
+    def grant(user, **areas)
+      create(:project_permission, user: user, project: project, **areas)
+    end
+
+    def upload(type, name)
+      Rack::Test::UploadedFile.new(StringIO.new('Quarnix'), type, true, original_filename: name)
+    end
+
+    def start_on(chosen = version, user = manager)
+      start(user, document_version: chosen)
+    end
+
+    it 'writes a queued run over the version and enqueues its job after the commit' do
+      result = start_on
+
+      run = result.resource
+      expect(result).to be_success
+      expect(run).to have_attributes(status: 'queued', started_by_id: manager.id, organisation_id: organisation.id)
+      expect(run.scope).to eq('kind' => 'document', 'document_version_id' => version.id, 'since' => nil)
+      expect(run).to be_document
+      expect(run).not_to be_everything
+      expect(Glossary::ExtractionJob).to have_been_enqueued.with(run_id: run.id)
+    end
+
+    it 'never reads everything: the box is about runs over the organisation' do
+      expect(start(manager, document_version: version, everything: true).resource.scope)
+        .to eq('kind' => 'document', 'document_version_id' => version.id, 'since' => nil)
+    end
+
+    it 'lets an account admin start on any document without a permission row' do
+      admin = member_with(role_with(title: Role::ACCOUNT_ADMIN_TITLE))
+
+      expect(start_on(version, admin)).to be_success
+    end
+
+    it 'refuses a version that is not the current one any more, and writes no run' do
+      newer = version_of(document, text: 'Wir nutzen Vexoria im Team.')
+      document.update!(current_version: newer)
+
+      result = start_on(version)
+
+      expect(result.code).to eq(:document_unavailable)
+      expect(result.errors).to eq([I18n.t('controllers.glossary.runs.document_unavailable')])
+      expect(runs).to be_empty
+      expect(enqueued_jobs).to be_empty
+    end
+
+    {
+      'not read out yet' => [nil, nil],
+      'empty (a scanned file)' => ['', %w[application/pdf scan.pdf]],
+      'of a type without text' => [nil, %w[image/png bild.png]]
+    }.each do |label, (text, (type, name))|
+      it "refuses a version whose text is #{label}" do
+        bare = version_of(document, text: text, file: (upload(type, name) if type))
+        document.update!(current_version: bare)
+
+        result = start_on(bare)
+
+        expect(result.code).to eq(:document_unavailable)
+        expect(runs).to be_empty
+        # An image upload enqueues an analysis of its own: only this job counts.
+        expect(Glossary::ExtractionJob).not_to have_been_enqueued
+      end
+    end
+
+    it 'reads the text status of the stored version, not of the copy it was given' do
+      DocumentVersion.where(id: version.id).update_all(plain_text_version: nil)
+
+      expect(start_on(version).code).to eq(:document_unavailable)
+      expect(runs).to be_empty
+    end
+
+    it 'refuses a starter who may not read the document, in words of their own' do
+      ProjectPermission.find_by!(user: manager, project: project).update!(documents_access: 'no_access')
+
+      result = start_on
+
+      expect(result.code).to eq(:forbidden)
+      expect(result.errors).to eq([I18n.t('controllers.glossary.runs.document_forbidden')])
+      expect(runs).to be_empty
+      expect(enqueued_jobs).to be_empty
+    end
+
+    it 'asks the glossary right first, before it looks at the document' do
+      viewer = member_with(role_with('view_glossary'))
+      grant(viewer, documents_access: 'read_only')
+      DocumentVersion.where(id: version.id).update_all(plain_text_version: nil)
+
+      result = start_on(version, viewer)
+
+      expect(result.code).to eq(:forbidden)
+      expect(result.errors).to eq([I18n.t('controllers.glossary.runs.forbidden')])
+      expect(runs).to be_empty
+    end
+
+    it 'refuses a version of another organisation' do
+      other = create(:organisation)
+      foreign = ActsAsTenant.with_tenant(other) do
+        foreign_document = create(:document, organisation: other, project: create(:project, organisation: other))
+        create(:document_version, organisation: other, document: foreign_document, plain_text_version: 'Quarnix')
+          .tap { |foreign_version| foreign_document.update!(current_version: foreign_version) }
+      end
+
+      result = start_on(foreign)
+
+      expect(result.code).to eq(:document_unavailable)
+      expect(runs).to be_empty
+      expect(GlossaryExtractionRun.unscoped.where(started_by_id: manager.id)).to be_empty
+    end
+
+    it 'refuses a version that is gone' do
+      gone = version_of(document, text: 'Quarnix')
+      DocumentVersion.where(id: gone.id).delete_all
+
+      expect(start_on(gone).code).to eq(:document_unavailable)
+      expect(runs).to be_empty
+    end
+
+    describe 'one active run, whatever its kind' do
+      it 'refuses a run over the document while a run over the organisation is active' do
+        create(:glossary_extraction_run, :running, organisation: organisation)
+
+        expect(start_on.code).to eq(:run_active)
+        expect(runs.count).to eq(1)
+      end
+
+      it 'refuses a run over the organisation while a run over a document is active' do
+        expect(start_on).to be_success
+
+        result = start
+
+        expect(result.code).to eq(:run_active)
+        expect(runs.count).to eq(1)
+        expect(runs.sole).to be_document
+      end
+
+      it 'ends a stale run and starts the run over the document' do
+        old = create(:glossary_extraction_run, :running, organisation: organisation)
+        old.update_columns(updated_at: (GlossaryExtractionRun::STALE_AFTER + 1.minute).ago)
+
+        expect(start_on).to be_success
+        expect(old.reload).to have_attributes(status: 'failed', error_code: 'stale')
+      end
+    end
+
+    context 'without AI for the extraction' do
+      let(:availability) do
+        Lalabase::Llm::FeatureRegistry::Availability.new(available: false, reason: :no_credential,
+                                                         required_provider: 'openai')
+      end
+
+      it 'refuses with the hint of the registry, as for a run over the organisation' do
+        result = start_on
+
+        expect(result.code).to eq(:ai_unavailable)
+        expect(result.errors).to eq([Lalabase::Llm::FeatureRegistry.unavailable_hint(availability, organisation)])
+        expect(runs).to be_empty
+      end
+    end
+  end
 end
 
 # A worker commits after the starter reads a stale snapshot. Its write must

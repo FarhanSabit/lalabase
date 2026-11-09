@@ -280,6 +280,7 @@ Verzeichnis-Übersicht (Auswahl):
   Ausschnitt einer Stelle, deren Quelle nicht mehr existiert (ein UPDATE je Art, NOT EXISTS gegen die Tabelle
   der Art), und den Hinweis eines Vorschlags, sobald eine Quelle seines Modellaufrufs fehlt oder die Herkunft
   leer oder unlesbar ist; die Zeilen bleiben.
+  K5c (08.11.2026): Art `document` liest nur die genannte Version, ganz, ohne Grenze; der Start (`document_version:`) prüft Leserecht, aktuelle Version und Text unter der Sperre.
 * `people/` — `directory.rb`, das Lese-Objekt der Personenliste (seit 26.10.2026): Mitglieder
   über `MembershipPolicy::Scope` (dieselbe Reichweite wie die Mitgliederseite), dazu die
   Zeilen ohne aktives Mitglied als Kontakte; Suche in Ruby über `PersonName.normalize`.

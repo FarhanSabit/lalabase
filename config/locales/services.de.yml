@@ -283,6 +283,7 @@ de:
         interrupted: "Die Suche wurde unterbrochen. Bitte starten Sie sie neu."
         stale: "Die Suche kam nicht weiter und wurde beendet. Bitte starten Sie sie neu."
         internal_error: "Bei der Suche ist ein Fehler aufgetreten. Bitte starten Sie sie neu."
+        document_unavailable: "Das Dokument ließ sich nicht lesen: Es ist nicht mehr da, hat keinen Text, oder wer die Suche gestartet hat, darf es nicht mehr lesen."
   jobs:
     ai_chat:
       unauthorized: "Entschuldigung, der AI-Service ist derzeit nicht verfügbar. Bitte versuchen Sie es später erneut."

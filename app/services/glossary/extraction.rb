@@ -21,7 +21,14 @@
 #   those what Post.readable_by gives the starter), never a meeting or its
 #   transcript, never product knowledge.
 # * Incremental unless the run reads everything: only rows changed after the start
-#   of the last succeeded run of the organisation, stored as scope['since'].
+#   of the last succeeded run over the organisation, stored as scope['since'].
+#   A run over one document never sets that bound: it read nothing else.
+# * A run over one document (K5c, scope kind document): only the version its
+#   scope names, current or not by now, whole, without a bound (since stays nil),
+#   with the same caps. Its document must still be readable by the starter, by
+#   the same reach and policy scope as above, and the version must have text,
+#   else the run fails as document_unavailable (after starter_inactive). Its
+#   stats count its one project as one of one.
 # * Known, and dropped by the scan: every glossary term (any status), every heard
 #   form, the spellings of accepted and dismissed proposals, the names of the people
 #   directory and of the active members (whole, first and last).
@@ -74,7 +81,8 @@ module Glossary
     MAX_SOURCE_CHARS = 100_000
     # The areas of ProjectPermission whose reach the run reads.
     AREAS = %i[tickets notes documents].freeze
-    # The one kind of scope there is (GlossaryExtractionRun::SCOPE_KINDS).
+    # The kind of a run over the organisation (GlossaryExtractionRun::SCOPE_KINDS),
+    # the only kind whose runs set the bound of the next one.
     KIND = 'organisation'
     # The keys of stats['sources'], one per kind of source.
     SOURCE_KEYS = GlossaryProposalSource::SOURCE_TYPES.index_with { |type| type.underscore.pluralize }.freeze
@@ -119,6 +127,7 @@ module Glossary
     def extract
       @starter = active_starter
       return @run.mark_failed!('starter_inactive', from: ['running']) unless @starter
+      return @run.mark_failed!('document_unavailable', from: ['running']) if @run.document? && !document_readable?
 
       @since = since
       touch!(scope: @run.scope.to_h.merge('since' => @since&.iso8601(6)))
@@ -140,11 +149,11 @@ module Glossary
       starter if AccessCheck::ProjectAccessService.active_member?(starter, @organisation)
     end
 
-    # The start of the last succeeded run of the organisation, never this one's.
+    # The start of the last succeeded run over the organisation, never this one's.
     # What changed while that run was reading may have changed after it read the
-    # row, so the next run reads it again.
+    # row, so the next run reads it again. A run over one document reads it whole.
     def since
-      return if @run.everything?
+      return if @run.everything? || @run.document?
 
       GlossaryExtractionRun.where(organisation_id: @organisation.id, status: 'succeeded')
                            .where("scope ->> 'kind' = ?", KIND)
@@ -187,13 +196,32 @@ module Glossary
       @notes ||= readable(Note, :notes)
     end
 
-    # The current version of each readable document, never an older one.
+    # The current version of each readable document, never an older one. A run
+    # over one document reads the version it names, while its document is
+    # readable.
     def document_versions
-      DocumentVersion.where(organisation_id: @organisation.id,
-                            id: readable(Document, :documents).select(:current_version_id))
+      if @run.document?
+        DocumentVersion.where(organisation_id: @organisation.id, id: @run.document_version_id,
+                              document_id: readable(Document, :documents).select(:id))
+      else
+        DocumentVersion.where(organisation_id: @organisation.id,
+                              id: readable(Document, :documents).select(:current_version_id))
+      end
+    end
+
+    # The version of a run over one document is there, readable by the starter
+    # now, and holds text by the rule the button and the start read
+    # (DocumentVersion#text_available?), not by a regex of its own: a regex in
+    # SQL counts whitespace by the database's collation, Ruby by Unicode, and a
+    # version without a file has text to the one and none to the other.
+    def document_readable?
+      version = document_versions.take
+      version.present? && version.text_available?
     end
 
     def relations
+      return { 'DocumentVersion' => document_versions } if @run.document?
+
       { 'Ticket' => tickets, 'Post' => comments, 'TicketDocument' => ticket_files, 'PostDocument' => comment_files,
         'Note' => notes, 'DocumentVersion' => document_versions }
     end
@@ -539,9 +567,17 @@ module Glossary
     end
 
     def stats
-      { 'sources' => @read, 'projects_reached' => AREAS.flat_map { |area| reach(area) }.uniq.size,
-        'projects_total' => Project.where(organisation_id: @organisation.id).count, **@counts,
+      reached, total = projects_counted
+      { 'sources' => @read, 'projects_reached' => reached, 'projects_total' => total, **@counts,
         'truncated' => @truncated, 'since' => @since&.iso8601(6) }
+    end
+
+    # The projects the starter reached of all of the organisation; a run over one
+    # document reached the one project it read (else it failed before).
+    def projects_counted
+      return [1, 1] if @run.document?
+
+      [AREAS.flat_map { |area| reach(area) }.uniq.size, Project.where(organisation_id: @organisation.id).count]
     end
 
     def end_succeeded

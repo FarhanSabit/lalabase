@@ -260,6 +260,112 @@ RSpec.describe 'Organisations::Glossary runs', :ci_guard, type: :request do
       expect(bar).to be_nil
     end
 
+    # K5c: a run over one document. Its title is project content, and every
+    # reader of the glossary sees this line, so it names the document only to
+    # a reader of that document.
+    describe 'the line about a run over one document' do
+      let(:gd) { 'views.organisations.glossary.document_runs' }
+      let(:project) { create(:project, organisation: organisation) }
+      let(:document) { create(:document, organisation: organisation, project: project) }
+      let(:version) do
+        create(:document_version, organisation: organisation, document: document, title: 'Zorbel-Handbuch',
+                                  plain_text_version: 'Wir nutzen Quarnix im Team.')
+          .tap { |current| document.update!(current_version: current) }
+      end
+      let(:document_reader) do
+        member_with(role_with('view_glossary')).tap do |user|
+          create(:project_permission, user: user, project: project, documents_access: 'read_only')
+        end
+      end
+
+      def document_run(status, **attributes)
+        run_of(status, scope: { 'kind' => 'document', 'document_version_id' => version.id, 'since' => nil }, **attributes)
+      end
+
+      def source(reader)
+        if reader == :hidden
+          I18n.t("#{gd}.source_hidden")
+        else
+          I18n.t("#{gd}.source", title: 'Zorbel-Handbuch')
+        end
+      end
+
+      it 'names the title of the document to a reader of it while the run runs' do
+        run = document_run('running')
+        sign_in document_reader
+
+        review_list
+
+        expect(status_line).to eq(I18n.t("#{gd}.running_since", time: clock(run, document_reader), source: source(:title)))
+      end
+
+      it 'says only that it was a document to a reader of the glossary who may not read it' do
+        run = document_run('running')
+        sign_in viewer
+
+        review_list
+
+        expect(status_line).to eq(I18n.t("#{gd}.running_since", time: clock(run, viewer), source: source(:hidden)))
+        expect(status_line).to include('aus einem Dokument')
+        expect(response.body).not_to include('Zorbel-Handbuch')
+      end
+
+      it 'names what a finished run read and found, with the document where the projects stand' do
+        run = document_run('succeeded', finished_at: Time.current, stats: {
+                             'sources' => { 'document_versions' => 1 }, 'projects_reached' => 1, 'projects_total' => 1,
+                             'proposals_created' => 3, 'truncated' => false
+                           })
+
+        [[document_reader, :title], [viewer, :hidden]].each do |reader, shown|
+          sign_in reader
+
+          review_list
+
+          summary = [I18n.t("#{gr}.sources_read", count: 1), source(shown), I18n.t("#{gr}.proposals_created", count: 3)].join(', ')
+          expect(status_line).to eq(I18n.t("#{gr}.last_run", date: clock(run, reader), summary: summary))
+          expect(status_line).not_to include(I18n.t("#{gr}.projects", count: 1, reached: 1))
+        end
+      end
+
+      it 'names why a run over a document failed, with the document as the reader may see it' do
+        run = document_run('failed', error_code: 'document_unavailable', finished_at: Time.current)
+
+        [[document_reader, :title], [viewer, :hidden]].each do |reader, shown|
+          sign_in reader
+
+          review_list
+
+          expect(status_line).to eq(
+            "#{I18n.t("#{gd}.failed", date: clock(run, reader), source: source(shown))} " \
+            "#{I18n.t('services.glossary_extraction.errors.document_unavailable')}"
+          )
+        end
+      end
+
+      it 'says it was a document once the document is gone' do
+        run = document_run('succeeded', finished_at: Time.current, stats: { 'proposals_created' => 0 })
+        document.update_columns(current_version_id: nil)
+        DocumentVersion.where(id: version.id).delete_all
+        sign_in document_reader
+
+        review_list
+
+        summary = [I18n.t("#{gr}.sources_read", count: 0), source(:hidden), I18n.t("#{gr}.proposals_created", count: 0)].join(', ')
+        expect(status_line).to eq(I18n.t("#{gr}.last_run", date: clock(run, document_reader), summary: summary))
+      end
+
+      it 'turns the start off while a run over a document is active' do
+        ai(available)
+        document_run('queued')
+        sign_in manager
+
+        review_list
+
+        expect(start_button['disabled']).to eq('disabled')
+        expect(bar['data-glossary-run-poll-active-value']).to eq('true')
+      end
+    end
+
     %w[de en].each do |locale|
       it "renders in #{locale} without a missing text" do
         ai(available)

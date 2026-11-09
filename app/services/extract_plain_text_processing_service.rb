@@ -1,12 +1,16 @@
 # frozen_string_literal: true
 
 class ExtractPlainTextProcessingService
+  # Markdown (K5c) is text as it stands, markup included: read like a .txt file.
+  # Older MIME databases name it text/x-markdown.
   SUPPORTED_CONTENT_TYPES = {
     'application/pdf' => :extract_text_from_pdf,
     'text/plain' => :extract_text_from_text_file,
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => :extract_text_from_docx,
     'application/rtf' => :extract_text_from_rtf,
-    'text/rtf' => :extract_text_from_rtf
+    'text/rtf' => :extract_text_from_rtf,
+    'text/markdown' => :extract_text_from_text_file,
+    'text/x-markdown' => :extract_text_from_text_file
   }.freeze
 
   # Whether this content type has an extractor at all. Asked by readers of the
@@ -43,6 +47,19 @@ class ExtractPlainTextProcessingService
     return 'unsupported' unless text_extractable?(content_type)
 
     raw.nil? ? 'unavailable' : 'empty'
+  end
+
+  # text_status of a holder of one attached file (a document version): its
+  # column and the type of its file. A holder without a file has nothing read
+  # out yet, unavailable. Asked through DocumentVersion#text_status by every
+  # reader of a version's text (Lalabase::Tools::GetDocument, the button in the
+  # lane, the start and the run of a glossary run over one document, K5c), so
+  # all of them say the same about the same version.
+  def self.file_text_status(raw, file)
+    blob = file&.blob
+    return 'unavailable' if blob.nil?
+
+    text_status(raw, blob.content_type)
   end
 
   def initialize(document_holder, document_accessor:, log_label:)
@@ -87,8 +104,11 @@ class ExtractPlainTextProcessingService
     handle_text_extraction_error(e, 'PDF')
   end
 
+  # Read as UTF-8, each invalid byte replaced (scrub): a file in another
+  # encoding (a Latin-1 "Küche") still holds text. Unscrubbed, counting its
+  # words raised on the first invalid byte and the file stayed without text.
   def extract_text_from_text_file
-    text = @document.download.force_encoding('UTF-8')
+    text = @document.download.force_encoding('UTF-8').scrub
     set_plain_text(text)
   rescue StandardError => e
     handle_text_extraction_error(e, 'Text')
