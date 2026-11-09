@@ -394,6 +394,19 @@ RSpec.describe Actors::ImportGlossaryTerms, :ci_guard, type: :service do
   # gives it a category: the import works on the row as it is stored under
   # the lock. Quarnix shows that the other terms still get theirs.
   describe 'a term changed by someone else before the lock' do
+    it 'still categorizes a spelling change that keeps the same normalized form' do
+      term = create(:glossary_term, organisation: organisation, term: 'Zorbel Hub')
+      actor = importer('Zorbel Hub;product')
+      allow(actor).to receive(:existing_terms).and_wrap_original do |original, *arguments|
+        original.call(*arguments).tap { term.update!(term: '  ZORBEL   HUB  ') }
+      end
+
+      expect(actor.call).to be_success
+      expect(term.reload.slice(:term, :category)).to eq('term' => 'ZORBEL HUB', 'category' => 'product')
+      expect(actor.report.lines.map(&:category_applied)).to eq([true])
+      expect(actor.report.counts).to eq(counts(existing: 1, categorized: 1))
+    end
+
     it 'keeps a category set in the meantime and leaves out a term deleted in the meantime' do
       changed = create(:glossary_term, organisation: organisation, term: 'Zorbel')
       deleted = create(:glossary_term, organisation: organisation, term: 'Wub')
@@ -484,7 +497,9 @@ end
 # import held the index entry of Quarnix and waited for Wub, the rename waited
 # for that entry, and PostgreSQL aborted one of the two
 # (ActiveRecord::Deadlocked). With its locks first, the import waits for the
-# rename and goes on. A group of its own: the before hook of the group above
+# rename, then refuses the changed spelling instead of giving it the old
+# spelling's category. Earlier category updates roll back too. A group of
+# its own: the before hook of the group above
 # creates its organisation inside the transaction this group has to leave.
 RSpec.describe Actors::ImportGlossaryTerms, 'beside a rename of one of its terms', type: :service do
   self.use_transactional_tests = false
@@ -518,40 +533,49 @@ RSpec.describe Actors::ImportGlossaryTerms, 'beside a rename of one of its terms
     end
   end
 
-  it 'waits for the rename instead of deadlocking with it' do
-    organisation = create(:organisation)
-    ActsAsTenant.current_tenant = organisation
-    role = create(:role, organisation: organisation)
-    create(:permission, role: role, category: 'glossary', action: 'manage_glossary', allowed: true)
-    manager = create(:user, first_name: 'Anna', last_name: 'Beispiel')
-    create(:membership, user: manager, organisation: organisation, role: role)
-    wub = create(:glossary_term, organisation: organisation, term: 'Wub')
-    import = described_class.new(organisation: organisation, text: "Quarnix\nWub;product", current_user: manager)
-    held = Queue.new
-    release = Queue.new
-    # The rename stops right after its lock, until the import waits for a lock.
-    allow(Glossary::TermLock).to receive(:call).and_wrap_original do |original, **arguments|
-      original.call(**arguments).tap do
-        held << true
-        release.pop
+  [false, true].each do |dry_run|
+    it "rolls back a renamed spelling without deadlocking (dry_run: #{dry_run})" do
+      organisation = create(:organisation)
+      ActsAsTenant.current_tenant = organisation
+      role = create(:role, organisation: organisation)
+      create(:permission, role: role, category: 'glossary', action: 'manage_glossary', allowed: true)
+      manager = create(:user, first_name: 'Anna', last_name: 'Beispiel')
+      create(:membership, user: manager, organisation: organisation, role: role)
+      wub = create(:glossary_term, organisation: organisation, term: 'Wub')
+      zorbel = create(:glossary_term, organisation: organisation, term: 'Zorbel')
+      import = described_class.new(organisation: organisation, text: "Zorbel;place\nQuarnix;company\nWub;product\nZorbel Hub",
+                                   current_user: manager, dry_run: dry_run)
+      held = Queue.new
+      release = Queue.new
+      # The rename stops right after its lock, until the import waits for a lock.
+      allow(Glossary::TermLock).to receive(:call).and_wrap_original do |original, **arguments|
+        original.call(**arguments).tap do
+          held << true
+          release.pop
+        end
       end
-    end
 
-    renaming = in_thread(organisation) do
-      Actors::SaveGlossaryTerm.call(organisation: organisation, params: { term: 'Quarnix' }, current_user: manager, id: wub.id)
-    end
-    Timeout.timeout(10) { held.pop }
-    importing = in_thread(organisation) { import.call }
-    wait_for_lock_waiter
-    release << true
-    answers = [renaming.value, importing.value]
+      renaming = in_thread(organisation) do
+        Actors::SaveGlossaryTerm.call(organisation: organisation, params: { term: 'Quarnix' }, current_user: manager, id: wub.id)
+      end
+      Timeout.timeout(10) { held.pop }
+      importing = in_thread(organisation) { import.call }
+      wait_for_lock_waiter
+      release << true
+      answers = Timeout.timeout(10) { [renaming.value, importing.value] }
 
-    expect(answers.grep(ActiveRecord::Deadlocked).map(&:message)).to eq([])
-    expect(answers).to all(be_success)
-    expect(import.report.lines.map(&:verdict)).to eq(%i[existing existing])
-    expect(GlossaryTerm.where(organisation_id: organisation.id).pluck(:id, :term)).to eq([[wub.id, 'Quarnix']])
-  ensure
-    release&.push(true)
-    [renaming, importing].compact.each { |thread| thread.join(5) || thread.kill }
+      expect(answers.grep(ActiveRecord::Deadlocked).map(&:message)).to eq([])
+      expect(answers.first).to be_success
+      expect(answers.last).not_to be_success
+      expect(answers.last.code).to eq(:stale_object)
+      expect(answers.last.errors).to eq([I18n.t('services.actors.stale_object')])
+      expect(import.report).to be_nil
+      expect(wub.reload.slice(:term, :category, :lock_version)).to eq('term' => 'Quarnix', 'category' => nil, 'lock_version' => 1)
+      expect(zorbel.reload.slice(:category, :lock_version)).to eq('category' => nil, 'lock_version' => 0)
+      expect(GlossaryTerm.where(organisation_id: organisation.id).pluck(:id)).to match_array([wub.id, zorbel.id])
+    ensure
+      release&.push(true)
+      [renaming, importing].compact.each { |thread| thread.join(5) || thread.kill }
+    end
   end
 end

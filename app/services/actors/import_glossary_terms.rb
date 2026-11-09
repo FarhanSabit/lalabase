@@ -212,7 +212,9 @@ module Actors
     # the header). The terms are locked in one statement in the order of
     # their ids (as Actors::MergeGlossaryTerms locks) and read again under the
     # lock: a term that got a category in the meantime keeps it, and one
-    # deleted in the meantime is left out.
+    # deleted in the meantime is left out. A changed normalized spelling
+    # refuses the whole import: the old line must not categorize the renamed
+    # term. BaseActor maps the stale error after the transaction rolls back.
     def categorize(rows)
       wanted = rows.select { |row| row.existing && row.category && row.existing.category.nil? }
       return if wanted.empty?
@@ -221,6 +223,8 @@ module Actors
       wanted.each do |row|
         term = locked[row.existing.id]
         next if term.nil? || term.category
+
+        raise ActiveRecord::StaleObjectError.new(term, 'import') unless term.normalized_term == row.form
 
         term.update!(category: row.category)
         row.categorized = true

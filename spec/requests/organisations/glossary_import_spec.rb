@@ -360,6 +360,41 @@ RSpec.describe 'Organisations::Glossary import', :ci_guard, type: :request do
     end
   end
 
+  describe 'a term renamed between the lookup and the category lock' do
+    let(:text) { "Zorbel;product\nWub;company" }
+
+    before do
+      term = create(:glossary_term, organisation: organisation, term: 'Zorbel')
+      sign_in manager
+
+      allow_any_instance_of(Actors::ImportGlossaryTerms).to receive(:existing_terms).and_wrap_original do |original, *arguments|
+        known = original.call(*arguments)
+        term.update!(term: 'Quarnix')
+        known
+      end
+    end
+
+    it 'refuses the check with 422, the translated error and the submitted text in the lane frame' do
+      check_list(text)
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.body).to start_with(%(<turbo-frame id="#{frame_id}">))
+      expect(page.at_css('.glossary-page')).to be_nil
+      expect(page.at_css('.glossary-content [role="alert"]').text.squish).to eq(I18n.t('services.actors.stale_object'))
+      expect(textarea_text).to eq(text)
+    end
+
+    it 'refuses the import with 422, the translated error and the submitted text beside the full list' do
+      import_list(text)
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(page.at_css('.glossary-page')['class']).to include('show-content')
+      expect(page.css('[data-glossary-row]').map { |row| row.at_css('.people-row__name').text }).to eq(['Zorbel'])
+      expect(page.at_css('.glossary-content [role="alert"]').text.squish).to eq(I18n.t('services.actors.stale_object'))
+      expect(textarea_text).to eq(text)
+    end
+  end
+
   describe 'a list the import refuses' do
     before { sign_in manager }
 
