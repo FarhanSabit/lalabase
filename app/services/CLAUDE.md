@@ -259,8 +259,11 @@ Verzeichnis-Übersicht (Auswahl):
   jeder Write berührt den Lauf unter `status = 'running'`). Offene Vorschläge nehmen keinen der
   `MAX_CANDIDATES`-Plätze; ein Vorschlag bekommt nur die Vorkommen neuer Stellen; jeder Text höchstens
   `MAX_SOURCE_CHARS` (zwischen Wörtern geschnitten), der Lauf wird vor jedem Ladestapel berührt. Den
-  Hinweis des Modells sieht nur, wer jede Quelle des Vorschlags lesen darf; beim Zusammenführen wandert
-  er nicht mit. `Glossary::ExtractionJob`
+  Hinweis des Modells sieht nur, wer jede Quelle seines gesamten Modellaufrufs aktuell lesen darf:
+  `hint_sources` hält deren Arten und IDs, auch für verworfene Kandidaten, unabhängig von den
+  Beispielstellen des Vorschlags. Alte Hinweise ohne diese Herkunft bleiben verborgen; beim
+  Zusammenführen wandert der Hinweis der Quelle nicht mit, die Herkunft des Zielhinweises bleibt.
+  `Glossary::ExtractionJob`
   (`app/jobs/`): Advisory Lock, EIN Claim, `interrupted`, `internal_error`, kein Retry.
 * `people/` — `directory.rb`, das Lese-Objekt der Personenliste (seit 26.10.2026): Mitglieder
   über `MembershipPolicy::Scope` (dieselbe Reichweite wie die Mitgliederseite), dazu die

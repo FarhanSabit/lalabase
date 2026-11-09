@@ -84,7 +84,7 @@ module Glossary
       'PostDocument' => :comment_file_texts, 'Note' => :note_texts, 'DocumentVersion' => :document_texts
     }.freeze
     # What a new proposal writes, read from the model once it has checked the row.
-    PROPOSAL_COLUMNS = %w[organisation_id term normalized_term category variants hint occurrences status].freeze
+    PROPOSAL_COLUMNS = %w[organisation_id term normalized_term category variants hint hint_sources occurrences status].freeze
 
     # A source chosen by kind, id and time. Its text is loaded later, in batches.
     Pick = Data.define(:type, :id, :updated_at)
@@ -451,9 +451,10 @@ module Glossary
       room = MAX_PROPOSALS_PER_RUN - @counts['proposals_created']
       cut! if rows.size > room
       candidates = batch.index_by(&:key)
+      hint_sources = hint_sources_for(batch)
       checked = rows.first(room).filter_map do |row|
         candidate = candidates.fetch(row.key)
-        proposal = checked_proposal(row, candidate)
+        proposal = checked_proposal(row, candidate, hint_sources)
         [proposal, candidate] if proposal
       end
       GlossaryProposal.transaction do
@@ -464,15 +465,25 @@ module Glossary
       end
     end
 
+    # The exact context selection of Classifier#payload, for the WHOLE input
+    # batch, including candidates the model drops. The model's free-text hint
+    # can combine any of those snippets; the candidate's own places alone do
+    # not authorize it. Only identifiers from our tenant-bound scan are stored.
+    def hint_sources_for(batch)
+      batch.flat_map { |candidate| candidate.snippets.first(Classifier::SNIPPETS_PER_CANDIDATE) }
+           .map { |snippet| { 'source_type' => snippet.type, 'source_id' => snippet.id } }.uniq
+    end
+
     # Checked by the model, its cleaning and its rules, before anything is written.
     # The reference to the run is set after the check, when the row is written: it
     # is this run, read in this organisation, and checking it again would ask the
     # database the same question once per batch. A form taken in the meantime
     # (another run wrote it at the same moment) is an existing proposal, not an
     # error; anything else invalid is a mistake and raises.
-    def checked_proposal(row, candidate)
+    def checked_proposal(row, candidate, hint_sources)
       proposal = GlossaryProposal.new(organisation: @organisation, term: row.term, category: row.category,
-                                      variants: row.variants, hint: row.hint, occurrences: candidate.occurrences)
+                                      variants: row.variants, hint: row.hint, hint_sources: hint_sources,
+                                      occurrences: candidate.occurrences)
       proposal.validate
       return if proposal.errors.of_kind?(:term, :taken)
       raise ActiveRecord::RecordInvalid, proposal if proposal.errors.any?

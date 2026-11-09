@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_08_120300) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_09_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -767,6 +767,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_08_120300) do
     t.datetime "decided_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.jsonb "hint_sources", default: [], null: false
     t.index ["decided_by_id"], name: "index_glossary_proposals_on_decided_by_id"
     t.index ["glossary_extraction_run_id"], name: "index_glossary_proposals_on_glossary_extraction_run_id"
     t.index ["glossary_term_id"], name: "index_glossary_proposals_on_glossary_term_id"
@@ -775,6 +776,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_08_120300) do
     t.check_constraint "\nCASE\n    WHEN jsonb_typeof(variants) = 'array'::text THEN jsonb_array_length(variants) <= 10 AND NOT jsonb_path_exists(variants, 'strict $[*]?(@.type() != \"string\")'::jsonpath)\n    ELSE false\nEND", name: "glossary_proposals_variants_shape"
     t.check_constraint "category IS NULL OR (category::text = ANY (ARRAY['person'::character varying, 'company'::character varying, 'product'::character varying, 'place'::character varying, 'domain'::character varying, 'foreign'::character varying]::text[]))", name: "glossary_proposals_category_known"
     t.check_constraint "occurrences >= 0", name: "glossary_proposals_occurrences_not_negative"
+    t.check_constraint "jsonb_typeof(hint_sources) = 'array'::text", name: "glossary_proposals_hint_sources_array"
     t.check_constraint "status::text = ANY (ARRAY['open'::character varying, 'accepted'::character varying, 'dismissed'::character varying]::text[])", name: "glossary_proposals_status_known"
   end
 

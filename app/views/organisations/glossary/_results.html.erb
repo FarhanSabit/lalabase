@@ -11,8 +11,8 @@
     <%= render 'organisations/glossary/run_bar', run: run %>
     <% if entries.any? %>
       <% can_decide = policy(GlossaryProposal).create? %>
-      <%# One question for the sources of every row: a row shows the model's hint only to a reader of all its sources. %>
-      <% access = glossary_source_access(entries.flat_map(&:glossary_proposal_sources)) %>
+      <%# One batched rights check for the complete model context of every hint. %>
+      <% access = glossary_source_access(entries.flat_map(&:hint_source_references)) %>
       <ul class="people-list glossary-list" data-glossary-proposal-list>
         <% entries.each do |proposal| %>
           <%= render 'organisations/glossary/proposal_row', proposal: proposal, selected: selected, can_decide: can_decide,

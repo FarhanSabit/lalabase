@@ -7,13 +7,13 @@
     kind and its project for every reader of the glossary (E3); its snippet
     only for a reader of the source, asked now and for all places at once
     (glossary_source_access), because the run read them with the rights of
-    the account that started it. The hint, written from those snippets, only
-    for a reader of all of them (glossary_proposal_hint). A place whose
+    the account that started it. The hint only for a reader of every source
+    in its model call (glossary_proposal_hint). A place whose
     source is gone says so. The body ends at reading width. %>
 <% can_decide = policy(proposal).accept? %>
 <% sources = proposal.glossary_proposal_sources.includes(:project).order(occurrences: :desc, created_at: :asc, id: :asc).to_a %>
-<% access = glossary_source_access(sources) %>
-<% hint = glossary_proposal_hint(proposal, access, sources: sources) %>
+<% access = glossary_source_access(sources + proposal.hint_source_references) %>
+<% hint = glossary_proposal_hint(proposal, access) %>
 <% scope = 'views.organisations.glossary.proposals' %>
 <div class="people-detail glossary-detail" data-glossary-proposal-detail>
   <%= render 'organisations/glossary/lane_head', edit_url: nil %>

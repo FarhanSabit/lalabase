@@ -142,7 +142,10 @@ Verzeichnis-Layout nicht ablesbar — diese Karte gruppiert sie:
   `one_active_glossary_extraction_run`), `stale?` nach `STALE_AFTER`, `mark_failed!` ist EIN
   `update_all` unter der Status-Bedingung; die Formen von `scope` und `stats` stehen im Kopf der
   Datei. `glossary_proposal`: einer je `normalized_term` und Organisation, `variants` als
-  JSONB-Liste mit Check-Constraint, Status `open`/`accepted`/`dismissed`.
+  JSONB-Liste mit Check-Constraint, Status `open`/`accepted`/`dismissed`. `hint_sources` hält
+  unabhängig von den Beispielstellen die Quellarten und IDs aller an den Modellaufruf
+  gesendeten Ausschnitte, auch verworfener Kandidaten. Ohne diese Herkunft bleibt der Hinweis
+  verborgen; `hint_source_references` lehnt auch teilweise fehlerhafte Herkunft vollständig ab.
   `glossary_proposal_source`: polymorph OHNE Fremdschlüssel; eine gelöschte Quelle lässt die Zeile
   stehen, die Seite fragt beim Rendern, ob sie noch da und für den Leser lesbar ist
   (`GlossaryHelper#glossary_source_access`); beim Schreiben muss die Quelle zur Organisation

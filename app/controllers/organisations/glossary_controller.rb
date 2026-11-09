@@ -47,8 +47,8 @@
 # see that speaker on the members or the people page, and the link to a
 # speaker only with view_people as well (GlossaryHelper). The same holds for
 # the sources of a proposal: their project and kind for every reader, the
-# snippet only for a reader of the source, and the model's hint, written from
-# those snippets, only for a reader of all of them.
+# snippet only for a reader of the source, and the model's hint only for a
+# reader of every source sent in its classifier call, including other candidates.
 module Organisations
   class GlossaryController < Organisations::BaseController
     include ViewportSwitchable

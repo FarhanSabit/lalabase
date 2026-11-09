@@ -42,6 +42,12 @@ class GlossaryProposal < ApplicationRecord
   MAX_HINT = 160
   MAX_SOURCES = 5
 
+  # Authorization provenance of the hint: every snippet source in the model
+  # call, including other and dropped candidates. These references survive
+  # trimming/merging the example sources and never come from model output.
+  HintSource = Data.define(:source_type, :source_id)
+  SOURCE_ID_FORMAT = /\A\h{8}(?:-\h{4}){3}-\h{12}\z/
+
   enum :status, STATUSES.index_by(&:itself), validate: true
 
   # Terms, heard forms, runs and proposals share one right (GlossaryPolicy),
@@ -59,12 +65,32 @@ class GlossaryProposal < ApplicationRecord
   validates :occurrences, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
   validate :term_not_taken
   validate :variants_shape
+  validate :hint_sources_shape
   validate :same_organisation_references
 
   # The most frequent first, then by spelling: the order of the review list.
   scope :in_review_order, -> { order(occurrences: :desc, normalized_term: :asc, id: :asc) }
 
+  # Missing or malformed provenance grants no access, also for rows written
+  # before the column existed or past validation. Current source rights are
+  # resolved by GlossaryHelper within the reader's organisation.
+  def hint_source_references
+    return [] unless hint_sources.is_a?(Array)
+
+    hint_sources.map do |source|
+      return [] unless source.is_a?(Hash) && source.keys.sort == %w[source_id source_type] &&
+                       GlossaryProposalSource::SOURCE_TYPES.include?(source['source_type']) &&
+                       source['source_id'].is_a?(String) && source['source_id'].match?(SOURCE_ID_FORMAT)
+
+      HintSource.new(source_type: source['source_type'], source_id: source['source_id'])
+    end
+  end
+
   private
+
+  def hint_sources_shape
+    errors.add(:hint_sources, :invalid) unless hint_sources.is_a?(Array) && hint_source_references.size == hint_sources.size
+  end
 
   # The term as GlossaryTerm cleans it; a variant through the same cleaning,
   # without blanks, without a second spelling of one compared form and

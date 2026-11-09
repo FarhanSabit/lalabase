@@ -158,6 +158,39 @@ RSpec.describe Glossary::Extraction, :ci_guard do
       expect(places.last.snippet).to eq("Anfrage #{text('Quarnix')}")
     end
 
+    it 'keeps hint provenance for every input context, including a dropped candidate, separately per batch' do
+      stub_const('Glossary::Extraction::BATCH_SIZE', 2)
+      quarnix = ticket(text('Quarnix'))
+      vexoria = ticket(text('Vexoria'))
+      zorbel = ticket(text('Zorbelwerk'))
+      allow(Glossary::Classifier).to receive(:call) do |candidates:, **|
+        candidates.reject { |candidate| candidate.key == 'vexoria' }.map { |candidate| kept(candidate) }
+      end
+
+      extract
+
+      expect(GlossaryProposal.find_by!(term: 'Quarnix').hint_sources).to contain_exactly(
+        { 'source_type' => 'Ticket', 'source_id' => quarnix.id },
+        { 'source_type' => 'Ticket', 'source_id' => vexoria.id }
+      )
+      expect(GlossaryProposal.find_by!(term: 'Zorbelwerk').hint_sources)
+        .to eq([{ 'source_type' => 'Ticket', 'source_id' => zorbel.id }])
+      expect(GlossaryProposal.find_by(term: 'Vexoria')).to be_nil
+    end
+
+    it 'records exactly the snippet sources sent to the model and deduplicates shared context' do
+      busy = ticket("#{text('Quarnix', 'Vexoria')} Quarnix, Vexoria, Quarnix, Vexoria.")
+      middle = ticket("#{text('Quarnix', 'Vexoria')} Quarnix, Vexoria.")
+      ticket(text('Quarnix', 'Vexoria'))
+
+      extract
+
+      expected = [busy, middle].map { |source| { 'source_type' => 'Ticket', 'source_id' => source.id } }
+      expect(GlossaryProposal.find_by!(term: 'Quarnix').hint_sources).to match_array(expected)
+      expect(GlossaryProposal.find_by!(term: 'Vexoria').hint_sources).to match_array(expected)
+      expect(Glossary::Classifier::SNIPPETS_PER_CANDIDATE).to eq(2)
+    end
+
     it 'reads a document only in its current version' do
       document(text('Bexlo'), older: text('Altfix'))
 

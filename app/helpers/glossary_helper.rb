@@ -13,7 +13,7 @@
 # The review list of the extraction (K5b) follows the same rule: every
 # proposal with the projects and kinds of its sources, but the snippet of a
 # source only for a reader of that source (glossary_source_access), and the
-# model's hint only for a reader of every one of its sources
+# model's hint only for a reader of every source sent in its model call
 # (glossary_proposal_hint).
 module GlossaryHelper
   # What a row opens in the lane: a term, or a proposal of the review list.
@@ -210,16 +210,12 @@ module GlossaryHelper
     proposal.glossary_proposal_sources.filter_map { |source| source.project&.name }.uniq.sort_by { |name| [name.downcase, name] }
   end
 
-  # The model's hint, or nil: only for a reader of every source of the
-  # proposal, and only when it has one. The model wrote it from the snippets of
-  # some of these places, read with the rights of the account that started the
-  # run, and the proposal does not keep which: for a reader who may not read
-  # them all, the sentence could repeat what one of them says. A source that is
-  # gone is read by nobody, so its proposal shows no hint. access is
-  # glossary_source_access for these sources: the list asks it once for the
-  # sources of every row, the lane for its own.
-  def glossary_proposal_hint(proposal, access, sources: proposal.glossary_proposal_sources)
-    proposal.hint.presence if access.all_readable?(sources)
+  # A hint may repeat any context of its classifier batch, even a candidate
+  # the model dropped. Require current access to the complete stored input
+  # provenance; the proposal's own example sources are insufficient. Missing,
+  # malformed or deleted provenance never grants access to a hint.
+  def glossary_proposal_hint(proposal, access)
+    proposal.hint.presence if access.all_readable?(proposal.hint_source_references)
   end
 
   # Ticket, Kommentar, Notiz, ...: what every reader may know of a source.

@@ -43,6 +43,39 @@ RSpec.describe GlossaryProposal, :ci_guard, type: :model do
     expect(described_class::MAX_SOURCES).to eq(5)
   end
 
+  describe 'hint provenance' do
+    it 'starts without known provenance and grants no hint access' do
+      proposal = proposal_with(hint: 'An old hint')
+
+      expect(proposal.hint_sources).to eq([])
+      expect(proposal.hint_source_references).to eq([])
+    end
+
+    it 'keeps references to every supported source kind without depending on example-source rows' do
+      sources = GlossaryProposalSource::SOURCE_TYPES.map { |type| { 'source_type' => type, 'source_id' => SecureRandom.uuid } }
+      proposal = proposal_with(hint_sources: sources)
+
+      expect(proposal.reload.hint_source_references.map(&:to_h)).to eq(sources.map(&:symbolize_keys))
+    end
+
+    [nil, {}, 'Ticket', [nil], [{ 'source_type' => 'User', 'source_id' => SecureRandom.uuid }],
+     [{ 'source_type' => 'Ticket', 'source_id' => 'not-a-uuid' }]].each do |value|
+      it "rejects malformed provenance #{value.inspect} and fails closed when reading it" do
+        proposal = built_with(hint_sources: value)
+
+        expect(proposal).not_to be_valid
+        expect(proposal.errors.details[:hint_sources]).to include(error: :invalid)
+        expect(proposal.hint_source_references).to eq([])
+      end
+    end
+
+    it 'never authorizes just the valid subset of malformed provenance' do
+      proposal = built_with(hint_sources: [{ 'source_type' => 'Ticket', 'source_id' => SecureRandom.uuid }, {}])
+
+      expect(proposal.hint_source_references).to eq([])
+    end
+  end
+
   describe 'the term' do
     it 'keeps the spelling cleaned and stores its compared form' do
       proposal = proposal_with(term: "  Zorbel\u{00A0} Hub\u{200B} ")

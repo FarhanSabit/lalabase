@@ -64,6 +64,12 @@ RSpec.describe 'Organisations::Glossary proposals', :ci_guard, type: :request do
   let!(:accepted_proposal) { create(:glossary_proposal, :accepted, organisation: organisation, term: 'Quarnix', occurrences: 5) }
   let!(:dismissed_proposal) { create(:glossary_proposal, :dismissed, organisation: organisation, term: 'Plumbix', occurrences: 9) }
 
+  before do
+    proposal.update!(hint_sources: [open_source, closed_source].map do |source|
+      { 'source_type' => source.source_type, 'source_id' => source.source_id }
+    end)
+  end
+
   let(:frame_id) { Organisations::GlossaryController::DETAIL_FRAME_ID }
   let(:frame_headers) { { 'Turbo-Frame' => frame_id } }
   let(:gp) { 'views.organisations.glossary.proposals' }
@@ -574,10 +580,9 @@ RSpec.describe 'Organisations::Glossary proposals', :ci_guard, type: :request do
     end
   end
 
-  # The model wrote the hint from the snippets of the proposal's sources, read
-  # with the rights of the account that started the run: for a reader of none
-  # of them the sentence could repeat what such a source says ("a company to be
-  # taken over"). What a row and the lane show besides stays (E3).
+  # Hints need access to every source in their model call. These examples use
+  # a batch containing the proposal's two sources; the mixed-batch regression
+  # below also exercises context belonging only to a dropped candidate.
   describe 'the hint of a proposal' do
     let(:hint) { 'Ein erfundener Produktname.' }
 
@@ -609,8 +614,7 @@ RSpec.describe 'Organisations::Glossary proposals', :ci_guard, type: :request do
       expect(response.body).not_to include(hint)
     end
 
-    # The model read only some of the places, but which ones the proposal does
-    # not keep: a reader of one of two may not have read the one it repeats.
+    # A reader of one of the two input sources may not read the one repeated.
     it 'stands for no reader of only some of its sources, in the row and in the lane' do
       grant(viewer, closed_project, tickets_access: :read_only)
       sign_in viewer
@@ -651,12 +655,36 @@ RSpec.describe 'Organisations::Glossary proposals', :ci_guard, type: :request do
       expect(response.body).not_to include('Ein Satz ohne Stelle.')
     end
 
+    it 'hides legacy hints without model provenance even when their example sources are readable' do
+      proposal.update!(hint_sources: [])
+      sign_in admin
+
+      review_list
+      expect(row_of(proposal.term).at_css('[data-glossary-proposal-hint]')).to be_nil
+      lane_of
+      expect(hint_text).to be_nil
+    end
+
+    it 'never authorizes hint provenance from another organisation' do
+      foreign = ActsAsTenant.with_tenant(other_organisation) do
+        create(:ticket, organisation: other_organisation, project: create(:project, organisation: other_organisation))
+      end
+      proposal.update!(hint_sources: [{ source_type: 'Ticket', source_id: foreign.id }])
+      sign_in admin
+
+      review_list
+      expect(row_of(proposal.term).at_css('[data-glossary-proposal-hint]')).to be_nil
+      lane_of
+      expect(hint_text).to be_nil
+    end
+
     # A private comment is readable by nobody here, so it opens no hint either,
     # also not for an account admin.
     it 'stands for no reader when its only source is a private comment' do
       secret = create(:post, organisation: organisation, ticket: open_ticket, user: author, content: 'Zorbel privat',
                              is_private: true, visible_to_user: member_with(role_with))
-      private_only = create(:glossary_proposal, organisation: organisation, term: 'Kryptax', hint: 'Ein geheimer Name.')
+      private_only = create(:glossary_proposal, organisation: organisation, term: 'Kryptax', hint: 'Ein geheimer Name.',
+                                                hint_sources: [{ source_type: 'Post', source_id: secret.id }])
       create(:glossary_proposal_source, organisation: organisation, glossary_proposal: private_only, project: open_project,
                                         source: secret, snippet: 'Privat: Kryptax.')
       sign_in admin
@@ -668,6 +696,81 @@ RSpec.describe 'Organisations::Glossary proposals', :ci_guard, type: :request do
       lane_of(private_only)
       expect(hint_text).to be_nil
       expect(response.body).not_to include('Ein geheimer Name.')
+    end
+  end
+
+  describe 'hints from a model call spanning projects' do
+    let(:secret_hint) { 'Die Budgetgrenze liegt bei 731921 Euro.' }
+    let(:extracted_proposal) { GlossaryProposal.find_by!(term: 'Quobbelix') }
+
+    before do
+      open_ticket.update!(title: 'Anfrage', content: 'Wir nutzen Quobbelix im Team.')
+      closed_ticket.update!(title: 'Anfrage', content: "Wir nutzen Xolberix. #{secret_hint}")
+      run = create(:glossary_extraction_run, :running, organisation: organisation, started_by: admin,
+                                                       scope: { 'kind' => 'organisation', 'everything' => true })
+      provider = double('provider')
+      allow_any_instance_of(Organisation).to receive(:ai_available_for?).with(:glossary_extraction)
+                                                                        .and_return(Lalabase::Llm::FeatureRegistry::Availability.new(available: true))
+      allow(Lalabase::Llm::Factory).to receive(:for_feature).with(:glossary_extraction, organisation).and_return(provider)
+      allow(Lalabase::Llm::UsageTracking).to receive(:record)
+      allow(provider).to receive(:chat) do |messages:, **|
+        payload = JSON.parse(messages.last[:content])
+        expect(payload.find { |row| row['candidate'] == 'Quobbelix' }['context'].join).not_to include(secret_hint)
+        expect(payload.find { |row| row['candidate'] == 'Xolberix' }['context'].join).to include(secret_hint)
+        # A valid but misattributed answer; the restricted candidate is dropped.
+        { content: [{ candidate: 'Quobbelix', keep: true, term: 'Quobbelix', category: 'product',
+                      variants: [], hint: secret_hint }, { candidate: 'Xolberix', keep: false }].to_json }
+      end
+      Glossary::Extraction.call(run: run)
+      expect(run.reload).to be_succeeded
+      expect(extracted_proposal.glossary_proposal_sources.pluck(:source_id)).to eq([open_ticket.id])
+      expect(GlossaryProposal.find_by(term: 'Xolberix')).to be_nil
+      grant(viewer, open_project, tickets_access: :read_only)
+      sign_in viewer
+    end
+
+    def expect_hint_hidden
+      review_list
+      expect(response).to have_http_status(:ok)
+      expect(row_of('Quobbelix').at_css('[data-glossary-proposal-hint]')).to be_nil
+      expect(response.body).not_to include(secret_hint)
+      lane_of(extracted_proposal)
+      expect(response).to have_http_status(:ok)
+      expect(page.at_css('[data-glossary-proposal-hint]')).to be_nil
+      expect(response.body).not_to include(secret_hint)
+    end
+
+    it 'hides another candidate\'s context until the reader can read the whole batch, and checks revocation again' do
+      expect_hint_hidden
+
+      permission = grant(viewer, closed_project, tickets_access: :read_only)
+      review_list
+      expect(row_of('Quobbelix').at_css('[data-glossary-proposal-hint]').text.squish).to eq(secret_hint)
+      lane_of(extracted_proposal)
+      expect(page.at_css('[data-glossary-proposal-hint]').text).to include(secret_hint)
+
+      permission.destroy!
+      expect_hint_hidden
+    end
+
+    it 'keeps the hint hidden when another candidate\'s source has been deleted' do
+      grant(viewer, closed_project, tickets_access: :read_only)
+      closed_ticket.destroy!
+
+      expect_hint_hidden
+    end
+
+    it 'checks the current project of another candidate\'s source after a move' do
+      grant(viewer, closed_project, tickets_access: :read_only)
+      closed_ticket.update!(project: create(:project, organisation: organisation))
+
+      expect_hint_hidden
+    end
+
+    it 'does not lose hint provenance when the other candidate has no proposal left to merge' do
+      expect(Actors::MergeGlossaryProposals.call(source: small_proposal, target: extracted_proposal, current_user: admin)).to be_success
+
+      expect_hint_hidden
     end
   end
 
@@ -933,11 +1036,12 @@ RSpec.describe 'Organisations::Glossary proposals', :ci_guard, type: :request do
         30.times do |index|
           found = create(:glossary_proposal, organisation: organisation, term: "Zorbelwort #{index}", category: 'domain',
                                              variants: ["Zorbel Wort #{index}"], hint: 'Erfunden.', occurrences: index + 10)
-          2.times do |place|
+          sources = 2.times.map do |place|
             project = projects[(index + place) % projects.size]
             create(:glossary_proposal_source, organisation: organisation, glossary_proposal: found, project: project,
                                               source: create(:ticket, organisation: organisation, project: project, creator: author))
           end
+          found.update!(hint_sources: sources.map { |source| { source_type: source.source_type, source_id: source.source_id } })
         end
       end
     end
