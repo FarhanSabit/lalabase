@@ -23,16 +23,14 @@
 #   compared form, never its own term, at most GlossaryProposal::MAX_VARIANTS
 #   with its own first, but the source's spelling always (in the place of the
 #   target's last own variant when it is full); the source's occurrences; its
-#   category only where the target has none. Never its hint: a hint belongs to
-#   the places it was written from, and the trim to MAX_SOURCES below can drop
-#   them.
+#   category only where the target has none. Never its hint or hint_sources:
+#   those belong to the model call that wrote that hint.
 # * The source's places move to the target. A place both have stays once,
 #   with the occurrences of both. Then the target keeps the
 #   GlossaryProposal::MAX_SOURCES places with the most occurrences.
-# * The target keeps its own hint, blank or not, while all of its own places
-#   stay. When the trim drops one of them, the hint goes (blank): the page
-#   shows a hint only to a reader of every place left, who may not read the
-#   dropped one, and the model may have written the hint from it.
+# * The target keeps its own hint and hint_sources, even when the trim drops
+#   its own example places. The page authorizes the hint against the complete
+#   model input in hint_sources, independently of the remaining examples.
 module Actors
   class MergeGlossaryProposals < BaseActor
     def initialize(source:, target:, current_user:)
@@ -54,9 +52,9 @@ module Actors
       refuse(:forbidden) unless GlossaryPolicy.manage_allowed?(current_user, @target.organisation)
       refuse(:already_processed) unless @source.open? && @target.open?
 
-      own_places = move_places
-      dropped = keep_busiest_places
-      absorb_source(keep_hint: !dropped.intersect?(own_places))
+      move_places
+      keep_busiest_places
+      absorb_source
       @source.destroy!
     end
 
@@ -78,11 +76,10 @@ module Actors
       @target = locked[@target.id]
     end
 
-    def absorb_source(keep_hint:)
+    def absorb_source
       @target.variants = merged_variants
       @target.occurrences += @source.occurrences
       @target.category ||= @source.category
-      @target.hint = '' unless keep_hint
       @target.save!
     end
 
@@ -100,8 +97,7 @@ module Actors
     end
 
     # The places of both in one query. A place is its source row: kind and id.
-    # Answers the ids of the target's own places; a place both have keeps the
-    # target's row.
+    # A place both have keeps the target's row.
     def move_places
       by_proposal = places.where(glossary_proposal_id: [@source.id, @target.id]).group_by(&:glossary_proposal_id)
       own = by_proposal.fetch(@target.id, []).index_by { |place| [place.source_type, place.source_id] }
@@ -114,17 +110,15 @@ module Actors
       end
       places.where(id: shared.map(&:id)).delete_all
       places.where(id: moving.map(&:id)).update_all(glossary_proposal_id: @target.id, updated_at: now)
-      own.values.map(&:id)
     end
 
-    # The most frequent first; among equal counts the older place. Answers the
-    # ids of the places it dropped. The lock on the target keeps a run from
+    # The most frequent first; among equal counts the older place.
+    # The lock on the target keeps a run from
     # adding a place in between (Glossary::Extraction locks it too).
     def keep_busiest_places
       ids = places.where(glossary_proposal_id: @target.id).order(occurrences: :desc, created_at: :asc, id: :asc).pluck(:id)
       dropped = ids.drop(GlossaryProposal::MAX_SOURCES)
       places.where(id: dropped).delete_all if dropped.any?
-      dropped
     end
 
     def places

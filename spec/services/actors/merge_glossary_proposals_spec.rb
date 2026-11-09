@@ -53,7 +53,7 @@ RSpec.describe Actors::MergeGlossaryProposals, :ci_guard, type: :service do
   # What a refused merge must leave as it was.
   def written
     rows = GlossaryProposal.where(id: [source.id, target.id]).order(:id)
-    [rows.pluck(:id, :status, :term, :variants, :occurrences, :category, :hint),
+    [rows.pluck(:id, :status, :term, :variants, :occurrences, :category, :hint, :hint_sources),
      GlossaryProposalSource.order(:id).pluck(:id, :glossary_proposal_id, :occurrences)]
   end
 
@@ -110,9 +110,8 @@ RSpec.describe Actors::MergeGlossaryProposals, :ci_guard, type: :service do
       expect(full.variants.size).to eq(GlossaryProposal::MAX_VARIANTS)
     end
 
-    # A hint belongs to the places it was written from, and the trim to
-    # MAX_SOURCES can drop the source's places: the target keeps its own hint,
-    # blank or not.
+    # A hint and its input provenance belong together: the target keeps its
+    # own pair, blank or not, and never inherits the source's hint.
     it 'takes the category of the source only where it has none, and never its hint' do
       own = create(:glossary_proposal, organisation: organisation, term: 'Quarnix', category: 'company', hint: 'Eigener Hinweis')
       expect(target.hint).to eq('')
@@ -163,32 +162,34 @@ RSpec.describe Actors::MergeGlossaryProposals, :ci_guard, type: :service do
     end
   end
 
-  # Review round 2 of #129. The model wrote the target's hint from some of the
-  # target's own places. The page shows it only to a reader of every place the
-  # proposal holds, so once the trim drops one of those, a reader of the places
-  # left may not read the dropped one, and the hint could repeat what it says.
+  # Hint authorization uses the complete model input, independently of the
+  # example places. Trimming those places must preserve both hint and provenance.
   describe 'the hint of the target' do
     let(:project_a) { create(:project, organisation: organisation) }
     let(:project_b) { create(:project, organisation: organisation) }
-    let(:quarnix) { create(:glossary_proposal, organisation: organisation, term: 'Quarnix', hint: 'Geheim aus A') }
+    let(:hint_ticket) { create(:ticket, organisation: organisation, project: project_a) }
+    let(:hint_sources) { [{ 'source_type' => 'Ticket', 'source_id' => hint_ticket.id }] }
+    let(:quarnix) do
+      create(:glossary_proposal, organisation: organisation, term: 'Quarnix', hint: 'Geheim aus A', hint_sources: hint_sources)
+    end
     let(:wubbel) { create(:glossary_proposal, organisation: organisation, term: 'Wubbel') }
 
-    it 'goes when the trim drops one of its own places' do
+    it 'keeps its hint and provenance when the trim drops its own places' do
       Prosopite.pause do
-        source_of(quarnix, occurrences: 1, project: project_a)
+        source_of(quarnix, occurrences: 1, project: project_a, ticket: hint_ticket)
         GlossaryProposal::MAX_SOURCES.times { source_of(wubbel, occurrences: 9, project: project_b) }
       end
 
       expect(merge(from: wubbel, into: quarnix)).to be_success
 
       expect(sources_of(quarnix).pluck(:project_id)).to eq([project_b.id] * GlossaryProposal::MAX_SOURCES)
-      expect(quarnix.reload.hint).to eq('')
+      expect(quarnix.reload).to have_attributes(hint: 'Geheim aus A', hint_sources: hint_sources)
     end
 
     # The trim drops a place of the source here, never one of the target.
     it 'stays when every one of its own places stays' do
       Prosopite.pause do
-        source_of(quarnix, occurrences: 9, project: project_a)
+        source_of(quarnix, occurrences: 9, project: project_a, ticket: hint_ticket)
         GlossaryProposal::MAX_SOURCES.times { source_of(wubbel, occurrences: 1, project: project_b) }
       end
 
@@ -196,7 +197,7 @@ RSpec.describe Actors::MergeGlossaryProposals, :ci_guard, type: :service do
 
       expect(sources_of(quarnix).where(project_id: project_a.id).pluck(:occurrences)).to eq([9])
       expect(sources_of(quarnix).count).to eq(GlossaryProposal::MAX_SOURCES)
-      expect(quarnix.reload.hint).to eq('Geheim aus A')
+      expect(quarnix.reload).to have_attributes(hint: 'Geheim aus A', hint_sources: hint_sources)
     end
   end
 

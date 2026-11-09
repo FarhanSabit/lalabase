@@ -352,8 +352,14 @@ die Sidebar-Zeile liegt in der Navigation. Damit sind sie NICHT im selben Stimul
   überspringt diese Ergebnisse, damit nicht zwei Polling-Wege denselben Auftrag aktualisieren.
 * `glossary_run_poll` (K5b, 08.11.2026) lädt den Listen-Frame der Prüfliste des Glossars alle 5 s
   neu (Value `interval`), solange ein Lauf der Extraktion aktiv ist. Sitzt an der Lauf-Leiste IM
-  Frame: die frische Leiste entscheidet, ob es weitergeht (`active`), eine Antwort ohne Liste
-  beendet das Fragen. Kein Broadcast, die Rechte bleiben in der View (Form von
+  Frame: die frische Leiste entscheidet, ob es weitergeht (`active`). HTTP 408, 429 und 5xx
+  werden nach 5 s erneut abgefragt, solange die Leiste aktiv und verbunden ist; 429/503 beachten ein
+  gültiges `Retry-After` (Sekunden oder HTTP-Datum, mindestens das Intervall, innerhalb des
+  Browser-Timerbereichs). Ungültige Werte fallen auf das Intervall zurück. Netzwerkfehler
+  behalten ihren bisherigen Wiederholungsrhythmus. Andere HTTP-Fehler, Weiterleitungen und
+  Antworten ohne Liste stoppen; Disconnect, inaktive oder entfernte Leisten lassen keine
+  späte Antwort rendern oder einen Timer starten. Versteckte Tabs senden keine Anfrage.
+  Kein Broadcast, die Rechte bleiben in der View (Form von
   `meeting_section_sync`, node-Tests).
 * Die Grenzen des lebenden Knotens stehen in `doc/persoenlicher_assistent_plan.md` §7.7.
   Kurzform: Org-Wechsel und globale Suche sind `turbo: false`, und

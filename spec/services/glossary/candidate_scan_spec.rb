@@ -10,7 +10,7 @@ require 'rails_helper'
 #   a stream of sources is read once. A name never starts or ends with a stop word, else an
 #   article and a noun ("Die Rechnung") would take the places of real terms. Invented words and
 #   names only.
-RSpec.describe Glossary::CandidateScan do
+RSpec.describe Glossary::CandidateScan, :ci_guard do
   let(:common_words) do
     Set.new(%w[der die das den und ist wir testen morgen neue version termin heute läuft steht hier
                siehe bitte schreiben unter liegt pro sehr mögen nutzen kommt alles prüfen

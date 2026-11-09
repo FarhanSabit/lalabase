@@ -11,7 +11,7 @@ require 'rails_helper'
 # The provider is stubbed per key as in ticket_summary_service_spec: gate and
 # routing answer only for :glossary_extraction, so a wrong key fails loudly
 # instead of passing. Every term, text and person here is invented.
-RSpec.describe Glossary::Classifier do
+RSpec.describe Glossary::Classifier, :ci_guard do
   let(:organisation) { create(:organisation) }
   let(:user) { create(:user) }
   let(:run) { create(:glossary_extraction_run, :running, organisation: organisation, started_by: user) }

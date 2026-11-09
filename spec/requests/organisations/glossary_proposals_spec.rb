@@ -772,6 +772,34 @@ RSpec.describe 'Organisations::Glossary proposals', :ci_guard, type: :request do
 
       expect_hint_hidden
     end
+
+    it 'preserves the hint and checks the whole batch after a merge trims every original example' do
+      provenance = extracted_proposal.hint_sources
+      Prosopite.pause do
+        GlossaryProposal::MAX_SOURCES.times do
+          ticket = create(:ticket, organisation: organisation, project: open_project, creator: author)
+          create(:glossary_proposal_source, organisation: organisation, glossary_proposal: small_proposal,
+                                            project: open_project, source: ticket, occurrences: 9)
+        end
+      end
+
+      expect(Actors::MergeGlossaryProposals.call(source: small_proposal, target: extracted_proposal, current_user: admin)).to be_success
+
+      expect(extracted_proposal.reload).to have_attributes(hint: secret_hint, hint_sources: provenance)
+      examples = extracted_proposal.glossary_proposal_sources
+      expect(examples.count).to eq(GlossaryProposal::MAX_SOURCES)
+      expect(examples.pluck(:source_id)).not_to include(open_ticket.id, closed_ticket.id)
+      expect_hint_hidden
+
+      permission = grant(viewer, closed_project, tickets_access: :read_only)
+      review_list
+      expect(row_of('Quobbelix').at_css('[data-glossary-proposal-hint]').text.squish).to eq(secret_hint)
+      lane_of(extracted_proposal)
+      expect(page.at_css('[data-glossary-proposal-hint]').text).to include(secret_hint)
+
+      permission.destroy!
+      expect_hint_hidden
+    end
   end
 
   describe 'the decisions with manage_glossary' do

@@ -9,7 +9,7 @@ require 'rails_helper'
 # Why: Solid Queue dequeues with no tenant, a job can be delivered twice, and a
 #   worker can die. None of these may run the extraction twice (the provider bills
 #   every call) or leave a run that blocks every later start.
-RSpec.describe Glossary::ExtractionJob, type: :job do
+RSpec.describe Glossary::ExtractionJob, :ci_guard, type: :job do
   include ActiveJob::TestHelper
 
   let(:organisation) { create(:organisation) }

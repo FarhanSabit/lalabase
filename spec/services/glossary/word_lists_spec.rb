@@ -10,7 +10,7 @@ require 'rails_helper'
 #   GlossaryText, whatever the case of the word; without pg_config or its files our own short
 #   list stands in, and nothing fails. The stop words alone are a set of their own, which the
 #   scan reads at the edges of a name. Invented words only.
-RSpec.describe Glossary::WordLists do
+RSpec.describe Glossary::WordLists, :ci_guard do
   let(:fallback) { Set.new(described_class::FALLBACK_STOP_WORDS.map { |word| GlossaryText.normalize(word) }) }
 
   describe '.common_word?' do

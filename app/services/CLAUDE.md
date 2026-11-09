@@ -204,8 +204,9 @@ Verzeichnis-Übersicht (Auswahl):
   `'dismissed'`); zwei Vorschläge sperrt das Zusammenführen in EINER Abfrage nach ID. Die
   K5b Runde 2: `merge_glossary_proposal_into_term` nimmt unter der Sperre nur einen bestätigten Begriff
   (`:term_not_confirmed`, nach der Rechteprüfung); `merge_glossary_terms` hängt die in die Quelle übernommenen
-  Vorschläge ans Ziel, unter beiden Sperren; `merge_glossary_proposals` leert den Hinweis des Ziels, sobald das
-  Kürzen auf `MAX_SOURCES` eine seiner eigenen Stellen streicht.
+  Vorschläge ans Ziel, unter beiden Sperren; `merge_glossary_proposals` behält den Hinweis des Ziels samt
+  `hint_sources`, auch wenn das Kürzen auf `MAX_SOURCES` eigene Beispielstellen streicht. Seine Anzeige
+  prüft die vollständige Modellherkunft unabhängig von diesen Beispielen.
   Glossar-Seite ruft sie aus `Organisations::GlossaryController` (Prüfliste, `?view=proposals`).
   Registrierung (Website-Schnitt W2, 15.09.2026): `create_signup` ist die EINE
   Selbst-Registrierung für das Formular und später den Provisioning-Endpunkt. Tier 2: Sprache

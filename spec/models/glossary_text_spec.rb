@@ -5,7 +5,7 @@ require 'rails_helper'
 # The normalizer of the glossary (GlossaryText). .compact is the key that
 # groups the spelling variants of a term (K5b): the compared form without any
 # whitespace and without hyphens. Invented words only.
-RSpec.describe GlossaryText do
+RSpec.describe GlossaryText, :ci_guard do
   describe '.compact' do
     it 'gives one key for spellings that differ only in hyphens, spaces and case' do
       keys = ['Zorbel-Hub', 'Zorbelhub', 'zorbel hub', 'ZORBEL HUB', ' Zorbel - Hub '].map { |value| described_class.compact(value) }
