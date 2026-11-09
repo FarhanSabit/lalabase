@@ -360,6 +360,73 @@ RSpec.describe 'Organisations::Glossary import', :ci_guard, type: :request do
     end
   end
 
+  describe 'a status changed between the lookup and the category lock' do
+    before { sign_in manager }
+
+    # The lookup returns its original snapshot; the real lock sees the write.
+    # The preview rolls this write back too, so reload before repeating it
+    # on the import request.
+    def change_term_after_lookup(term, **attributes)
+      allow_any_instance_of(Actors::ImportGlossaryTerms).to receive(:existing_terms).and_wrap_original do |original, *arguments|
+        known = original.call(*arguments)
+        term.reload.update!(attributes)
+        known
+      end
+    end
+
+    [['confirmed', 'rejected', :rejected], ['rejected', 'confirmed', :existing]].each do |old_status, new_status, current_verdict|
+      it "reports #{old_status} -> #{new_status} in the check and import notice while applying the category", :aggregate_failures do
+        term = create(:glossary_term, organisation: organisation, term: 'Zorbel', status: old_status)
+        change_term_after_lookup(term, status: new_status)
+        before = glossary_state
+
+        check_list('zorbel;product')
+
+        expect(response).to have_http_status(:ok)
+        expect(checked_lines).to eq([['1', 'zorbel', category_name('product'), verdict(current_verdict)]])
+        expect(checked_counts).to include(
+          'existing' => I18n.t("#{gi}.counts.existing", count: current_verdict == :existing ? 1 : 0),
+          'rejected' => I18n.t("#{gi}.counts.rejected", count: current_verdict == :rejected ? 1 : 0),
+          'categorized' => I18n.t("#{gi}.counts.categorized", count: 1)
+        )
+        expect(glossary_state).to eq(before)
+
+        import_list('zorbel;product')
+
+        expect(response).to have_http_status(:see_other)
+        expect(response).to redirect_to(organisation_glossary_terms_path(organisation))
+        expect(flash[:notice]).to eq(notice([:categorized, 1], [current_verdict, 1]))
+        expect(term.reload.slice(:term, :status, :category))
+          .to eq('term' => 'Zorbel', 'status' => new_status, 'category' => 'product')
+      end
+    end
+
+    it 'reports the current status even when another writer already assigned the category', :aggregate_failures do
+      term = create(:glossary_term, organisation: organisation, term: 'Zorbel')
+      change_term_after_lookup(term, term: 'ZORBEL', status: 'rejected', category: 'company')
+      before = glossary_state
+
+      check_list('zorbel;product')
+
+      expect(response).to have_http_status(:ok)
+      expect(checked_lines).to eq([['1', 'zorbel', '', verdict(:rejected)]])
+      expect(checked_counts).to include(
+        'existing' => I18n.t("#{gi}.counts.existing", count: 0),
+        'rejected' => I18n.t("#{gi}.counts.rejected", count: 1)
+      )
+      expect(checked_counts).not_to have_key('categorized')
+      expect(glossary_state).to eq(before)
+
+      import_list('zorbel;product')
+
+      expect(response).to have_http_status(:see_other)
+      expect(response).to redirect_to(organisation_glossary_terms_path(organisation))
+      expect(flash[:notice]).to eq(notice([:rejected, 1]))
+      expect(term.reload.slice(:term, :status, :category, :lock_version))
+        .to eq('term' => 'ZORBEL', 'status' => 'rejected', 'category' => 'company', 'lock_version' => 1)
+    end
+  end
+
   describe 'a term renamed between the lookup and the category lock' do
     let(:text) { "Zorbel;product\nWub;company" }
 

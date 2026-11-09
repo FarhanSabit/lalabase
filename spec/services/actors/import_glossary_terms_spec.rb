@@ -394,6 +394,35 @@ RSpec.describe Actors::ImportGlossaryTerms, :ci_guard, type: :service do
   # gives it a category: the import works on the row as it is stored under
   # the lock. Quarnix shows that the other terms still get theirs.
   describe 'a term changed by someone else before the lock' do
+    [%w[confirmed rejected], %w[rejected confirmed]].each do |before_status, after_status|
+      [nil, 'company'].each do |category_before_lock|
+        [false, true].each do |dry_run|
+          it "reports #{after_status} after #{before_status}, with category #{category_before_lock.inspect} before the lock (dry_run: #{dry_run})" do
+            term = create(:glossary_term, organisation: organisation, term: 'Zorbel', status: before_status)
+            actor = importer("Zorbel;product\nzorbel;place", dry_run: dry_run)
+            # Change the stored row after classification's read. This change
+            # is in the import's transaction, so a dry run rolls it back too.
+            allow(actor).to receive(:existing_terms).and_wrap_original do |original, *arguments|
+              original.call(*arguments).tap { term.update!(status: after_status, category: category_before_lock) }
+            end
+
+            expect(actor.call).to be_success
+            verdict = after_status == 'rejected' ? :rejected : :existing
+            categorized = category_before_lock.nil?
+            expect(actor.report.lines.map { |line| [line.verdict, line.existing_status, line.category_applied] })
+              .to eq([[verdict, after_status, categorized], [:duplicate, nil, false]])
+            expect(actor.report.counts).to eq(counts(**{ verdict => 1, duplicate: 1, categorized: categorized ? 1 : 0 }))
+            expected_state = if dry_run
+                               { 'status' => before_status, 'category' => nil, 'lock_version' => 0 }
+                             else
+                               { 'status' => after_status, 'category' => category_before_lock || 'product', 'lock_version' => categorized ? 2 : 1 }
+                             end
+            expect(term.reload.slice(:status, :category, :lock_version)).to eq(expected_state)
+          end
+        end
+      end
+    end
+
     it 'still categorizes a spelling change that keeps the same normalized form' do
       term = create(:glossary_term, organisation: organisation, term: 'Zorbel Hub')
       actor = importer('Zorbel Hub;product')
