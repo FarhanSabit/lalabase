@@ -6,7 +6,7 @@
 <% organisation = @current_organisation || document.organisation %>
 <% path_args = { organisation_id: organisation.id, project_id: document.project_id, id: document.id } %>
 <% gs = 'views.organisations.documents.glossary_source' %>
-<% text_status = ExtractPlainTextProcessingService.file_text_status(current.plain_text_version, current.document_version_file) %>
+<% text_status = current.text_status %>
 <% run_active = text_status == 'available' &&
                 glossary_run_active?(GlossaryExtractionRun.where(organisation_id: organisation.id, status: GlossaryExtractionRun::ACTIVE_STATUSES).take) %>
 <% availability = organisation.ai_available_for?(:glossary_extraction) if text_status == 'available' && !run_active %>

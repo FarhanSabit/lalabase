@@ -508,6 +508,19 @@ RSpec.describe Glossary::Extraction, :ci_guard do
       expect(Glossary::Classifier).not_to have_received(:call)
     end
 
+    # One rule for "has text", the start's (DocumentVersion#text_available?,
+    # ExtractPlainTextProcessingService.file_text_status), not a regex of its
+    # own: a version whose column holds text but whose file is gone is
+    # unavailable to the button, the start and the run alike.
+    it 'fails as document_unavailable when the version has text but no file, as the start refuses it' do
+      chosen.current_version.document_version_file.detach
+
+      extract
+
+      expect(run).to have_attributes(status: 'failed', error_code: 'document_unavailable')
+      expect(Glossary::Classifier).not_to have_received(:call)
+    end
+
     it 'fails as document_unavailable when the version is gone' do
       named = chosen.current_version
       run

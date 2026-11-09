@@ -158,16 +158,13 @@ module Lalabase
       end
       private_class_method :version_payload
 
-      # The RAW column goes in, not .presence: NULL and '' mean opposite things
-      # (see ExtractPlainTextProcessingService.text_status). A version without a
-      # blob has nothing to read out and is reported like one not read out yet.
+      # The version's own answer (DocumentVersion#text_status, the one rule for
+      # every reader of a version's text), plus the fifth word for a document
+      # without a version.
       def self.text_status(version)
         return NO_VERSION if version.nil?
 
-        blob = version.document_version_file.blob
-        return 'unavailable' if blob.nil?
-
-        ExtractPlainTextProcessingService.text_status(version.plain_text_version, blob.content_type)
+        version.text_status
       end
       private_class_method :text_status
 

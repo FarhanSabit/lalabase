@@ -210,10 +210,13 @@ module Glossary
     end
 
     # The version of a run over one document is there, readable by the starter
-    # now, and holds text: something besides whitespace, as text_status reads
-    # present.
+    # now, and holds text by the rule the button and the start read
+    # (DocumentVersion#text_available?), not by a regex of its own: a regex in
+    # SQL counts whitespace by the database's collation, Ruby by Unicode, and a
+    # version without a file has text to the one and none to the other.
     def document_readable?
-      document_versions.where(DocumentVersion.arel_table[:plain_text_version].matches_regexp('[^[:space:]]')).exists?
+      version = document_versions.take
+      version.present? && version.text_available?
     end
 
     def relations

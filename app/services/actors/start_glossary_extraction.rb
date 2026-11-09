@@ -31,7 +31,7 @@
 #   manage_glossary: the version read again in this organisation, the read right
 #   on its document (DocumentPolicy#show?, else :forbidden in words of its own),
 #   then the version must still be the document's current one and have text
-#   (ExtractPlainTextProcessingService.file_text_status 'available'), else
+#   (DocumentVersion#text_available?, the rule the button and the run read), else
 #   :document_unavailable. One active run whatever its kind, the stale rule and
 #   the AI gate as above; everything means nothing here. Without a version the
 #   run is over the organisation: a caller never passes a document's nil.
@@ -91,11 +91,7 @@ module Actors
       document = version && Document.find_by(organisation_id: @organisation.id, id: version.document_id)
       refuse(:document_unavailable) unless document
       refuse(:forbidden, I18n.t('controllers.glossary.runs.document_forbidden')) unless DocumentPolicy.new(current_user, document).show?
-      refuse(:document_unavailable) unless document.current_version_id == version.id && text_available?(version)
-    end
-
-    def text_available?(version)
-      ExtractPlainTextProcessingService.file_text_status(version.plain_text_version, version.document_version_file) == 'available'
+      refuse(:document_unavailable) unless document.current_version_id == version.id && version.text_available?
     end
 
     def run_scope

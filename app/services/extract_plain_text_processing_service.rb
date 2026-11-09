@@ -51,9 +51,10 @@ class ExtractPlainTextProcessingService
 
   # text_status of a holder of one attached file (a document version): its
   # column and the type of its file. A holder without a file has nothing read
-  # out yet, unavailable, the answer Lalabase::Tools::GetDocument gives for
-  # it. Asked by the start of a glossary run over one document and its button
-  # (K5c), so both say the same about the same version.
+  # out yet, unavailable. Asked through DocumentVersion#text_status by every
+  # reader of a version's text (Lalabase::Tools::GetDocument, the button in the
+  # lane, the start and the run of a glossary run over one document, K5c), so
+  # all of them say the same about the same version.
   def self.file_text_status(raw, file)
     blob = file&.blob
     return 'unavailable' if blob.nil?
