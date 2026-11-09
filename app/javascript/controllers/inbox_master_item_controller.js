@@ -21,15 +21,25 @@ export default class extends Controller {
 
   handleClick(event) {
     if (window.innerWidth >= this.constructor.LG_BREAKPOINT) {
-      // Desktop: Turbo loads the pane frame; we only mirror the URL.
+      // Desktop: Turbo loads the pane frame; we mirror the URL and open the
+      // lane, which is shut while nothing is chosen (the grid's hide-content,
+      // as on the other lane pages).
       if (this.element.href) {
         window.history.pushState({}, "", this.element.href)
       }
+      this.openLane()
       return
     }
     if (!this.hasFullviewUrlValue || !this.fullviewUrlValue) return
     event.preventDefault()
     // Top-level navigation to the full view instead of a frame load.
     Turbo.visit(this.fullviewUrlValue, { action: "advance" })
+  }
+
+  openLane() {
+    const grid = this.element.closest(".layout--lane")
+    if (!grid) return
+    grid.classList.remove("hide-content")
+    grid.classList.add("show-content")
   }
 }

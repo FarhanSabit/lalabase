@@ -965,15 +965,6 @@ class Organisations::NotificationsController < Organisations::BaseController
 
   # Corresponds to the default filter logic from index: without explicit filters
   # = "everything except archived"; with filters = explicit selection.
-  # Only show the banner if unread items appear in the current view
-  # (no state filter OR 'unread' active). Consistent with
-  # Inbox::MasterListPresenter#show_unread_banner?.
-  def show_unread_banner?
-    filters = active_state_filters_from_request
-    filters.empty? || filters.include?('unread')
-  end
-  helper_method :show_unread_banner?
-
   def notification_matches_state_filters?(notification, filters)
     if filters.empty?
       !notification.state_archived?

@@ -35,20 +35,13 @@
 
   <%# ticket-pane-links: a link to another ticket leaves the pane, the head here names this one.
       On this div, not on the frame: a frame load does not copy the frame's own attributes. %>
-  <div class="p-4 sm:p-6" data-controller="ticket-pane-links" data-action="click->ticket-pane-links#leave">
+  <div data-controller="ticket-pane-links" data-action="click->ticket-pane-links#leave">
 
-    <%# Inbox pane header: project eyebrow + status-pills partial.
-        The pills are extracted as a separate partial (stable ID
-        inbox_pane_status_pills), so that status changes via turbo_stream
-        only swap this small area — without re-rendering the ticket-content
-        pane (reply form, timeline). %>
-    <div class="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-gray-200 flex-wrap">
-      <div class="flex items-center gap-3 min-w-0">
-        <span class="font-mono text-xs uppercase tracking-wider text-slate-500 truncate">
-          <%= @project.name %>
-        </span>
-      </div>
-
+    <%# Lane head: the project as eyebrow, the actions of the notification
+        on the right (separate partial with a stable id, see there). The
+        ticket's own head with its title follows below. %>
+    <div class="inbox-lane-head">
+      <span class="inbox-lane-head__project"><%= @project.name %></span>
       <%= render 'pane_status_pills',
                  notification: @selected_notification,
                  current_organisation: @current_organisation,

@@ -33,50 +33,52 @@ RSpec.describe 'Inbox banner + state-change matrix', type: :request do
     controller.instance_variable_get(:@presenter)
   end
 
-  describe 'H6: show_unread_banner? je nach Filter' do
-    it 'zeigt Banner bei leerem Filter (Default-View)' do
-      get organisation_notifications_path(organisation), params: { state_filters: [''] }
-      expect(presenter.show_unread_banner?).to be true
+  describe 'H6: die Status-Ansicht der Pillen (Ungelesen, Alle, Archiviert)' do
+    {
+      [''] => 'all',
+      ['unread'] => 'unread',
+      %w[read unread] => 'all',
+      ['archived'] => 'archived',
+      ['read'] => nil
+    }.each do |filters, view|
+      it "nennt fuer state_filters #{filters.inspect} die Ansicht #{view.inspect}" do
+        get organisation_notifications_path(organisation), params: { state_filters: filters }
+        expect(presenter.status_view).to eq(view)
+      end
     end
 
-    it 'zeigt Banner wenn unread aktiv' do
-      get organisation_notifications_path(organisation), params: { state_filters: ['unread'] }
-      expect(presenter.show_unread_banner?).to be true
-    end
-
-    it 'versteckt Banner wenn NUR read aktiv' do
-      get organisation_notifications_path(organisation), params: { state_filters: ['read'] }
-      expect(presenter.show_unread_banner?).to be false
-    end
-
-    it 'versteckt Banner wenn NUR archived aktiv' do
+    it 'markiert genau die aktive Pille' do
       get organisation_notifications_path(organisation), params: { state_filters: ['archived'] }
-      expect(presenter.show_unread_banner?).to be false
-    end
-
-    it 'zeigt Banner wenn read+unread aktiv' do
-      get organisation_notifications_path(organisation), params: { state_filters: %w[read unread] }
-      expect(presenter.show_unread_banner?).to be true
+      expect(response.body.scan('aria-current="true"').size).to eq(2) # the pill and the view mode cell
+      expect(response.body).to match(/people-pill--active"[^>]*>\s*#{I18n.t('views.organisations.notifications.filter.views.archived')}/)
     end
   end
 
   describe 'H5: Empty-State-Texte' do
-    it 'has_active_filters? true wenn nur read gefiltert und keine read da' do
-      # Only 1 unread notification exists → read filter is empty
+    it 'sagt "Alles gelesen." statt eines Fehlers, wenn die Ungelesen-Ansicht leer ist' do
       ActsAsTenant.with_tenant(organisation) do
         create(:notification, recipient: user, organisation: organisation,
-                              channel: 'in_app', state: :delivered, notifiable: ticket, project: project)
+                              channel: 'in_app', state: :read, read_at: 1.hour.ago, notifiable: ticket, project: project)
       end
-      get organisation_notifications_path(organisation), params: { state_filters: ['read'] }
-      expect(presenter.empty?).to be true
-      expect(presenter.has_active_filters?).to be true # → "try_different_filters"
+      get organisation_notifications_path(organisation), params: { state_filters: ['unread'] }
+      expect(presenter.empty_reason).to eq(:all_read)
+      expect(response.body).to include(I18n.t('views.organisations.notifications.master_list.empty.all_read.title'))
+      expect(response.body).not_to include(I18n.t('views.organisations.notifications.master_list.empty.no_match.title'))
     end
 
-    it 'has_active_filters? false bei Default-View ohne irgendwelche Notifications' do
-      # No notifications at all → default view (empty filter) is empty
-      get organisation_notifications_path(organisation), params: { state_filters: [''] }
-      expect(presenter.empty?).to be true
-      expect(presenter.has_active_filters?).to be false # → "up_to_date"
+    it 'bietet bei einer Suche ohne Treffer an, Suche und Projekt zurueckzusetzen, und behaelt die Ansicht' do
+      get organisation_notifications_path(organisation), params: { state_filters: ['unread'], search: 'nichts' }
+      expect(presenter.empty_reason).to eq(:no_match)
+      reset = Nokogiri::HTML(response.body).at_css('.inbox-empty a')
+      expect(reset['href']).to include('state_filters')
+      expect(reset['href']).not_to include('search')
+    end
+
+    it 'nennt die leere Archiv- und Alle-Ansicht ohne Fehlerton' do
+      get organisation_notifications_path(organisation), params: { state_filters: ['archived'] }
+      expect(presenter.empty_reason).to eq(:nothing_archived)
+      get organisation_notifications_path(organisation), params: { state_filters: %w[read unread] }
+      expect(presenter.empty_reason).to eq(:nothing_yet)
     end
   end
 

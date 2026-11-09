@@ -214,7 +214,6 @@ else
   pin 'controllers/neo_mobile_nav_controller', to: 'controllers/neo_mobile_nav_controller.js'
   pin 'controllers/neo_notification_bulk_action_controller', to: 'controllers/neo_notification_bulk_action_controller.js'
   pin 'controllers/neo_notification_controller', to: 'controllers/neo_notification_controller.js'
-  pin 'controllers/neo_notification_filter_controller', to: 'controllers/neo_notification_filter_controller.js'
   pin 'controllers/neo_pagination_controller', to: 'controllers/neo_pagination_controller.js'
   pin 'controllers/neo_personal_access_token_form_controller', to: 'controllers/neo_personal_access_token_form_controller.js'
   pin 'controllers/neo_rich_text_embeds_controller', to: 'controllers/neo_rich_text_embeds_controller.js'

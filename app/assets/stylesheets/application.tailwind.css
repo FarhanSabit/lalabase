@@ -518,6 +518,99 @@
   .people-page :is(a, button, input, select, textarea, li[tabindex]):focus-visible { outline: 2px solid rgb(var(--ink)); outline-offset: 2px; }
 }
 
+/* Inbox (organisations/notifications): the people page's list head, list
+   and lane (people-* above, the wrapper carries people-page too), plus what
+   only the inbox has: the project select and the view switch in the tools
+   row, the bulk bar over it, the row with the unread dot that turns into a
+   checkbox, and the actions of the lane head. Calm by design: the only hard
+   edge is the ink line above the list. */
+@layer components {
+  .inbox-tools { @apply relative; min-height: 3.25rem; }
+  .inbox-tools .people-search { width: 180px; flex: none; }
+  .inbox-tools .people-filters { @apply gap-0.5; }
+  .inbox-tools .people-pill { @apply whitespace-nowrap; }
+  .inbox-project__select { @apply w-auto max-w-[11rem] cursor-pointer truncate rounded-full border-0 bg-transparent py-1 pl-3 pr-7 text-[13px] text-heading hover:bg-cream-100 focus:ring-0; background-position: right 0.4rem center; }
+  .inbox-project__select--active { @apply font-semibold; background-color: rgb(var(--selected-row)); }
+  .inbox-view-mode { @apply ms-auto inline-flex flex-none overflow-hidden rounded-lg border border-cream-200; }
+  .inbox-view-mode__cell { @apply inline-flex h-7 w-8 items-center justify-center text-sm text-muted no-underline hover:text-heading; }
+  .inbox-view-mode__cell--active { @apply text-heading; background-color: rgb(var(--selected-row)); }
+
+  /* The selection row lies over the tools row (same box, the page's own
+     surface), so the list never moves. Its text sits on the tools' last line,
+     right above the ink line. */
+  .inbox-bulk { @apply absolute inset-x-6 bottom-0 top-0 z-20 flex items-end gap-3 bg-cream-50 pb-3 text-[13px] text-muted; }
+  .inbox-bulk.hidden { display: none; }
+
+  /* Period headings of the grouped view: a quiet word, not a bar. */
+  .inbox-period { @apply pb-1 pt-3.5 text-xs font-semibold text-muted; }
+  .inbox-period:first-child { @apply pt-2.5; }
+
+  /* The row: the ticket first, who did what and where small below it. */
+  .inbox-row { @apply items-start gap-2.5; }
+  .inbox-row__gutter { @apply relative h-[1.125rem] w-4 flex-none; }
+  .inbox-row__dot { @apply absolute left-1 top-[5px]; }
+  .inbox-row__check { @apply absolute left-0 top-px hidden h-4 w-4 cursor-pointer rounded border-2 border-stroke; }
+  .inbox-row:hover .inbox-row__check, .inbox-selecting .inbox-row__check { display: block; }
+  .inbox-row:hover .inbox-row__dot, .inbox-selecting .inbox-row__dot { display: none; }
+  @media (hover: none) {
+    .inbox-row:hover .inbox-row__check { display: none; }
+    .inbox-row:hover .inbox-row__dot { display: block; }
+    .inbox-selecting .inbox-row .inbox-row__check { display: block; }
+    .inbox-selecting .inbox-row .inbox-row__dot { display: none; }
+  }
+  .inbox-row__link { @apply flex min-w-0 flex-1 flex-col gap-0.5 text-heading no-underline; }
+  .inbox-row__line { @apply flex min-w-0 items-baseline gap-2.5; }
+  .inbox-row__title { @apply min-w-0 flex-1 truncate text-sm; }
+  .inbox-row--unread .inbox-row__title { @apply font-semibold; }
+  .inbox-row__time { @apply flex-none whitespace-nowrap text-xs text-muted; }
+  .inbox-row__meta { @apply text-xs text-muted; }
+  .inbox-row__meta-text { @apply min-w-0 truncate; }
+  .inbox-row__new { @apply flex-none rounded px-1.5 text-[11px] font-semibold text-heading; background-color: rgb(var(--btn-primary)); }
+  .dark .inbox-row__new { @apply text-ink; }
+  .inbox-row__archived { @apply flex-none rounded border border-cream-300 px-1.5 text-[11px] text-muted; }
+  .inbox-row--archived .inbox-row__title { @apply text-muted; }
+  .inbox-row--checked { background-color: rgb(var(--selected-row)); }
+
+  .inbox-empty { @apply py-12; }
+  .inbox-empty__title { @apply mb-1 flex items-center gap-2 text-base font-semibold text-heading; }
+  .inbox-empty__body { @apply text-[13px] text-muted; }
+  .inbox-empty__body a { @apply text-heading underline underline-offset-2; }
+  .inbox-list__status { @apply flex items-center justify-center gap-2 py-4 text-xs text-muted; }
+  .inbox-list__status.hidden { display: none; }
+
+  /* The lane. */
+  .inbox-lane-hint { @apply text-[13px] text-muted; }
+  .inbox-lane-head { @apply mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-cream-200 pb-3; }
+  .inbox-lane-head__project { @apply min-w-0 truncate font-mono text-xs uppercase tracking-wider text-muted; }
+  .inbox-lane-actions { @apply flex flex-none items-center gap-2; }
+  .inbox-lane-actions__open { @apply me-1 inline-flex items-center gap-1.5 text-xs text-muted no-underline hover:text-heading; }
+  .inbox-lane-actions__icon { @apply inline-flex h-8 w-8 items-center justify-center rounded-lg border border-cream-300 bg-surface-raised text-cream-700 hover:border-ink hover:text-heading; }
+  .inbox-lane-actions__button { @apply inline-flex items-center gap-1.5 rounded-lg border border-ink bg-surface-raised px-3 py-1.5 text-[13px] font-semibold text-heading hover:shadow-[2px_2px_0_0_rgb(var(--ink))]; }
+  .inbox-new-activity { @apply mb-4 border-l-[3px] pl-3; border-color: rgb(var(--btn-primary)); }
+  .inbox-new-activity__item { @apply flex items-baseline gap-2 py-0.5 text-[13px]; }
+  .inbox-new-activity__who { @apply font-semibold text-heading; }
+  .inbox-new-activity__what { @apply min-w-0 flex-1 truncate text-cream-700; }
+  .inbox-new-activity__time { @apply flex-none text-xs text-muted; }
+  .inbox-lane-notice { @apply max-w-[70ch] py-2; }
+  .inbox-lane-notice__title { @apply mb-1 text-base font-semibold text-heading; }
+  .inbox-lane-notice__body { @apply text-[13px] text-muted; }
+  .inbox-lane-notice__link { @apply mt-3 inline-flex text-[13px] text-heading underline underline-offset-2; }
+
+  /* Below lg the inbox is a plain page: the list alone, the window scrolls
+     (the scroll-to-top button and the endless scroll rely on it), and a click
+     opens the ticket's full view (inbox_master_item_controller). The grid's
+     viewport height, its lane and its split handle give way. */
+  @media (max-width: 1023px) {
+    .inbox-page .layout { display: block !important; height: auto !important; overflow: visible !important; margin-top: 0; }
+    .inbox-page .layout > .column.list { overflow: visible; opacity: 1 !important; transform: none !important; pointer-events: auto !important; }
+    .inbox-page .layout > .column.content,
+    .inbox-page .layout > .lane-split { display: none !important; }
+    /* The shell's head already names the page and the organisation. */
+    .inbox-page .people-head :is(h1, p) { display: none; }
+    .inbox-page .people-head { @apply pt-0; }
+  }
+}
+
 /* Glossar (organisations/glossary, K4a): the people page's list and lane
    (people-* above, the wrapper carries people-page too), plus what only a
    glossary has: the status of a term, its heard forms and the merge form. */

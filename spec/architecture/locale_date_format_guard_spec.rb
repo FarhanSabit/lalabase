@@ -93,7 +93,6 @@ RSpec.describe 'locale date format guard' do
       'app/views/organisations/codebase_import_files/select_project.html.erb' => 1,
       'app/views/organisations/codebase_import_files/show.html.erb' => 4,
       'app/views/organisations/notes/_note_show.html.erb' => 1,
-      'app/views/organisations/notifications/_master_list.html.erb' => 1,
       'app/views/organisations/project_repositories/index_runs.html.erb' => 1,
       'app/views/organisations/time_session_groups/_activities.html.erb' => 1,
       'app/views/organisations/time_session_groups/_groups_list.html.erb' => 3,

@@ -14,6 +14,8 @@ class FakePagyHelper
 end
 
 RSpec.describe Inbox::MasterListPresenter do
+  include ActiveSupport::Testing::TimeHelpers
+
   let(:organisation) { create(:organisation) }
   let(:user) { create(:user) }
   let(:project) { ActsAsTenant.with_tenant(organisation) { create(:project, organisation: organisation) } }
@@ -77,15 +79,41 @@ RSpec.describe Inbox::MasterListPresenter do
       expect(presenter.group_unread(rep_a)).to eq(2)
     end
 
-    it 'zeigt ein tagesübergreifend aktives Ticket nur EINMAL, unter dem neuesten Tag' do
-      notif(ticket_a, created_at: 2.days.ago)
-      newest = notif(ticket_a, created_at: 1.hour.ago)
+    it 'zeigt ein tagesübergreifend aktives Ticket nur EINMAL, unter dem neuesten Zeitraum' do
+      travel_to Time.zone.local(2026, 11, 11, 12) do # a Wednesday
+        notif(ticket_a, created_at: 2.days.ago)
+        notif(ticket_a, created_at: 1.hour.ago)
 
-      presenter = build
+        presenter = build
 
-      expect(presenter.notifications.size).to eq(1)
-      dates = presenter.grouped_notifications.keys
-      expect(dates).to eq([newest.created_at.to_date])
+        expect(presenter.notifications.size).to eq(1)
+        expect(presenter.grouped_notifications.keys).to eq([:today])
+      end
+    end
+
+    it 'ordnet die Zeilen den Zeiträumen Heute, Gestern, Diese Woche und Älter zu, in dieser Reihenfolge' do
+      travel_to Time.zone.local(2026, 11, 11, 12) do # Wednesday; the week began on Monday the 9th
+        ticket_c = ActsAsTenant.with_tenant(organisation) { create(:ticket, project: project) }
+        ticket_d = ActsAsTenant.with_tenant(organisation) { create(:ticket, project: project) }
+        notif(ticket_d, created_at: Time.zone.local(2026, 11, 8, 23)) # Sunday: last week
+        notif(ticket_c, created_at: Time.zone.local(2026, 11, 9, 0, 30)) # Monday
+        notif(ticket_b, created_at: Time.zone.local(2026, 11, 10, 9)) # yesterday
+        notif(ticket_a, created_at: Time.zone.local(2026, 11, 11, 0, 5)) # today
+
+        grouped = build.grouped_notifications
+
+        expect(grouped.keys).to eq(%i[today yesterday this_week older])
+        expect(grouped.transform_values { |reps| reps.map(&:notifiable_id) })
+          .to eq(today: [ticket_a.id], yesterday: [ticket_b.id], this_week: [ticket_c.id], older: [ticket_d.id])
+      end
+    end
+
+    it 'zählt gestern als gestern, auch wenn gestern in der Vorwoche lag' do
+      travel_to Time.zone.local(2026, 11, 9, 12) do # Monday
+        notif(ticket_a, created_at: Time.zone.local(2026, 11, 8, 12)) # Sunday
+
+        expect(build.grouped_notifications.keys).to eq([:yesterday])
+      end
     end
   end
 

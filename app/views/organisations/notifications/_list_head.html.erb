@@ -1,0 +1,105 @@
+<%# locals: (presenter:, projects:, unread_count:) %>
+<%# The head of the inbox list, built like the heads of "Personen" and "Alle
+    Meetings": the title box with the help, then one row of tools (search,
+    the three status views, the project, the view mode). The rarer things,
+    selecting rows on a phone, ticket exceptions and the settings, sit behind
+    "···". The bulk bar lies over the tools row while rows are selected, so
+    the list below never moves. A search, the project and the links are full
+    visits of the index. %>
+<div class="people-head">
+  <%= render NeoTitleBoxComponent.new(title: t('views.organisations.notifications.index.title'),
+                                      variant: :organisation, margin_bottom: nil) do |box| %>
+    <% box.with_right_content do %>
+      <details class="more-menu" data-controller="details-autoclose">
+        <summary class="more-menu__trigger" title="<%= t('views.organisations.notifications.index.more_actions') %>"
+                 aria-label="<%= t('views.organisations.notifications.index.more_actions') %>"><i class="bi bi-three-dots" aria-hidden="true"></i></summary>
+        <div class="more-menu__items">
+          <button type="button" data-action="click->inbox-bulk-select#startSelecting">
+            <%= t('views.organisations.notifications.index.select_rows') %>
+          </button>
+          <%= link_to t('views.organisations.notifications.index.ticket_exceptions'),
+                      ticket_exceptions_organisation_notifications_path(current_organisation) %>
+          <%= link_to t('views.organisations.notifications.index.settings'),
+                      preferences_organisation_notifications_path(current_organisation) %>
+        </div>
+      </details>
+      <%= render 'common/contextual_help_menu', context: :inbox %>
+    <% end %>
+  <% end %>
+</div>
+
+<div class="people-tools inbox-tools">
+  <%= form_with url: organisation_notifications_path(current_organisation), method: :get,
+                class: 'people-search inbox-search', data: { turbo_frame: '_top' } do %>
+    <%= inbox_hidden_query_fields(except: %w[search]) %>
+    <label for="inbox-search" class="people-search__field">
+      <i class="bi bi-search" aria-hidden="true"></i>
+      <span class="sr-only"><%= t('views.organisations.notifications.filter.search_label') %></span>
+      <%= search_field_tag :search, params[:search], id: 'inbox-search', autocomplete: 'off',
+                           placeholder: t('views.organisations.notifications.filter.search_placeholder') %>
+    </label>
+  <% end %>
+
+  <nav class="people-filters" aria-label="<%= t('views.organisations.notifications.filter.status_label') %>">
+    <% Inbox::MasterListPresenter::STATUS_VIEWS.each_key do |view| %>
+      <% active = presenter.status_view == view %>
+      <%= link_to inbox_status_view_url(view), class: "people-pill #{'people-pill--active' if active}",
+                                               'aria-current': (active ? 'true' : nil), data: { turbo_frame: '_top' } do %>
+        <%= t("views.organisations.notifications.filter.views.#{view}") %>
+        <%= render 'organisations/notifications/unread_count', count: unread_count if view == 'unread' %>
+      <% end %>
+    <% end %>
+  </nav>
+
+  <%= form_with url: organisation_notifications_path(current_organisation), method: :get,
+                data: { turbo_frame: '_top', controller: 'auto-submit' } do %>
+    <%= inbox_hidden_query_fields(except: %w[project_id]) %>
+    <label class="inbox-project">
+      <span class="sr-only"><%= t('views.organisations.notifications.filter.project_label') %></span>
+      <%= select_tag :project_id,
+                     options_for_select([[t('views.organisations.notifications.filter.all_projects'), '']] +
+                                        projects.map { |project| [project.name, project.id] }, params[:project_id]),
+                     class: "inbox-project__select #{'inbox-project__select--active' if params[:project_id].present?}" %>
+    </label>
+  <% end %>
+
+  <div class="inbox-view-mode" role="group" aria-label="<%= t('views.organisations.notifications.filter.view_label') %>">
+    <% [%w[chronological list-ul], %w[grouped collection]].each do |mode, icon| %>
+      <% label = t("views.organisations.notifications.filter.view_#{mode}") %>
+      <%= link_to inbox_view_mode_url(mode), class: "inbox-view-mode__cell #{'inbox-view-mode__cell--active' if presenter.view_mode == mode}",
+                                             title: label, 'aria-label': label,
+                                             'aria-current': (presenter.view_mode == mode ? 'true' : nil),
+                                             data: { turbo_frame: '_top' } do %>
+        <i class="bi bi-<%= icon %>" aria-hidden="true"></i>
+      <% end %>
+    <% end %>
+  </div>
+
+  <%# Selection row: lies over the tools row while rows are selected, so the
+      list below never moves. Built like the selection row of the ticket list
+      (tickets/_selection_row: quiet prose, the count in bold, text actions,
+      the way out on the right) with the same classes. Unlike there, the two
+      actions stay in the row: the inbox has no lane panel to confirm them in.
+      OUTSIDE the turbo-frame of the list, so that stream refreshes keep its
+      Stimulus state. %>
+  <% text_action = "#{NeoFilterBarComponent::TEXT_ACTION_CLASSES} whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline" %>
+  <div data-inbox-bulk-select-target="bar" class="inbox-bulk hidden" aria-live="polite">
+    <span class="font-semibold text-heading whitespace-nowrap">
+      <span data-inbox-bulk-select-target="count">0</span>
+      <%= t('views.organisations.notifications.bulk.selected') %>
+    </span>
+    <button type="button" class="<%= text_action %>" data-action="click->inbox-bulk-select#selectAll">
+      <%= t('views.organisations.notifications.bulk.select_all') %>
+    </button>
+    <% { mark_all_read_organisation_notifications_path(current_organisation) => 'mark_read',
+         archive_all_organisation_notifications_path(current_organisation) => 'archive' }.each do |url, key| %>
+      <%= form_with url: url, method: :patch, class: 'inline',
+                    data: { inbox_bulk_select_target: 'form', action: 'turbo:submit-end->inbox-bulk-select#onBulkSubmit' } do %>
+        <button type="submit" class="<%= text_action %>"><%= t("views.organisations.notifications.bulk.#{key}") %></button>
+      <% end %>
+    <% end %>
+    <button type="button" class="<%= text_action %> inbox-bulk__close ms-auto" data-action="click->inbox-bulk-select#clear">
+      <%= t('views.organisations.notifications.bulk.clear') %>
+    </button>
+  </div>
+</div>

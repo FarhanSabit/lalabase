@@ -21,15 +21,21 @@ RSpec.describe NeoInboxMasterItemComponent, type: :component do
     allow_any_instance_of(ApplicationController).to receive(:current_organisation).and_return(organisation)
   end
 
-  it 'zeigt den dezenten Bündel-Indikator (Stack-Icon + Zahl) ab 2 Notifications' do
-    render_inline(described_class.new(notification: notification, group_count: 3, group_unread: 1))
-    expect(page).to have_css('i.bi-layers')
-    expect(page).to have_text('3')
+  it 'zeigt den Ticket-Titel vorn und darunter wer, was und wo' do
+    render_inline(described_class.new(notification: notification))
+    expect(page).to have_css('.inbox-row__title', text: ticket.title)
+    expect(page).to have_css('.inbox-row__meta-text', text: project.name)
   end
 
-  it 'zeigt KEINEN Indikator bei nur einer Notification' do
-    render_inline(described_class.new(notification: notification, group_count: 1, group_unread: 1))
-    expect(page).not_to have_css('i.bi-layers')
+  it 'zeigt "N neu" ab zwei ungelesenen Meldungen eines gebündelten Tickets' do
+    render_inline(described_class.new(notification: notification, group_count: 5, group_unread: 3))
+    expect(page).to have_css('.inbox-row__new', text: I18n.t('views.organisations.notifications.item.new_count', count: 3))
+  end
+
+  it 'zeigt KEIN "neu" bei einer einzigen ungelesenen Meldung (Punkt und fetter Titel genuegen)' do
+    render_inline(described_class.new(notification: notification, group_count: 5, group_unread: 1))
+    expect(page).not_to have_css('.inbox-row__new')
+    expect(page).to have_css('.inbox-row--unread')
   end
 
   it 'markiert die Zeile als ungelesen, wenn group_unread > 0' do
@@ -39,9 +45,10 @@ RSpec.describe NeoInboxMasterItemComponent, type: :component do
     expect(page).to have_css('[data-unread-marker="dot"]')
   end
 
-  it 'markiert die Zeile als gelesen, wenn group_unread == 0' do
+  it 'markiert die Zeile als gelesen, wenn group_unread == 0, und behaelt das Auswahlkaestchen' do
     render_inline(described_class.new(notification: notification, group_count: 2, group_unread: 0))
-    expect(page).to have_css('div.flex-shrink-0.pt-1\\.5') # the dot's column is rendered, just empty
+    expect(page).to have_css('.inbox-row:not(.inbox-row--unread)')
     expect(page).not_to have_css('[data-unread-marker]')
+    expect(page).to have_css('input.inbox-row__check[data-inbox-bulk-select-target="checkbox"]')
   end
 end

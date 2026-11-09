@@ -208,9 +208,11 @@ RSpec.describe 'Inbox URL rename', type: :request do
   # ticket" link). All keys must exist in DE+EN and be non-empty.
   describe 'i18n: inbox pane strings exist in both locales' do
     %i[de en].each do |locale|
-      %w[empty_title empty_subtitle
+      %w[empty_title
          missing_title missing_subtitle
          unauthorized_title unauthorized_subtitle
+         non_ticket_title non_ticket_subtitle
+         done mark_read mark_unread unarchive
          open_full_view].each do |key|
         it "views.organisations.notifications.pane.#{key} (#{locale.upcase})" do
           value = I18n.t("views.organisations.notifications.pane.#{key}",
