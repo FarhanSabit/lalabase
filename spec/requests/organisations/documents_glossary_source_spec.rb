@@ -293,6 +293,110 @@ RSpec.describe 'Organisations::Documents as a glossary source', :ci_guard, type:
     end
   end
 
+  describe 'refreshing the glossary control' do
+    def refresh_control(chosen = document)
+      get glossary_source_organisation_project_document_path(organisation, project, chosen),
+          headers: { 'Turbo-Frame' => "document_#{chosen.id}_glossary_source" }
+    end
+
+    def polling?
+      page.at_css('[data-controller="glossary-run-poll"]')['data-glossary-run-poll-active-value'] == 'true'
+    end
+
+    it 'refreshes only the control and stops polling once the text is available' do
+      bare = document_with(text: nil)
+      sign_in manager
+
+      refresh_control(bare)
+
+      expect(response).to have_http_status(:ok)
+      expect(page.at_css("turbo-frame#document_#{bare.id}_glossary_source")).to be_present
+      expect(page.at_css('.document-content')).to be_nil
+      expect(page.at_css('button[disabled]')).to be_present
+      expect(polling?).to be(true)
+
+      Prosopite.pause { DocumentVersionProcessingJob.perform_now(bare.current_version) }
+      refresh_control(bare)
+
+      expect(page.at_css('button[disabled]')).to be_nil
+      expect(reason).to be_nil
+      expect(polling?).to be(false)
+    end
+
+    it 'stops polling when the file has been read and is empty' do
+      bare = document_with(text: nil, content: '')
+      sign_in manager
+      Prosopite.pause { DocumentVersionProcessingJob.perform_now(bare.current_version) }
+
+      refresh_control(bare)
+
+      expect(page.at_css('button[disabled]')).to be_present
+      expect(reason).to eq(I18n.t("#{gs}.text_empty"))
+      expect(polling?).to be(false)
+    end
+
+    it 'waits for another run to end before enabling the control' do
+      document
+      run = create(:glossary_extraction_run, :running, organisation: organisation)
+      sign_in manager
+
+      refresh_control
+
+      expect(propose_button['disabled']).to eq('disabled')
+      expect(polling?).to be(true)
+
+      run.mark_failed!('interrupted')
+      refresh_control
+
+      expect(propose_button['disabled']).to be_nil
+      expect(polling?).to be(false)
+    end
+
+    it 'refuses a refresh after the glossary right is revoked' do
+      sign_in manager
+      refresh_control
+      expect(response).to have_http_status(:ok)
+      Permission.where(role: manager.role_in_organisation(organisation), category: 'glossary').update_all(allowed: false)
+
+      refresh_control
+
+      expect(response).to have_http_status(:forbidden)
+      expect(propose_form).to be_nil
+    end
+
+    it 'refuses a refresh after the document read right is revoked' do
+      sign_in manager
+      refresh_control
+      ProjectPermission.find_by!(user: manager, project: project).update!(documents_access: 'no_access')
+
+      refresh_control
+
+      expect(response).to redirect_to(organisation_project_path(organisation, project))
+      expect(propose_form).to be_nil
+    end
+
+    it 'finds no document of another organisation' do
+      other = create(:organisation)
+      foreign_project = ActsAsTenant.with_tenant(other) { create(:project, organisation: other) }
+      foreign = document_with(project: foreign_project)
+      sign_in manager
+
+      refresh_control(foreign)
+
+      expect(response).to have_http_status(:not_found)
+      expect(response.body).not_to include(I18n.t("#{gs}.propose"))
+    end
+
+    it 'answers 404 when there is no current version' do
+      bare = create(:document, organisation: organisation, project: project)
+      sign_in manager
+
+      refresh_control(bare)
+
+      expect(response).to have_http_status(:not_found)
+    end
+  end
+
   describe 'the start' do
     it 'starts a run over the current version, enqueues its job and lands on the review list' do
       document

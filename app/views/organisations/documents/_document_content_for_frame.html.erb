@@ -83,42 +83,8 @@
         </div>
       <% end %>
 
-      <%# The document as the source of a glossary run (K5c): only for
-          manage_glossary (whoever sees this lane reads the document already),
-          and off with one reason at a time: the text is not read out yet, the
-          kind of file has none, the file holds none, a run of the organisation
-          is at work (as the bar of the review list counts it), or no AI for
-          the extraction (the registry's words). The rights and the state are
-          asked here, in the request: no broadcast renders this partial. The
-          form leaves the lane frame, the start lands on the review list. %>
       <% if policy(GlossaryExtractionRun).start? %>
-        <% gs = 'views.organisations.documents.glossary_source' %>
-        <% organisation = @current_organisation || document.organisation %>
-        <% text_status = ExtractPlainTextProcessingService.file_text_status(current.plain_text_version, file) %>
-        <% run_active = text_status == 'available' &&
-                        glossary_run_active?(GlossaryExtractionRun.where(organisation_id: organisation.id, status: GlossaryExtractionRun::ACTIVE_STATUSES).take) %>
-        <% availability = organisation.ai_available_for?(:glossary_extraction) if text_status == 'available' && !run_active %>
-        <% glossary_reason, glossary_reason_class = if text_status != 'available'
-                                                      [t("#{gs}.text_#{text_status}"), 'text-cream-600']
-                                                    elsif run_active
-                                                      [t("#{gs}.run_active"), 'text-cream-600']
-                                                    elsif !availability.available?
-                                                      [Lalabase::Llm::FeatureRegistry.unavailable_hint(availability, organisation), 'text-amber-700']
-                                                    end %>
-        <% glossary_reason_id = "#{dom_id(document)}_glossary_reason" %>
-        <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5" data-document-glossary-source>
-          <%= render Neo::Buttons::ButtonComponent.new(
-                variant: :ai, size: :small, icon: 'magic', disabled: glossary_reason.present?,
-                form: { action: propose_glossary_terms_organisation_project_document_path(**path_args), method: :post, data: { turbo_frame: '_top' } },
-                **(glossary_reason ? { aria: { describedby: glossary_reason_id } } : { title: t("#{gs}.hint") })
-              ) do %>
-            <%= t("#{gs}.propose") %>
-          <% end %>
-          <% if glossary_reason %>
-            <%# text-amber-700, not -600: only 700/800/900 are dark-theme remapped. %>
-            <p id="<%= glossary_reason_id %>" class="<%= class_names('text-[13px]', glossary_reason_class) %>" data-document-glossary-reason><%= glossary_reason %></p>
-          <% end %>
-        </div>
+        <%= render 'organisations/documents/glossary_source', document: document %>
       <% end %>
 
       <div class="mt-8" data-controller="toggle">

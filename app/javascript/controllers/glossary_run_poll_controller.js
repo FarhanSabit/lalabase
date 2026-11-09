@@ -6,6 +6,9 @@ const MAX_TIMEOUT_DELAY = 2_147_483_647
 // list frame every few seconds, so the bar of the run and the new proposals
 // show up without a reload of the page. Mounted on the run bar, inside that
 // frame (organisations/glossary/_run_bar).
+// Also refreshes a document's glossary control while its text is unavailable
+// or another run is active, through documents#glossary_source. Both callers
+// put this controller inside the frame whose children it replaces.
 //
 // No broadcast: the page asks, and the server renders the list for this
 // reader, with this reader's rights, on every request (the form of

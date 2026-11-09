@@ -889,6 +889,7 @@ Rails.application.routes.draw do
           get :download_plain_text
           # K5c: a glossary run over the current version, from the button in
           # the lane; lands on the review list of the glossary.
+          get :glossary_source
           post :propose_glossary_terms
         end
       end

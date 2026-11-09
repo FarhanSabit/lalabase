@@ -302,6 +302,18 @@ class Organisations::DocumentsController < Organisations::BaseController
     end
   end
 
+  # The small, viewer-specific fragment polled while its text or another run
+  # is pending. Every refresh asks both rights again, as the start does.
+  def glossary_source
+    document = @project.documents.find(params[:id])
+    authorize document, :show?
+    return head :forbidden unless policy(GlossaryExtractionRun).start?
+
+    raise ActiveRecord::RecordNotFound unless document.current_version
+
+    render partial: 'organisations/documents/glossary_source', locals: { document: document }
+  end
+
   # K5c: a glossary run over this document, the button in its lane. Reading
   # the document is enough of it (authorize_project_access! answers a reader
   # without it as for every action here, :show? asks it again). The glossary
