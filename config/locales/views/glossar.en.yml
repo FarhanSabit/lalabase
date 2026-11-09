@@ -75,6 +75,7 @@ en:
           success: "Proposal dismissed."
         restore:
           success: "Proposal restored."
+        term_changed: "The glossary term was renamed in the meantime. Please review and accept the proposal again."
         term_not_confirmed: "This term is no longer confirmed."
       # The start of a run of the extraction (K5b, Actors::StartGlossaryExtraction).
       # Without AI the actor refuses in the words of the AI registry.

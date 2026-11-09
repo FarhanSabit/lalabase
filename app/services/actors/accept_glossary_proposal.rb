@@ -19,6 +19,7 @@
 #   glossary: the term, then the proposal, never the other way round. A term
 #   gone in the meantime is :not_found. Then manage_glossary again
 #   (GlossaryPolicy.manage_allowed?, an active membership): :forbidden without.
+#   A term renamed to another compared form before the lock is :term_changed.
 # * Then Decision#claim!, one UPDATE whose condition is the status of the row:
 #   a proposal accepted, dismissed or merged away in the meantime is
 #   :already_processed, whatever the copy in memory says, and the transaction
@@ -119,6 +120,7 @@ module Actors
       @term = existing_term || create_term
       Glossary::TermLock.call(term: @term)
       refuse(:forbidden) unless GlossaryPolicy.manage_allowed?(current_user, @proposal.organisation)
+      refuse(:term_changed) unless @term.normalized_term == GlossaryText.normalize(@spelling)
 
       adopt_term
       decision = Decision.new(proposal: @proposal, term: @term, current_user: current_user)

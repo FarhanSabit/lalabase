@@ -103,6 +103,40 @@ RSpec.describe Actors::AcceptGlossaryProposal, :ci_guard, type: :service do
       expect(GlossaryTerm.pluck(:term)).to eq(['ZORBEL-HUB'])
     end
 
+    it 'accepts equivalent Unicode, whitespace and case after the locked reload' do
+      existing = create(:glossary_term, :proposed, organisation: organisation, term: 'Zörbel Hub')
+
+      result = accept(term: "  ZO\u{0308}R\u{200B}BEL\u{00A0} HUB  ", variants: ['Zorbelhub'])
+
+      expect(result).to be_success
+      expect(result.resource).to eq(existing)
+      expect(existing.reload).to have_attributes(term: 'Zörbel Hub', status: 'confirmed')
+      expect(GlossaryTerm.count).to eq(1)
+      expect(proposal.reload.glossary_term_id).to eq(existing.id)
+      expect(TermCorrection.pluck(:glossary_term_id, :heard)).to eq([[existing.id, 'Zorbelhub']])
+    end
+
+    %i[de en].each do |locale|
+      it "refuses a term renamed between lookup and lock, with a #{locale} message" do
+        existing = create(:glossary_term, :proposed, organisation: organisation, term: 'Zorbel-Hub')
+        # Keep the lookup snapshot while another request changes the stored spelling.
+        allow_any_instance_of(described_class).to receive(:existing_term).and_return(existing)
+        GlossaryTerm.find(existing.id).update!(term: 'Quarnix')
+        stored = existing.class.find(existing.id).attributes
+        before = written
+
+        result = I18n.with_locale(locale) { accept(category: 'person', variants: ['Zorbelhub', 'Zorbl Hub']) }
+
+        expect(result).not_to be_success
+        expect(result.code).to eq(:term_changed)
+        expect(I18n.exists?('controllers.glossary.proposals.term_changed', locale, fallback: false)).to be(true)
+        expect(result.errors).to eq([I18n.t('controllers.glossary.proposals.term_changed', locale: locale)])
+        expect(existing.reload.attributes).to eq(stored)
+        expect(written).to eq(before)
+        expect(proposal.reload).to have_attributes(status: 'open', glossary_term_id: nil, decided_by_id: nil, decided_at: nil)
+      end
+    end
+
     it 'is confirmed when it was proposed or rejected: a person accepts it now' do
       proposed = create(:glossary_term, :proposed, organisation: organisation, term: 'Zorbel-Hub')
       rejected = create(:glossary_term, :rejected, organisation: organisation, term: 'Wub')
