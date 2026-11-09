@@ -57,7 +57,7 @@ module Actors
     MAX_LINES = 500
 
     Report = Data.define(:lines, :counts)
-    Line = Data.define(:number, :text, :term, :category, :category_applied, :verdict, :existing_status)
+    Line = Data.define(:number, :text, :term, :category, :category_applied, :verdict)
 
     # The verdict of a line, then what the import did: :new counts the terms
     # written (in a dry run: that would be written), :created and :proposed
@@ -211,12 +211,12 @@ module Actors
     # With manage_glossary only, before the first insert (the lock order in
     # the header). The terms are locked in one statement in the order of
     # their ids (as Actors::MergeGlossaryTerms locks) and read again under the
-    # lock: a term that got a category in the meantime keeps it, and one
-    # deleted in the meantime is left out. For the same normalized spelling,
-    # the report takes its status from this read, even if it keeps a category
-    # set in the meantime. A changed normalized spelling
-    # refuses the whole import: the old line must not categorize the renamed
-    # term. BaseActor maps the stale error after the transaction rolls back.
+    # lock. A changed normalized spelling refuses the whole import, whatever
+    # else changed on the row: the old line must not categorize the renamed
+    # term, and must not report it either (BaseActor maps the stale error
+    # after the transaction rolls back). Otherwise the report takes status
+    # and verdict from this read; a term that got a category in the meantime
+    # keeps it, and one deleted in the meantime is left out.
     def categorize(rows)
       wanted = rows.select { |row| row.existing && row.category && row.existing.category.nil? }
       return if wanted.empty?
@@ -225,11 +225,10 @@ module Actors
       wanted.each do |row|
         term = locked[row.existing.id]
         next if term.nil?
-
-        take_existing(row, term) if term.normalized_term == row.form
-        next if term.category
-
         raise ActiveRecord::StaleObjectError.new(term, 'import') unless term.normalized_term == row.form
+
+        take_existing(row, term)
+        next if term.category
 
         term.update!(category: row.category)
         row.categorized = true
@@ -244,7 +243,7 @@ module Actors
       counts[:categorized] = rows.count(&:categorized)
       lines = rows.map do |row|
         Line.new(number: row.number, text: row.text, term: row.term, category: row.category,
-                 category_applied: category_applied?(row), verdict: row.verdict, existing_status: row.existing&.status)
+                 category_applied: category_applied?(row), verdict: row.verdict)
       end
       Report.new(lines: lines.freeze, counts: counts.freeze)
     end

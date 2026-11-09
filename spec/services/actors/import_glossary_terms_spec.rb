@@ -96,11 +96,11 @@ RSpec.describe Actors::ImportGlossaryTerms, :ci_guard, type: :service do
       expect(actor.report.lines).to eq(
         [
           described_class::Line.new(number: 1, text: 'Zorbel ; product', term: 'Zorbel', category: 'product',
-                                    category_applied: true, verdict: :new, existing_status: nil),
+                                    category_applied: true, verdict: :new),
           described_class::Line.new(number: 3, text: 'Wub;company;x', term: 'Wub', category: nil,
-                                    category_applied: false, verdict: :new, existing_status: nil),
+                                    category_applied: false, verdict: :new),
           described_class::Line.new(number: 4, text: 'Quarnix Hub', term: 'Quarnix Hub', category: nil,
-                                    category_applied: false, verdict: :new, existing_status: nil)
+                                    category_applied: false, verdict: :new)
         ]
       )
     end
@@ -194,10 +194,8 @@ RSpec.describe Actors::ImportGlossaryTerms, :ci_guard, type: :service do
       actor = importer("ZORBEL\nwub\nQuarnix\nZorbel-Hub")
 
       expect(actor.call).to be_success
-      expect(actor.report.lines.map { |line| [line.term, line.verdict, line.existing_status] }).to eq(
-        [['ZORBEL', :existing, 'confirmed'], ['wub', :existing, 'proposed'], ['Quarnix', :rejected, 'rejected'],
-         ['Zorbel-Hub', :new, nil]]
-      )
+      expect(actor.report.lines.map { |line| [line.term, line.verdict] })
+        .to eq([['ZORBEL', :existing], ['wub', :existing], ['Quarnix', :rejected], ['Zorbel-Hub', :new]])
       # Spelling and status as they were; only the new term is added.
       expect(terms_of(organisation).order(:normalized_term).pluck(:term, :status))
         .to eq([%w[Quarnix rejected], %w[Wub proposed], %w[Zorbel confirmed], %w[Zorbel-Hub confirmed]])
@@ -310,8 +308,7 @@ RSpec.describe Actors::ImportGlossaryTerms, :ci_guard, type: :service do
       actor = importer("Wub\nZorbel")
 
       expect(actor.call).to be_success
-      expect(actor.report.lines.map { |line| [line.term, line.verdict, line.existing_status] })
-        .to eq([['Wub', :existing, 'confirmed'], ['Zorbel', :new, nil]])
+      expect(actor.report.lines.map { |line| [line.term, line.verdict] }).to eq([['Wub', :existing], ['Zorbel', :new]])
       expect(terms_of(organisation).where(normalized_term: 'wub').pluck(:id)).to eq([other.id])
       expect(actor.report.counts).to eq(counts(existing: 1, new: 1, created: 1))
     end
@@ -323,8 +320,7 @@ RSpec.describe Actors::ImportGlossaryTerms, :ci_guard, type: :service do
       actor = importer("Wub\nZorbel")
 
       expect(actor.call).to be_success
-      expect(actor.report.lines.map { |line| [line.term, line.verdict, line.existing_status] })
-        .to eq([['Wub', :existing, 'confirmed'], ['Zorbel', :new, nil]])
+      expect(actor.report.lines.map { |line| [line.term, line.verdict] }).to eq([['Wub', :existing], ['Zorbel', :new]])
       expect(terms_of(organisation).order(:normalized_term).pluck(:term)).to eq(%w[Wub Zorbel])
       expect(terms_of(organisation).find_by(normalized_term: 'wub').id).to eq(other.id)
       expect(actor.report.counts).to eq(counts(existing: 1, new: 1, created: 1))
@@ -409,8 +405,8 @@ RSpec.describe Actors::ImportGlossaryTerms, :ci_guard, type: :service do
             expect(actor.call).to be_success
             verdict = after_status == 'rejected' ? :rejected : :existing
             categorized = category_before_lock.nil?
-            expect(actor.report.lines.map { |line| [line.verdict, line.existing_status, line.category_applied] })
-              .to eq([[verdict, after_status, categorized], [:duplicate, nil, false]])
+            expect(actor.report.lines.map { |line| [line.verdict, line.category_applied] })
+              .to eq([[verdict, categorized], [:duplicate, false]])
             expect(actor.report.counts).to eq(counts(**{ verdict => 1, duplicate: 1, categorized: categorized ? 1 : 0 }))
             expected_state = if dry_run
                                { 'status' => before_status, 'category' => nil, 'lock_version' => 0 }
@@ -421,6 +417,29 @@ RSpec.describe Actors::ImportGlossaryTerms, :ci_guard, type: :service do
           end
         end
       end
+    end
+
+    # Before this spec, a category set in the meantime skipped the row before
+    # the spelling was compared: the import went through and reported a term
+    # that was gone under that spelling as "already there".
+    it 'refuses a renamed term even when it got a category and another status in the meantime' do
+      term = create(:glossary_term, organisation: organisation, term: 'Zorbel')
+      create(:glossary_term, organisation: organisation, term: 'Wub')
+      actor = importer("Zorbel;product\nWub;place\nQuarnix Hub")
+      allow(actor).to receive(:existing_terms).and_wrap_original do |original, *arguments|
+        original.call(*arguments).tap { term.update!(term: 'Quarnix', category: 'company', status: 'rejected') }
+      end
+
+      result = actor.call
+
+      expect(result).not_to be_success
+      expect(result.code).to eq(:stale_object)
+      expect(result.errors).to eq([I18n.t('services.actors.stale_object')])
+      expect(actor.report).to be_nil
+      # The rename ran inside the import's transaction here, so the rollback
+      # takes it back as well; what counts is that nothing of the import stays.
+      expect(terms_of(organisation).order(:normalized_term).pluck(:term, :category, :lock_version))
+        .to eq([['Wub', nil, 0], ['Zorbel', nil, 0]])
     end
 
     it 'still categorizes a spelling change that keeps the same normalized form' do
