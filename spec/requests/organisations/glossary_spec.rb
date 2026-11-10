@@ -253,20 +253,12 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
       expect(response.body).to include(I18n.t('mobile.more'))
       expect(response.body).not_to include(organisation_glossary_terms_path(organisation))
     end
-
-    it 'offers no way back to the meetings without read access to any meeting' do
-      get organisation_glossary_terms_path(organisation)
-
-      expect(response).to have_http_status(:ok)
-      expect(response.body).to include(I18n.t('views.organisations.glossary.index.title'))
-      expect(response.body).not_to include('data-glossary-meetings-link')
-    end
   end
 
-  # The glossary belongs to the meetings area (user, 04.11.2026): the head of
-  # "Alle Meetings" and of a project's meetings page carries the link, for
-  # those with the glossary right only; the glossary page leads back to
-  # "Alle Meetings" and keeps that sidebar entry lit.
+  # The glossary belongs to the meetings area (user, 04.11.2026): the "···"
+  # of "Alle Meetings" and of a project's meetings page holds the way in, for
+  # those with the glossary right only; on the glossary page the sidebar
+  # keeps "Alle Meetings" lit, and that entry is the way back.
   describe 'the way in from the meetings pages' do
     def meetings_reader(*rights)
       member_with(role_with(*rights)).tap do |user|
@@ -293,19 +285,23 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
       end
     end
 
-    # It leads to another page, so it is a word in cobalt (F5 of the
-    # Belegungstabelle), not a framed button (F2 is for an action). Until
-    # 2026-11-10 it was the one framed text button in the head.
-    it 'is a link in words, not a framed button' do
+    # Until 2026-11-10 the link was a word in cobalt in the head, the one
+    # of its kind there (user: blue links are not what the heads hold); before
+    # that a framed button. The heads hold the page's action, "···" and "?".
+    it 'is an item of the "···" in the head, not a word or a button of its own' do
       sign_in meetings_reader('view_glossary')
 
       meetings_pages.each do |path|
         get path
         link = Nokogiri::HTML(response.body).at_css('a[data-meetings-glossary-link]')
-        classes = link['class'].to_s.split
-        expect(classes).to include('text-info'), "not a cobalt word on #{path}"
-        expect(classes.grep(/\Aborder/)).to be_empty, "framed on #{path}"
-        expect(link.text.strip).to eq(I18n.t('navigation.glossary'))
+        expect(link).to be_present, "no glossary item on #{path}"
+        menu = link.ancestors('[data-dropdown-target="menu"]').first
+        expect(menu).to be_present, "not in a menu on #{path}"
+        trigger = menu.parent.at_css("[title='#{I18n.t('components.overflow_menu.label')}']")
+        expect(trigger).to be_present, "not behind the \"···\" on #{path}"
+        expect(link['class'].to_s.split).not_to include('text-info')
+        expect(link.text.squish).to eq(I18n.t('navigation.glossary'))
+        expect(link['data-turbo-frame']).to eq('_top')
       end
     end
 
@@ -320,18 +316,19 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
       end
     end
 
-    it 'leads back to "Alle Meetings" from the glossary and keeps that entry lit' do
+    # No back button in the head since 2026-11-10: the lit sidebar entry is
+    # the way back, so it is the one link to "Alle Meetings" on the page.
+    it 'keeps "Alle Meetings" lit in the sidebar as the way back, with no back button in the head' do
       sign_in meetings_reader('view_glossary')
 
       get organisation_glossary_terms_path(organisation)
 
+      expect(response).to have_http_status(:ok)
       page = Nokogiri::HTML(response.body)
-      back = page.at_css('a[data-glossary-meetings-link]')
-      expect(back).to be_present
-      expect(back['href']).to eq(organisation_meetings_path(organisation))
-      sidebar_entry = page.css('a').find { |link| link['href'] == organisation_meetings_path(organisation) && link != back }
-      expect(sidebar_entry).to be_present
-      expect(sidebar_entry['class']).to include('sidebar-row--active')
+      to_meetings = page.css('a').select { |link| link['href'] == organisation_meetings_path(organisation) }
+      expect(to_meetings.size).to eq(1)
+      expect(to_meetings.first['class']).to include('sidebar-row--active')
+      expect(page.at_css(%(.people-head a[href="#{organisation_meetings_path(organisation)}"]))).to be_nil
     end
   end
 

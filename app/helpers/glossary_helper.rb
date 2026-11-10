@@ -76,6 +76,27 @@ module GlossaryHelper
     }.compact
   end
 
+  # "Liste importieren": its address and its wiring, for the head's "···" and
+  # the empty glossary. It opens the import in the lane (?new=import, the
+  # index answers the lane frame for it, no route of its own) and keeps the
+  # list state; the href is the same state for a new tab. One owner, so the
+  # two places cannot open the import in two different ways.
+  def glossary_import_link
+    import_state = Organisations::GlossaryController::IMPORT_STATE
+    {
+      url: organisation_glossary_terms_path(current_organisation, list_state.merge('new' => import_state)),
+      data: {
+        controller: 'lane-link',
+        action: 'click->lane-link#click',
+        lane_link_url_value: organisation_glossary_terms_path(current_organisation, new: import_state),
+        lane_link_frame_value: Organisations::GlossaryController::DETAIL_FRAME_ID,
+        lane_link_set_value: { new: import_state }.to_json,
+        lane_link_remove_value: SELECTION_PARAMS.to_json,
+        lane_link_focus_value: '#glossary_import_text'
+      }
+    }
+  end
+
   # Lane parameters of this visit the server did not open (an unknown term or
   # proposal, a form the reader may not open). layout-toggle takes them out
   # of the address, so the page stays the list.
