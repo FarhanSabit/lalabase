@@ -23,8 +23,8 @@ de:
               link: Alle Meldungen ansehen
             no_match:
               title: Keine Treffer.
-              body: Keine Meldung passt zu Suche oder Projekt.
-              link: Suche und Projekt zurücksetzen
+              body: Keine Meldung passt zu Suche, Projekt oder Zeitraum.
+              link: Suche, Projekt und Zeitraum zurücksetzen
             other_filter:
               title: Keine Treffer.
               body: Diese Auswahl ist keine der vier Ansichten.
@@ -44,6 +44,7 @@ de:
           search_label: Suche
           search_placeholder: Suchen
           project_label: Projekt
+          period_label: Zeitraum
           all_projects: Alle Projekte
           view_chronological: Chronologisch
           view_grouped: Nach Ticket gebündelt

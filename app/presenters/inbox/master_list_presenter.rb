@@ -33,7 +33,7 @@ module Inbox
     PERIODS = %i[today yesterday this_week older].freeze
 
     # What narrows the rows beyond the status view.
-    NARROWING = %i[search project_id event_type].freeze
+    NARROWING = %i[search project_id event_type period].freeze
 
     # The status view a set of state filters names, or nil. No filter at all
     # is the default list (unread and read), so it is "all" as well.

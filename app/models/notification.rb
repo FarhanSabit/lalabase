@@ -318,6 +318,19 @@ class Notification < ApplicationRecord
     end
   }
 
+  # The inbox's period filter: the time area's presets (TimeSessions::ListPeriod,
+  # one vocabulary for "diese Woche" and its bounds), a notification counted
+  # by the day it arrived in the reader's zone. "all" and an unknown key are
+  # no window. Guard: spec/requests/inbox_period_filter_spec.rb.
+  scope :created_in_period, lambda { |key, time_zone: Time.zone|
+    zone = time_zone || Time.zone
+    period = TimeSessions::ListPeriod.normalize_for_table(key)
+    from, to = TimeSessions::ListPeriod.bounds_for(period, today: Time.current.in_time_zone(zone).to_date)
+    next all unless from && to
+
+    where(created_at: zone.local(from.year, from.month, from.day)..zone.local(to.year, to.month, to.day).end_of_day)
+  }
+
   # Date grouping scope with database-level grouping
   scope :grouped_by_date, lambda {
     order('DATE(created_at) DESC, created_at DESC')

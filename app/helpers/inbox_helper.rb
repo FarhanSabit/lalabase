@@ -10,7 +10,7 @@ module InboxHelper
   # carries along. An allowlist, not a denylist: a stray key of a hand-made
   # address (partial=, format=, or a name like submit= that would shadow a
   # method of the form it is written into) must not travel with the list.
-  INBOX_LIST_PARAMS = %w[state_filters state view_mode search project_id event_type].freeze
+  INBOX_LIST_PARAMS = %w[state_filters state view_mode search project_id event_type period].freeze
 
   # The list address with one status view: unread, all or archived.
   def inbox_status_view_url(view, query: nil)
@@ -25,7 +25,7 @@ module InboxHelper
 
   # The list address without search, project and type: the status view stays.
   def inbox_reset_narrowing_url(query: nil)
-    inbox_list_url(inbox_list_query(query).except('search', 'project_id', 'event_type'))
+    inbox_list_url(inbox_list_query(query).except('search', 'project_id', 'event_type', 'period'))
   end
 
   # The list address with one notification open in the lane.

@@ -29,6 +29,22 @@
       </label>
     <% end %>
 
+    <%# The period, the time list's presets (TimeSessions::ListPeriod: one
+        vocabulary, one set of bounds), "Gesamter Zeitraum" by default. The
+        same form as the project beside it, tinted while it narrows. %>
+    <% period = TimeSessions::ListPeriod.normalize_for_table(params[:period]) %>
+    <% narrowing = period != TimeSessions::ListPeriod::TABLE_DEFAULT %>
+    <%= form_with url: organisation_notifications_path(current_organisation), method: :get,
+                  data: { turbo_frame: '_top', controller: 'auto-submit' } do %>
+      <%= inbox_hidden_query_fields(except: %w[period]) %>
+      <label class="inbox-project">
+        <span class="sr-only"><%= t('views.organisations.notifications.filter.period_label') %></span>
+        <%= select_tag :period,
+                       options_for_select(TimeSessions::ListPeriod.options.map { |key, label| [label.upcase_first, key] }, period),
+                       class: "inbox-project__select #{'inbox-project__select--active' if narrowing}" %>
+      </label>
+    <% end %>
+
     <%# The type filter has no control of its own any more (an old address or
         a link from elsewhere sets it). While it narrows the list it stands
         here as a chip, and the chip removes it. %>
