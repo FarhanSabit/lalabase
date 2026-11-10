@@ -204,6 +204,53 @@ RSpec.describe 'Contextual help menu', type: :request do
     expect_contextual_help_trigger(response.body, :settings_appearance)
   end
 
+  # The "?" takes the height of its neighbours in the row (F40 of the
+  # Belegungstabelle): 40 px only beside the 40 px groove of the view switch
+  # (F8; the 30 px icon pair of the tickets is none) or the big gear, the quiet 28 px trigger beside a "···" or the members search, and
+  # otherwise the 32 px of the head buttons (F1/F2). Until 2026-11-10 it was
+  # 40 px everywhere, a box bigger than "+" and "Glossar" beside it.
+  describe 'the size of the trigger follows its row' do
+    def help_triggers(body)
+      label = I18n.t('components.contextual_help.label')
+      Nokogiri::HTML(body).css("[data-controller='dropdown'] > [title='#{label}']")
+    end
+
+    def form_of(trigger)
+      classes = trigger['class'].to_s.split
+      return :quiet if classes.include?('more-menu__trigger')
+      return :large if classes.include?('h-10')
+      return :medium if classes.include?('h-8')
+
+      :unknown
+    end
+
+    {
+      'Tickets' => [:medium, -> { organisation_project_tickets_path(organisation, project) }],
+      'Zeiten' => [:large, -> { organisation_time_sessions_path(organisation) }],
+      'Übersicht' => [:large, -> { organisation_root_path(organisation_id: organisation.id) }],
+      'Meetings' => [:medium, -> { organisation_project_meetings_path(organisation, project) }],
+      'Alle Meetings' => [:medium, -> { organisation_meetings_path(organisation) }],
+      'Personen' => [:medium, -> { organisation_people_path(organisation) }],
+      'Dokumentation' => [:medium, -> { organisation_project_documentation_index_path(organisation, project) }],
+      'Abrechnungen' => [:medium, -> { organisation_time_session_groups_path(organisation) }],
+      'Wissen' => [:medium, -> { organisation_project_knowledge_index_path(organisation, project) }],
+      'Rollen/Rechte' => [:medium, -> { organisation_roles_path(organisation) }],
+      'Name/Domain' => [:medium, -> { organisation_settings_path(organisation) }],
+      'Konto' => [:medium, -> { edit_user_registration_path }],
+      'Inbox' => [:quiet, -> { organisation_notifications_path(organisation, state_filters: ['unread']) }],
+      'Mitglieder' => [:quiet, -> { organisation_memberships_path(organisation) }]
+    }.each do |page_name, (form, path)|
+      it "#{page_name}: #{form}" do
+        get instance_exec(&path)
+
+        expect(response).to have_http_status(:ok)
+        triggers = help_triggers(response.body)
+        expect(triggers).not_to be_empty
+        expect(triggers.map { |trigger| form_of(trigger) }.uniq).to eq([form])
+      end
+    end
+  end
+
   context 'when the member is not an admin (Mitglieder tab)' do
     # D2 (doc/settings_kontexthilfe_plan.md): the "?" trigger sits OUTSIDE the
     # `if can_manage_members` branch, so it renders even without management rights

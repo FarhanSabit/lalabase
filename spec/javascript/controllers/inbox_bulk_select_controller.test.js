@@ -113,7 +113,7 @@ test('a successful submit clears the selection and shuts the bar', () => {
 test('the way out hands focus back to the "···" trigger when it sat in the bar', () => {
   const { controller, document } = build()
   const trigger = { focus() { this.focused = true } }
-  controller.element.querySelector = (selector) => (selector === '.more-menu__trigger' ? trigger : null)
+  controller.element.querySelector = (selector) => (selector === 'summary.more-menu__trigger' ? trigger : null)
   controller.startSelecting()
   document.activeElement = 'inside-the-bar'
 

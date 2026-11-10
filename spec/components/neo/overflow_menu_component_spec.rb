@@ -65,6 +65,33 @@ RSpec.describe Neo::OverflowMenuComponent, type: :component do
     expect(page).to have_css("[title='#{I18n.t('components.contextual_help.label')}']")
   end
 
+  # A head whose other tools are small (the inbox: the "···" trigger and the
+  # view switch, both 28 px) takes the quiet trigger, so the "?" is not the one
+  # big box among them. It is the "···" trigger of those heads, same class.
+  it 'renders the quiet trigger of the small heads when asked' do
+    render_inline(described_class.new(icon: 'question-lg', trigger_label_key: 'components.contextual_help.label',
+                                      quiet: true)) do |menu|
+      menu.with_item(label: 'Hilfe-Frage', url: '/hilfe/guides/x')
+    end
+
+    trigger = page.find('button.more-menu__trigger')
+    expect(trigger[:type]).to eq('button')
+    expect(trigger['data-action']).to eq('click->dropdown#toggle')
+    expect(trigger[:title]).to eq(I18n.t('components.contextual_help.label'))
+    expect(trigger['aria-label']).to eq(I18n.t('components.contextual_help.label'))
+    expect(trigger).to have_css('i.bi.bi-question-lg[aria-hidden="true"]')
+    expect(trigger[:class]).not_to include('h-10')
+  end
+
+  it 'keeps the icon button trigger by default' do
+    render_inline(described_class.new(size: :large)) do |menu|
+      menu.with_item(label: 'Logbuch', url: '/logbuch')
+    end
+
+    expect(page).to have_no_css('.more-menu__trigger')
+    expect(page).to have_css('button.h-10.w-10')
+  end
+
   it 'forwards optional data attributes to the item link (drawer-trigger wiring)' do
     render_inline(described_class.new) do |menu|
       menu.with_item(
