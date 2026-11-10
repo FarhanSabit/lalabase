@@ -110,8 +110,8 @@ RSpec.describe 'Inbox (System)', type: :system, inbox_e2e: true do
     visit inbox_path
     expect(page).to have_css('.inbox-row__title', text: 'Startseite')
 
+    find('[data-fb-search-open-button]').click
     field = find('#inbox-search')
-    field.click
     field.send_keys('Export')
     expect(page).to have_no_css('.inbox-row__title', text: 'Startseite')
     expect(page).to have_css('.inbox-row__title', text: 'Exportfehler')
@@ -128,6 +128,22 @@ RSpec.describe 'Inbox (System)', type: :system, inbox_e2e: true do
     click_link 'Gelesen'
     expect(page).to have_current_path(/search=Start/)
     expect(page).to have_css('.inbox-row__title', text: 'Startseite')
+  end
+
+  # C11 — The search is the ticket list's: a magnifier at the right end of the
+  # tab row that grows into the field and takes the focus; Escape folds an
+  # empty field back, and the focus returns to the magnifier.
+  it 'öffnet die Suche über die Lupe und klappt sie leer mit Escape zu (C11)' do
+    visit inbox_path
+    expect(page).to have_no_css('#inbox-search', visible: true)
+
+    find('[data-fb-search-open-button]').click
+    expect(page).to have_css('#inbox-search', visible: true)
+    expect(page.evaluate_script('document.activeElement.id')).to eq('inbox-search')
+
+    find('#inbox-search').send_keys(:escape)
+    expect(page).to have_no_css('#inbox-search', visible: true)
+    expect(page.evaluate_script("document.activeElement.hasAttribute('data-fb-search-open-button')")).to be(true)
   end
 
   # C2 — The checkbox sits where the unread dot is and shows on hover; from

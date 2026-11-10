@@ -533,10 +533,14 @@
    checkbox, and the actions of the lane head. Calm by design: the only hard
    edge is the ink line above the list. */
 @layer components {
-  .inbox-tools { @apply relative; min-height: 3.25rem; }
-  .inbox-tools .people-search { width: 180px; flex: none; }
-  .inbox-tools .people-filters { @apply gap-0.5; }
-  .inbox-tools .people-pill { @apply whitespace-nowrap; }
+  /* The tools row is the ticket list's bar (NeoFilterBarComponent): the tabs
+     stand on the row's divider (their 2 px ink line lies on it, -mb-px on the
+     strip), tools and search centred at the right end. One row: the tab strip
+     scrolls rather than wrap. */
+  .inbox-tools { @apply relative min-h-[40px] flex-nowrap items-end gap-2 border-b border-divider pb-0; }
+  /* The divider of the bar is the line above the rows; the list's own ink
+     line would stand right under it as a second one. */
+  .inbox-list-column .people-list { border-top-width: 0; }
   .inbox-project__select { @apply w-auto max-w-[11rem] cursor-pointer truncate rounded-full border-0 bg-transparent py-1 pl-3 pr-7 text-[13px] text-heading hover:bg-cream-100 focus:ring-0; background-position: right 0.4rem center; }
   .inbox-project__select--active { @apply font-semibold; background-color: rgb(var(--selected-row)); }
   .inbox-view-mode { @apply ms-auto inline-flex flex-none overflow-hidden rounded-lg border border-cream-200; }

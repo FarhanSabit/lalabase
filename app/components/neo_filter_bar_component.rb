@@ -96,6 +96,12 @@ class NeoFilterBarComponent < ViewComponent::Base
     @keyboard_navigation = keyboard_navigation
   end
 
+  # One owner of the tab's look: the inbox draws its status views with it
+  # (organisations/notifications/_list_tools), without the rest of the bar.
+  def self.tab_classes(active)
+    "#{TAB_BASE_CLASSES} #{active ? TAB_ACTIVE_CLASSES : TAB_INACTIVE_CLASSES}"
+  end
+
   private
 
   attr_reader :smart_folders, :url, :frame_id, :i18n_scope, :all_items_label,
@@ -353,7 +359,7 @@ class NeoFilterBarComponent < ViewComponent::Base
                          'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink'
 
   def tab_classes(active)
-    "#{TAB_BASE_CLASSES} #{active ? TAB_ACTIVE_CLASSES : TAB_INACTIVE_CLASSES}"
+    self.class.tab_classes(active)
   end
 
   # Save form posts to this URL; return_to rides along as a query param. The
