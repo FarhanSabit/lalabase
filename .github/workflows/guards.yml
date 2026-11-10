@@ -326,6 +326,16 @@ jobs:
           spec/services/codebase_import/mapping_organisation_backfill_spec.rb
           spec/services/codebase_import/upload_assignment_service_spec.rb
           spec/requests/inbox_nav_count_stream_spec.rb
+          spec/requests/inbox_banner_and_state_change_spec.rb
+          spec/requests/inbox_pane_flow_spec.rb
+          spec/requests/inbox_url_redirect_spec.rb
+          spec/requests/inbox_bulk_actions_spec.rb
+          spec/requests/inbox_status_filter_spec.rb
+          spec/requests/inbox_pagination_spec.rb
+          spec/presenters/inbox/master_list_presenter_spec.rb
+          spec/components/neo_inbox_master_item_component_spec.rb
+          spec/helpers/inbox_helper_spec.rb
+          spec/system/inbox_spec.rb
           spec/requests/org_switcher_signal_spec.rb
           spec/requests/notifications_avatar_preload_spec.rb
           spec/requests/organisations/archives_spec.rb

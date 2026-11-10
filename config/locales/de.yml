@@ -971,7 +971,7 @@ de:
     distance_in_words:
       # Dativ-Formen: diese Distanzen werden in der App fast ausschliesslich mit
       # "vor %{time}" / "in %{time}" verwendet (Relativzeit) → "vor 5 Tagen",
-      # "vor einem Monat". Siehe SegmentStylesHelper-Nachbarschaft / display_time_ago.
+      # "vor einem Monat". Siehe display_time_ago.
       about_x_hours:
         one: etwa einer Stunde
         other: etwa %{count} Stunden
@@ -1950,34 +1950,6 @@ de:
           account_admin: Account-Admin
           member: Mitglied
         title: Mitgliederverwaltung
-    notifications:
-      index:
-        all_notifications_loaded: Alle Benachrichtigungen geladen
-        all_loaded_short: Alle geladen
-        archive_all: Alle archivieren
-        archive_all_confirm: Alle gelesenen Benachrichtigungen archivieren?
-        loading_more: Lade weitere...
-        loading_short: Lade...
-        mark_all_read: Alle als gelesen markieren
-        mark_all_read_confirm: '%{count} Benachrichtigungen als gelesen markieren?'
-        no_notifications_found: Keine Benachrichtigungen gefunden
-        notifications_count:
-          one: '%{count} Benachrichtigung'
-          other: '%{count} Benachrichtigungen'
-        select_all: Alle auswählen
-        settings: Einstellungen
-        showing_notifications: '%{shown} von %{total} angezeigt'
-        title: Inbox
-        title_mobile: Inbox
-        go_to_ticket: "Ticket"
-        go_to_project: "Projekt"
-        mark_group_read: "Gruppe gelesen"
-        archive_group: "Gruppe archivieren"
-        try_different_filters: Versuchen Sie andere Filter oder setzen Sie sie zurück
-        unread_notifications:
-          one: '%{count} ungelesene Benachrichtigung'
-          other: '%{count} ungelesene Benachrichtigungen'
-        up_to_date: Sie sind auf dem neuesten Stand!
     organisation_settings:
       show:
         title: Domain & Organisation

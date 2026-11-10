@@ -17,7 +17,8 @@ module Inbox
 
     # The three status views the list offers, one at a time. Each is a set of
     # state filters; a URL that names another set (an old bookmark with "read"
-    # alone, say) shows its rows and marks no view as active.
+    # alone, say) shows its rows and marks no view as active, and its empty
+    # list says so (empty_reason :other_filter).
     STATUS_VIEWS = {
       'unread' => %w[unread],
       'all' => %w[read unread],
@@ -27,6 +28,9 @@ module Inbox
     # The headings of the grouped view, newest first: a row stands under the
     # period of its newest notification.
     PERIODS = %i[today yesterday this_week older].freeze
+
+    # What narrows the rows beyond the status view.
+    NARROWING = %i[search project_id event_type].freeze
 
     # The status view a set of state filters names, or nil. No filter at all
     # is the default list (unread and read), so it is "all" as well.
@@ -38,11 +42,13 @@ module Inbox
     end
 
     # The pagy helper needs a class instance that understands `params` and the
-    # `pagy_*` helpers — the controller passes itself.
-    def initialize(pagy_helper:, scope:, params:)
+    # `pagy_*` helpers — the controller passes itself. time_zone: the zone the
+    # reader's days run in (User#time_zone), for the period headings.
+    def initialize(pagy_helper:, scope:, params:, time_zone: Time.zone)
       @pagy_helper = pagy_helper
       @scope = scope
       @params = params
+      @time_zone = time_zone
       compute!
     end
 
@@ -74,19 +80,34 @@ module Inbox
 
     # A search, a project or a type narrows the rows beyond the status view.
     def narrowed?
-      @params[:search].present? || @params[:project_id].present? || @params[:event_type].present?
+      NARROWING.any? { |key| @params[key].present? }
+    end
+
+    # The list state as query parameters, for the links of a list a stream
+    # redraws: the request it answers is an action, so the links cannot read
+    # their filters from its address. Search and project included, or the
+    # first click in a redrawn list would drop both from the address.
+    def query_context
+      context = {}
+      context[:state_filters] = active_state_filters if active_state_filters.any?
+      context[:view_mode] = view_mode unless grouped?
+      NARROWING.each { |key| context[key] = @params[key] if @params[key].present? }
+      context
     end
 
     # Why the list is empty, for the sentence it shows: a narrowed list found
     # nothing, an empty unread view means everything is read (a good state,
-    # not an error), the other views simply hold nothing yet.
+    # not an error), the archive and the whole list simply hold nothing yet.
+    # A set of states that is none of the three views (an old address) is no
+    # empty inbox: its sentence leads to the view that shows everything.
     def empty_reason
       return :no_match if narrowed?
 
       case status_view
       when 'unread' then :all_read
       when 'archived' then :nothing_archived
-      else :nothing_yet
+      when 'all' then :nothing_yet
+      else :other_filter
       end
     end
 
@@ -143,11 +164,13 @@ module Inbox
 
     # { period => representatives } in PERIODS order, empty periods left out.
     # "This week" starts on the week's Monday; yesterday counts as yesterday
-    # even when it was in the previous week.
+    # even when it was in the previous week. The days are the reader's: in
+    # the app zone (UTC) the hour after a Berlin midnight still belongs to the
+    # day before, and all of that day would read "Heute".
     def group_by_period(reps)
-      today = Time.zone.today
+      today = Time.current.in_time_zone(@time_zone).to_date
       grouped = reps.group_by do |notification|
-        date = notification.created_at.in_time_zone.to_date
+        date = notification.created_at.in_time_zone(@time_zone).to_date
         if date >= today then :today
         elsif date == today - 1 then :yesterday
         elsif date >= today.beginning_of_week then :this_week

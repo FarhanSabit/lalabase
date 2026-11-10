@@ -7,7 +7,7 @@
   <%= render 'master_list',
              presenter: presenter,
              selected_notification: @selected_notification,
-             query_context: presenter_query_context(presenter) %>
+             query_context: presenter.query_context %>
 <% end %>
 
 <%# The count in the "Ungelesen" pill of the list head. %>

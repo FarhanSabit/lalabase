@@ -33,6 +33,9 @@
         <% when :no_match %>
           <%= link_to t('views.organisations.notifications.master_list.empty.no_match.link'), inbox_reset_narrowing_url(query: query_context),
                       data: { turbo_frame: '_top' } %>
+        <% when :other_filter %>
+          <%= link_to t('views.organisations.notifications.master_list.empty.other_filter.link'), inbox_status_view_url('all', query: query_context),
+                      data: { turbo_frame: '_top' } %>
         <% end %>
       </p>
     </div>
@@ -42,7 +45,7 @@
         <% presenter.grouped_notifications.each do |period, reps| %>
           <%# data-date-header: the endless scroll drops a leading heading of
               the next page that repeats the last one shown. %>
-          <h3 class="inbox-period" data-date-header="<%= period %>"><%= inbox_period_label(period) %></h3>
+          <h2 class="inbox-period" data-date-header="<%= period %>"><%= inbox_period_label(period) %></h2>
           <% reps.each do |notification| %>
             <div id="<%= dom_id(notification) %>" data-notification-item="<%= notification.id %>">
               <%= render NeoInboxMasterItemComponent.new(

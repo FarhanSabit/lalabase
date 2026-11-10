@@ -99,10 +99,9 @@ class NeoInboxMasterItemComponent < ViewComponent::Base
   # Otherwise → deep link as before (full view).
   def link_url
     if notification.notifiable.is_a?(Ticket)
-      base = @query_context.presence || helpers.request.query_parameters
-      current = base.to_h.with_indifferent_access.except(:notification, :items)
-      current[:notification] = notification.id
-      "#{helpers.organisation_notifications_path(helpers.current_organisation)}?#{current.to_query}"
+      # One builder for every address of the list (InboxHelper): only the
+      # dimensions of the list travel, never a stray key of the address.
+      helpers.inbox_notification_url(notification, query: @query_context.presence)
     else
       helpers.notification_deeplink_path(notification, source: 'inbox')
     end

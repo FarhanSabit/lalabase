@@ -482,6 +482,11 @@ class NeoFilterBarComponent < ViewComponent::Base
   TEXT_ACTION_CLASSES = 'text-xs font-medium text-body underline underline-offset-2 hover:text-heading ' \
                         'focus:outline-none focus-visible:ring-1 focus-visible:ring-ink rounded'
 
+  # An action of a selection row (the ticket list's, the inbox's): the word
+  # above, kept on one line, and quiet while it is disabled.
+  SELECTION_ACTION_CLASSES = "#{TEXT_ACTION_CLASSES} whitespace-nowrap " \
+                             'disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline'.freeze
+
   def filter_bar_labels_json
     {
       no_filter_options: scoped_t('no_filter_options'),

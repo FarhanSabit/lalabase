@@ -93,8 +93,10 @@
   box-shadow: none;
 }
 
-/* --- Inbox ticket pane: hide the column close button in the embedded ticket --- */
-#ticket_pane [data-action*="layout-toggle#closeContent"] {
+/* --- Inbox ticket pane: hide the column close button in the embedded ticket ---
+   Only the ticket's own (inside its frame): the lane head of the inbox
+   carries the one way out, with the same action. */
+#ticket_pane #ticket_display_frame [data-action*="layout-toggle#closeContent"] {
   display: none !important;
 }
 

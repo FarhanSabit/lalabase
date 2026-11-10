@@ -62,17 +62,8 @@ export default class extends Controller {
     
     try {
       const nextPage = this.pageValue + 1
-      const url = new URL(this.urlValue, window.location.origin)
-      url.searchParams.set('page', nextPage)
-      
-      // Preserve existing filters
-      const currentParams = new URLSearchParams(window.location.search)
-      for (const [key, value] of currentParams) {
-        if (key !== 'page') {
-          url.searchParams.set(key, value)
-        }
-      }
-      
+      const url = this.nextPageUrl(nextPage)
+
       const response = await fetch(url, {
         headers: {
           'Accept': 'text/html',
@@ -87,9 +78,11 @@ export default class extends Controller {
         // Get the new items container of the next page.
         const newContainer = doc.querySelector('[data-neo-endless-scroll-target="container"]')
         const newScroller = doc.querySelector('[data-controller~="neo-endless-scroll"]')
-        const appended = newContainer ? this._appendChildren(newContainer) : 0
+        const { found } = newContainer ? this._appendChildren(newContainer) : { found: 0 }
 
-        if (appended > 0) {
+        // The page counts when it HELD rows, shown already or not: a page of
+        // rows that are all on screen (see _appendChildren) is no end of the list.
+        if (found > 0) {
           this.pageValue = nextPage
           // Read hasMore directly from the next page's data attribute
           // (Pagy-driven), instead of looking for .pagy-nav.
@@ -111,30 +104,69 @@ export default class extends Controller {
     }
   }
   
-  // Appends the children of the new container to the existing one.
-  // - The select-all row (data-endless-skip) is skipped.
-  // - A leading date header that matches the last already-visible
-  //   date header is deduplicated (grouped view).
-  // Returns the number of notification items actually appended.
+  // The address of the next page: the list address with every parameter of
+  // the current address, repeated keys included, and the page number.
+  // ⚠️ Not URLSearchParams#set per pair: a repeated key such as
+  // state_filters[]=read&state_filters[]=unread (the "Alle" view of the
+  // inbox) would keep only its last value, and page two would list another
+  // set of rows than page one.
+  nextPageUrl(nextPage) {
+    const url = new URL(this.urlValue, window.location.origin)
+    const currentParams = new URLSearchParams(window.location.search)
+    for (const key of new Set(currentParams.keys())) url.searchParams.delete(key)
+    for (const [key, value] of currentParams) {
+      if (key !== 'page') url.searchParams.append(key, value)
+    }
+    url.searchParams.set('page', nextPage)
+    return url
+  }
+
+  // Appends the children of the new container to the existing one and
+  // returns { found, appended }: the notification items the page held, and
+  // those of them that were new.
+  //
+  // The pages are cut by offset, and the list moves under them: a
+  // notification that arrives after page one was drawn pushes the last row
+  // of page one onto page two. A row that is on screen already is left out,
+  // by its notification id.
+  // A heading (data-date-header: a period key of the grouped view) waits for
+  // its first new row: one that repeats the last heading shown is dropped,
+  // and so is one whose rows were all on screen.
   _appendChildren(newContainer) {
+    const shown = new Set(
+      [...this.containerTarget.querySelectorAll('[data-notification-item]')]
+        .map((item) => item.getAttribute('data-notification-item'))
+    )
     const lastHeader = [...this.containerTarget.querySelectorAll('[data-date-header]')].pop()
     let lastHeaderDate = lastHeader?.getAttribute('data-date-header') || null
-    let appendedItems = 0
+    let waitingHeader = null
+    let found = 0
+    let appended = 0
 
     Array.from(newContainer.children).forEach((child) => {
-      if (child.matches('[data-endless-skip]')) return
-
       if (child.matches('[data-date-header]')) {
-        const date = child.getAttribute('data-date-header')
-        if (date === lastHeaderDate) return // skip the duplicate header
-        lastHeaderDate = date
+        waitingHeader = child.getAttribute('data-date-header') === lastHeaderDate ? null : child
+        return
       }
 
+      const isItem = child.matches('[data-notification-item]')
+      if (isItem) {
+        found += 1
+        const id = child.getAttribute('data-notification-item')
+        if (shown.has(id)) return
+        shown.add(id)
+      }
+
+      if (waitingHeader) {
+        this.containerTarget.appendChild(waitingHeader.cloneNode(true))
+        lastHeaderDate = waitingHeader.getAttribute('data-date-header')
+        waitingHeader = null
+      }
       this.containerTarget.appendChild(child.cloneNode(true))
-      if (child.matches('[data-notification-item]')) appendedItems += 1
+      if (isItem) appended += 1
     })
 
-    return appendedItems
+    return { found, appended }
   }
 
   showLoadingIndicator() {

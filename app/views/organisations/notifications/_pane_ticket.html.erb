@@ -16,12 +16,12 @@
     Pane header shows project eyebrow + status pills (separate partial!).
     See Spec 4.2 — identity through content, context through frame. %>
 <%= turbo_frame_tag 'ticket_pane', class: 'block' do %>
-  <%# "Back to List" + the close-X of the standalone ticket view control the
-      layout-toggle, which does not exist in the pane → hide it here. ONE rule
-      on #ticket_pane instead of Ruby flags through all render paths (Show/Edit/
-      Update via tickets_controller) — applies on every re-render. The
-      cancel-X in the edit header is a real link (not a layout-toggle) and is
-      therefore preserved. %>
+  <%# "Back to List" + the close-X of the standalone ticket view are hidden
+      in the pane: the lane head above carries the one way out. ONE rule on
+      #ticket_pane #ticket_display_frame (views.css) instead of Ruby flags
+      through all render paths (Show/Edit/Update via tickets_controller) —
+      applies on every re-render. The cancel-X in the edit header is a real
+      link (not a layout-toggle) and is therefore preserved. %>
   <%# Delayed mark_as_read: only for a currently unread notification.
       Stimulus fires a PATCH after 5s; the server responds with a
       turbo_stream that only swaps the pills (inbox_pane_status_pills) and the
@@ -35,18 +35,22 @@
 
   <%# ticket-pane-links: a link to another ticket leaves the pane, the head here names this one.
       On this div, not on the frame: a frame load does not copy the frame's own attributes. %>
-  <div data-controller="ticket-pane-links" data-action="click->ticket-pane-links#leave">
+  <%# inbox-lane-content marks LOADED content for layout-toggle and index-page. %>
+  <div class="inbox-lane-content" data-controller="ticket-pane-links" data-action="click->ticket-pane-links#leave">
 
     <%# Lane head: the project as eyebrow, the actions of the notification
-        on the right (separate partial with a stable id, see there). The
-        ticket's own head with its title follows below. %>
+        on the right (separate partial with a stable id, see there) and the
+        way out. The ticket's own head with its title follows below. %>
     <div class="inbox-lane-head">
       <span class="inbox-lane-head__project"><%= @project.name %></span>
-      <%= render 'pane_status_pills',
-                 notification: @selected_notification,
-                 current_organisation: @current_organisation,
-                 project: @project,
-                 ticket: @ticket %>
+      <div class="inbox-lane-head__actions">
+        <%= render 'pane_status_pills',
+                   notification: @selected_notification,
+                   current_organisation: @current_organisation,
+                   project: @project,
+                   ticket: @ticket %>
+        <%= render 'organisations/notifications/pane_close' %>
+      </div>
     </div>
 
     <%# "What was new" block: unread activities of this ticket (context

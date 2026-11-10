@@ -25,6 +25,10 @@ en:
               title: No matches.
               body: No notification matches the search or project.
               link: Clear search and project
+            other_filter:
+              title: No matches.
+              body: This selection is none of the three views.
+              link: Show all notifications
             nothing_archived:
               title: Nothing archived.
               body: What you mark as done ends up here.
@@ -40,6 +44,8 @@ en:
           all_projects: All projects
           view_chronological: Chronological
           view_grouped: Bundled by ticket
+          type_chip: "Type: %{type}"
+          remove_type: Remove type filter
           views:
             unread: Unread
             all: All
@@ -54,7 +60,7 @@ en:
           system_actor: System
           unread_label: Unread
           archived_badge: Archived
-          select_aria: Select notification
+          select_aria: "Select %{title}"
           new_count: "%{count} new"
           bundle_badge_title:
             one: "%{count} update on this ticket"
@@ -83,6 +89,7 @@ en:
           non_ticket_title: This notification opens in the full view
           non_ticket_subtitle: This column shows tickets only.
           open_full_view: Open ticket
+          close: Close
         stats:
           title: Notification Statistics
           description: Overview of your notification activity in this organization

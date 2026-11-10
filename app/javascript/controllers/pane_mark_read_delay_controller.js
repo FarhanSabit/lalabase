@@ -8,7 +8,9 @@ import { Controller } from "@hotwired/stimulus"
 // If the pane still shows the same notification after the time elapses,
 // we fire a PATCH /mark_read. If the pane is closed beforehand
 // (another item opened, navigated elsewhere), the timer is aborted
-// (disconnect).
+// (disconnect). A lane shut in place (its ✕, Escape) hides the ticket by a
+// class on the grid and leaves it in the page, so the timer asks at its end
+// whether the ticket is still in view.
 export default class extends Controller {
   static values = {
     url: String,
@@ -28,6 +30,8 @@ export default class extends Controller {
   }
 
   async markRead() {
+    if (this.element.closest(".layout.hide-content")) return
+
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
     try {
       const response = await fetch(this.urlValue, {

@@ -4,13 +4,27 @@
     Meetings" (NeoTwoColumnGridComponent, lane: true): the list on the
     left, the ticket of the chosen notification in the lane. Without a chosen
     notification the lane is shut and the list takes the width; a click opens
-    it (inbox_master_item_controller). The page keeps its own scripts: no
-    layout-toggle, the list items load the lane frame themselves.
+    it (inbox_master_item_controller loads the frame and writes the address).
+    The lane itself belongs to layout-toggle and index-page, as on those
+    pages: the ✕ of the lane head and Escape shut it and take ?notification=
+    out of the address, Back and Forward restore what the address names.
+    Without them an open lane had no way back, and with the assistant beside
+    it (the list yields to the two, layout.css) there was no list to go to.
     Below lg the grid gives way to a plain page (the inbox block of application.tailwind.css): the list alone,
     a click opens the ticket's full view (spec chapter 4.7). %>
 <% lane_open = @pane_state.present? %>
 
-<div class="labor-layout-view people-page inbox-page">
+<div class="labor-layout-view people-page inbox-page <%= 'show-content' if lane_open %>"
+     data-controller="layout-toggle index-page"
+     data-layout-toggle-detail-frame-id-value="ticket_pane"
+     data-layout-toggle-content-selector-value=".inbox-lane-content"
+     data-layout-toggle-selected-row-selector-value=".selected-row[data-notification-id]"
+     data-layout-toggle-selection-params-value="<%= %w[notification].to_json %>"
+     data-layout-toggle-storage-key-value="layoutState:inbox"
+     data-index-page-param-name-value="notification"
+     data-index-page-frame-id-value="ticket_pane"
+     data-index-page-content-selector-value=".inbox-lane-content"
+     data-index-page-selected-row-selector-value=".selected-row[data-notification-id]">
   <%= render NeoTwoColumnGridComponent.new(
     context_type: :inbox,
     css_classes: "#{lane_open ? 'show-content' : 'hide-content'} hide-panel",

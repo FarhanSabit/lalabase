@@ -1862,34 +1862,6 @@ en:
           name: Name
           role: Role
         title: Member Management
-    notifications:
-      index:
-        all_notifications_loaded: All notifications loaded
-        all_loaded_short: All loaded
-        archive_all: Archive all
-        archive_all_confirm: Archive all read notifications?
-        loading_more: Loading more...
-        loading_short: Loading...
-        mark_all_read: Mark all as read
-        mark_all_read_confirm: 'Mark %{count} notifications as read?'
-        no_notifications_found: No notifications found
-        notifications_count:
-          one: '%{count} notification'
-          other: '%{count} notifications'
-        select_all: Select all
-        settings: Settings
-        showing_notifications: '%{shown} of %{total} shown'
-        title: Inbox
-        title_mobile: Inbox
-        go_to_ticket: "Ticket"
-        go_to_project: "Project"
-        mark_group_read: "Mark group read"
-        archive_group: "Archive group"
-        try_different_filters: Try different filters or reset them
-        unread_notifications:
-          one: '%{count} unread notification'
-          other: '%{count} unread notifications'
-        up_to_date: You are up to date!
     organisation_settings:
       show:
         title: Domain & Organisation

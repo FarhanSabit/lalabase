@@ -3,19 +3,20 @@
      data-notification-id="<%= notification.id %>">
   <%# The gutter holds the unread dot and, in the same place, the bulk
       checkbox: the checkbox shows on hover and while rows are selected
-      (inbox block of application.tailwind.css), the dot otherwise. %>
-  <div class="inbox-row__gutter">
+      (inbox block of application.tailwind.css), the dot otherwise. A label,
+      so that a click or a tap beside the small box counts as well. %>
+  <label class="inbox-row__gutter">
     <% if unread? %>
       <%= render Neo::UnreadMarkerComponent.new(count: 1, variant: :dot, class: 'inbox-row__dot',
                                                 label: t('views.organisations.notifications.item.unread_label')) %>
     <% end %>
     <input type="checkbox"
            class="inbox-row__check"
-           aria-label="<%= t('views.organisations.notifications.item.select_aria') %>"
+           aria-label="<%= t('views.organisations.notifications.item.select_aria', title: notifiable_title.presence || event_label) %>"
            data-inbox-bulk-select-target="checkbox"
            data-notification-id="<%= notification.id %>"
            data-action="change->inbox-bulk-select#toggle click->inbox-bulk-select#stopRowClick">
-  </div>
+  </label>
 
   <%# Clickable main area: for ticket notifications the lane loads by
       turbo-frame, otherwise a full navigation. The ticket comes first (what

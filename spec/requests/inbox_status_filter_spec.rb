@@ -2,8 +2,10 @@
 
 require 'rails_helper'
 
-# Multi-select status filter in the inbox (pill UI, see
-# NeoNotificationFilterComponent + Controller#index). Behavior:
+# Status filter of the inbox (Controller#index). The list head offers one
+# view at a time (Inbox::MasterListPresenter::STATUS_VIEWS, rendered by
+# organisations/notifications/_list_head), the controller still accepts a
+# union. Behavior:
 #
 # - No selection      → default inbox view: everything EXCEPT archived.
 # - state_filters[]=unread      → only unread (queued/sent/delivered).

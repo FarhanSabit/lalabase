@@ -161,6 +161,92 @@ RSpec.describe 'Inbox (System)', type: :system, inbox_e2e: true do
     expect(page).to have_current_path(/state_filters/)
   end
 
+  # L1 — The lane has a way out. The ✕ of its head shuts it in place, takes the
+  # open notification out of the address and the tint off its row; Back opens
+  # the ticket again. Until then an open lane could only be left by leaving
+  # the page, and with the assistant beside it the list was gone.
+  it 'schließt die Bahn über das ✕ und öffnet sie mit Zurück wieder (L1)' do
+    ticket = ActsAsTenant.with_tenant(organisation) { create(:ticket, project: project, title: 'Bahn-Ticket') }
+    n = create_notification(state: :read, ticket: ticket)
+
+    visit inbox_path(state_filters: %w[read unread])
+    expect(page).to have_css('.layout.hide-content')
+    find("[data-notification-item='#{n.id}'] a.inbox-row__link").click
+
+    expect(page).to have_css('#ticket_pane', text: 'Bahn-Ticket')
+    expect(page).to have_css('.layout.show-content')
+    expect(page).to have_css("[data-notification-item='#{n.id}'] .inbox-row.selected-row")
+    expect(page).to have_current_path(/notification=#{n.id}/)
+
+    find('#ticket_pane [data-lane-close]').click
+
+    expect(page).to have_css('.layout.hide-content')
+    expect(page).to have_no_css('.inbox-row.selected-row')
+    expect(page).to have_no_current_path(/notification=/)
+    expect(page).to have_current_path(/state_filters/)
+
+    page.go_back
+
+    expect(page).to have_css('.layout.show-content')
+    expect(page).to have_css('#ticket_pane', text: 'Bahn-Ticket')
+    expect(page).to have_css("[data-notification-item='#{n.id}'] .inbox-row.selected-row")
+  end
+
+  # L2 — Escape shuts the lane, as on the other list pages.
+  it 'schließt die Bahn mit Escape (L2)' do
+    ticket = ActsAsTenant.with_tenant(organisation) { create(:ticket, project: project, title: 'Escape-Ticket') }
+    n = create_notification(state: :read, ticket: ticket)
+
+    visit inbox_path(state_filters: %w[read unread], notification: n.id)
+    expect(page).to have_css('.layout.show-content')
+    expect(page).to have_css('#ticket_pane', text: 'Escape-Ticket')
+
+    find('body').send_keys(:escape)
+
+    expect(page).to have_css('.layout.hide-content')
+    expect(page).to have_no_current_path(/notification=/)
+  end
+
+  # L3 — A lane shut before the five seconds are up leaves the notification
+  # unread: the ticket is hidden by a class and stays in the page, so the
+  # timer asks whether it is still in view.
+  it 'markiert nicht als gelesen, wenn die Bahn vor Ablauf der Frist geschlossen wurde (L3)' do
+    ticket = ActsAsTenant.with_tenant(organisation) { create(:ticket, project: project, title: 'Kurzer Blick') }
+    n = create_notification(state: :delivered, ticket: ticket)
+
+    visit inbox_path(state_filters: ['unread'])
+    find("[data-notification-item='#{n.id}'] a.inbox-row__link").click
+    expect(page).to have_css('#ticket_pane', text: 'Kurzer Blick')
+    find('#ticket_pane [data-lane-close]').click
+    expect(page).to have_css('.layout.hide-content')
+
+    sleep 6.5 # past the 5s timer of the hidden ticket
+    expect(n.reload.state).to eq('delivered')
+    expect(page).to have_css("[data-notification-item='#{n.id}']")
+  end
+
+  # C8 — A stream redraws the list while a selection stands (the delayed
+  # mark-read of the open ticket). The tick and the count stay with the row.
+  it 'behält die Auswahl, wenn ein Stream die Liste neu zeichnet (C8)' do
+    opened_ticket, ticked_ticket = ActsAsTenant.with_tenant(organisation) { create_list(:ticket, 2, project: project) }
+    opened = create_notification(state: :delivered, ticket: opened_ticket, created_at: 1.hour.ago)
+    ticked = create_notification(state: :delivered, ticket: ticked_ticket, created_at: 2.hours.ago)
+
+    visit inbox_path(state_filters: %w[read unread], view_mode: 'chronological')
+    find("[data-notification-item='#{ticked.id}'] .inbox-row").hover
+    find("[data-notification-item='#{ticked.id}'] .inbox-row__check").check
+    expect(page).to have_css('[data-inbox-bulk-select-target="count"]', text: '1')
+
+    find("[data-notification-item='#{opened.id}'] a.inbox-row__link").click
+    # The delayed mark-read answers with the whole list: the opened row comes back read.
+    expect(page).to have_no_css("[data-notification-item='#{opened.id}'] .inbox-row--unread", wait: 9)
+
+    expect(page).to have_checked_field(class: 'inbox-row__check', count: 1)
+    expect(find("[data-notification-item='#{ticked.id}'] .inbox-row__check")).to be_checked
+    expect(page).to have_css("[data-notification-item='#{ticked.id}'] .inbox-row--checked")
+    expect(page).to have_css('[data-inbox-bulk-select-target="count"]', text: '1')
+  end
+
   # F4 — Endless scroll loads further pages, no duplicates.
   it 'lädt weitere Seiten via Endless-Scroll nach (F4)' do
     ticket = ActsAsTenant.with_tenant(organisation) { create(:ticket, project: project) }

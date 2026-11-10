@@ -545,8 +545,11 @@
 
   /* The selection row lies over the tools row (same box, the page's own
      surface), so the list never moves. Its text sits on the tools' last line,
-     right above the ink line. */
-  .inbox-bulk { @apply absolute inset-x-6 bottom-0 top-0 z-20 flex items-end gap-3 bg-cream-50 pb-3 text-[13px] text-muted; }
+     right above the ink line. Beside an open lane the list is narrow: the
+     tools wrap then, and so does this row, upwards into the lines the tools
+     have made (it is always shorter than they are), instead of running out
+     of the column with the way out at its end. */
+  .inbox-bulk { @apply absolute inset-x-6 bottom-0 top-0 z-20 flex flex-wrap content-end items-baseline gap-x-3 gap-y-1 bg-cream-50 pb-3 text-[13px] text-muted; }
   .inbox-bulk.hidden { display: none; }
 
   /* Period headings of the grouped view: a quiet word, not a bar. */
@@ -558,13 +561,25 @@
   .inbox-row__gutter { @apply relative h-[1.125rem] w-4 flex-none; }
   .inbox-row__dot { @apply absolute left-1 top-[5px]; }
   .inbox-row__check { @apply absolute left-0 top-px hidden h-4 w-4 cursor-pointer rounded border-2 border-stroke; }
-  .inbox-row:hover .inbox-row__check, .inbox-selecting .inbox-row__check { display: block; }
-  .inbox-row:hover .inbox-row__dot, .inbox-selecting .inbox-row__dot { display: none; }
+  /* The checkbox shows on hover, while the row's link has focus (the keyboard's
+     hover: Shift+Tab reaches it), and in selection mode. */
+  .inbox-row:hover .inbox-row__check, .inbox-row:focus-within .inbox-row__check, .inbox-selecting .inbox-row__check { display: block; }
+  .inbox-row:hover .inbox-row__dot, .inbox-row:focus-within .inbox-row__dot, .inbox-selecting .inbox-row__dot { display: none; }
   @media (hover: none) {
     .inbox-row:hover .inbox-row__check { display: none; }
     .inbox-row:hover .inbox-row__dot { display: block; }
     .inbox-selecting .inbox-row .inbox-row__check { display: block; }
     .inbox-selecting .inbox-row .inbox-row__dot { display: none; }
+    /* The gutter is the checkbox's label. Without hover it takes a tap only
+       while rows are selected: a tap on the unread dot must not start a
+       selection. */
+    .inbox-row__gutter { pointer-events: none; }
+    .inbox-selecting .inbox-row__gutter { pointer-events: auto; }
+  }
+  /* A finger needs more than the 16px box: while rows are selected the label
+     reaches 44px around it. */
+  @media (pointer: coarse) {
+    .inbox-selecting .inbox-row__gutter::after { content: ''; @apply absolute -inset-3.5; }
   }
   .inbox-row__link { @apply flex min-w-0 flex-1 flex-col gap-0.5 text-heading no-underline; }
   .inbox-row__line { @apply flex min-w-0 items-baseline gap-2.5; }
@@ -590,6 +605,9 @@
   .inbox-lane-hint { @apply text-[13px] text-muted; }
   .inbox-lane-head { @apply mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-cream-200 pb-3; }
   .inbox-lane-head__project { @apply min-w-0 truncate font-mono text-xs uppercase tracking-wider text-muted; }
+  .inbox-lane-head__actions { @apply flex flex-none items-center gap-1; }
+  .inbox-lane-head__actions--alone { @apply justify-end; }
+  .inbox-lane-head__actions--alone .people-lane__divider { display: none; }
   .inbox-lane-actions { @apply flex flex-none items-center gap-2; }
   .inbox-lane-actions__open { @apply me-1 inline-flex items-center gap-1.5 text-xs text-muted no-underline hover:text-heading; }
   .inbox-lane-actions__icon { @apply inline-flex h-8 w-8 items-center justify-center rounded-lg border border-cream-300 bg-surface-raised text-cream-700 hover:border-ink hover:text-heading; }
