@@ -1,8 +1,10 @@
-<%# The actions of the open notification in the lane head: "Erledigt"
-    archives it (the row leaves the list, the ticket stays open here, no jump
-    to the next one), an icon flips read and unread, and an archived one
-    offers the way back into the inbox. Then the link to the ticket's full
-    view.
+<%# The head of the open notification in the lane: the link to the ticket's
+    full view, then the actions on the notification in words ("Als gelesen" /
+    "Als ungelesen", "Archivieren"; archived: "Zurück in die Inbox"), the same
+    as in the "···" menu of its row (_notification_actions). Archiving keeps
+    the ticket open here, the row leaves the list, no jump to the next one.
+    The buttons share one form (F2: same height, same light edge): neither is
+    the main action of the lane.
     Stable id "inbox_pane_status_pills": a state change swaps only this
     small area, never the whole lane (an open reply form would be lost).
     Locals: notification, current_organisation, project, ticket. %>
@@ -12,28 +14,6 @@
     <%= t('views.organisations.notifications.pane.open_full_view') %>
     <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
   <% end %>
-
-  <% if notification.state_archived? %>
-    <%= button_to unarchive_organisation_notification_path(current_organisation, notification),
-                  method: :patch, form: { data: { turbo_frame: '_top' }, class: 'contents' },
-                  class: 'inbox-lane-actions__button' do %>
-      <i class="bi bi-inbox" aria-hidden="true"></i>
-      <%= t('views.organisations.notifications.pane.unarchive') %>
-    <% end %>
-  <% else %>
-    <% read = notification.state_read? %>
-    <% flip_label = t(read ? 'views.organisations.notifications.pane.mark_unread' : 'views.organisations.notifications.pane.mark_read') %>
-    <%= button_to (read ? mark_unread_organisation_notification_path(current_organisation, notification)
-                        : mark_read_organisation_notification_path(current_organisation, notification)),
-                  method: :patch, form: { data: { turbo_frame: '_top' }, class: 'contents' },
-                  class: 'inbox-lane-actions__icon', title: flip_label, 'aria-label': flip_label do %>
-      <i class="bi bi-<%= read ? 'envelope' : 'envelope-open' %>" aria-hidden="true"></i>
-    <% end %>
-    <%= button_to archive_organisation_notification_path(current_organisation, notification),
-                  method: :patch, form: { data: { turbo_frame: '_top' }, class: 'contents' },
-                  class: 'inbox-lane-actions__button' do %>
-      <i class="bi bi-archive" aria-hidden="true"></i>
-      <%= t('views.organisations.notifications.pane.done') %>
-    <% end %>
-  <% end %>
+  <%= render 'organisations/notifications/notification_actions',
+             notification: notification, button_class: 'inbox-lane-actions__button', icons: true %>
 </div>

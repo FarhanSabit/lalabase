@@ -103,11 +103,12 @@ export default class extends Controller {
   }
 
   // The way out. Focus that sat in the bar would be lost with it, so it goes
-  // back to the "···" trigger the mode was entered from (a summary: the "?"
-  // beside it wears the same class, as a button).
+  // back to the "···" trigger of the head the mode was entered from (a
+  // summary in the head: the "?" beside it wears the same class as a button,
+  // and every row has a "···" of its own).
   clear() {
     if (this.hasBarTarget && this.barTarget.contains(document.activeElement)) {
-      this.element.querySelector("summary.more-menu__trigger")?.focus()
+      this.element.querySelector(".people-head summary.more-menu__trigger")?.focus()
     }
     this.checkboxTargets.forEach((cb) => { cb.checked = false })
     this.selectedIdsValue = []

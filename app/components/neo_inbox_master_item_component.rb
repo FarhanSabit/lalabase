@@ -139,6 +139,11 @@ class NeoInboxMasterItemComponent < ViewComponent::Base
     end
   end
 
+  # The name of the row's "···": which notification its actions act on.
+  def menu_label
+    t('views.organisations.notifications.item.actions_for', title: notifiable_title.presence || event_label)
+  end
+
   # The look lives in the inbox block of application.tailwind.css, the row
   # only names its state: unread (bold title), archived (muted), selected
   # (the shared selected-row tint).

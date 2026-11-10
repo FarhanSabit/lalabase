@@ -1,0 +1,29 @@
+<%# locals: (notification:, button_class: nil, icons: false) %>
+<%# The actions on one notification, in the inbox's own words: the status
+    views say "Archiviert", the bulk bar "Als gelesen" and "Archivieren".
+    One owner for the head of the lane and the "···" menu of a row
+    (spec/requests/inbox_row_actions_spec.rb). Every action acts on the whole
+    ticket of the row (cascade in NotificationsController), except "Als
+    ungelesen", which flips only this one back.
+    The answer is a stream (update.turbo_stream.erb); it keeps the list
+    state and the open lane from the page's address (the referrer). %>
+<% form = { data: { turbo_frame: '_top' }, class: 'contents' } %>
+<% if notification.state_archived? %>
+  <%= button_to unarchive_organisation_notification_path(current_organisation, notification),
+                method: :patch, form: form, class: button_class do %>
+    <% if icons %><i class="bi bi-inbox" aria-hidden="true"></i><% end %>
+    <%= t('views.organisations.notifications.actions.unarchive') %>
+  <% end %>
+<% else %>
+  <% read = notification.state_read? %>
+  <%= button_to (read ? mark_unread_organisation_notification_path(current_organisation, notification)
+                      : mark_read_organisation_notification_path(current_organisation, notification)),
+                method: :patch, form: form, class: button_class do %>
+    <%= t(read ? 'views.organisations.notifications.actions.mark_unread' : 'views.organisations.notifications.actions.mark_read') %>
+  <% end %>
+  <%= button_to archive_organisation_notification_path(current_organisation, notification),
+                method: :patch, form: form, class: button_class do %>
+    <% if icons %><i class="bi bi-archive" aria-hidden="true"></i><% end %>
+    <%= t('views.organisations.notifications.actions.archive') %>
+  <% end %>
+<% end %>
