@@ -3,15 +3,14 @@
     transcription of meetings, so it is reached from the head of the meetings
     pages ("Alle Meetings" and a project's meetings), not from the sidebar.
     Only for those who may read it (GlossaryPolicy). A link of the whole page:
-    the head stands beside frames, and the glossary is a page of its own. %>
+    the head stands beside frames, and the glossary is a page of its own.
+    It leads to another page, so it is a word in cobalt (F5 of the
+    Belegungstabelle), not a framed button: F2 is for an action. h-8 keeps it
+    on the line of the head buttons beside it (F40). %>
 <% if policy(GlossaryTerm).index? %>
-  <%= render Neo::Buttons::ButtonComponent.new(
-    variant: :secondary,
-    size: :medium,
-    icon: 'book',
-    url: organisation_glossary_terms_path(@current_organisation),
-    data: { turbo_frame: '_top', meetings_glossary_link: true }
-  ) do %>
-    <%= t('navigation.glossary') %>
-  <% end %>
+  <%= link_to t('navigation.glossary'),
+              organisation_glossary_terms_path(@current_organisation),
+              class: 'inline-flex h-8 items-center rounded px-1 text-sm text-info no-underline ' \
+                     'hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info',
+              data: { turbo_frame: '_top', meetings_glossary_link: true } %>
 <% end %>

@@ -293,6 +293,22 @@ RSpec.describe 'Organisations::Glossary', :ci_guard, type: :request do
       end
     end
 
+    # It leads to another page, so it is a word in cobalt (F5 of the
+    # Belegungstabelle), not a framed button (F2 is for an action). Until
+    # 2026-11-10 it was the one framed text button in the head.
+    it 'is a link in words, not a framed button' do
+      sign_in meetings_reader('view_glossary')
+
+      meetings_pages.each do |path|
+        get path
+        link = Nokogiri::HTML(response.body).at_css('a[data-meetings-glossary-link]')
+        classes = link['class'].to_s.split
+        expect(classes).to include('text-info'), "not a cobalt word on #{path}"
+        expect(classes.grep(/\Aborder/)).to be_empty, "framed on #{path}"
+        expect(link.text.strip).to eq(I18n.t('navigation.glossary'))
+      end
+    end
+
     it 'shows no link on either meetings page without the glossary right' do
       sign_in meetings_reader
 

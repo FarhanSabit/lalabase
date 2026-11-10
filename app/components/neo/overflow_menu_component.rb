@@ -30,18 +30,27 @@ module Neo
       end
     }
 
-    # size: forwarded to the trigger IconButtonComponent. Defaults to :medium for
-    # the original "..." overflow; the contextual-help "?" passes :large so it
-    # matches the h-10 header buttons (Zeit/Chat/view-toggle) it sits next to.
-    def initialize(icon: 'three-dots', trigger_label_key: 'components.overflow_menu.label', size: :medium)
+    # size: forwarded to the trigger IconButtonComponent (:medium = 32 px, the
+    # head button height; :large = 40 px, beside the view switch). The caller
+    # picks the height of the row the trigger stands in (F40).
+    # quiet: true drops the icon button for the small borderless trigger of the
+    # rows whose tools are all small (`.more-menu__trigger`, inbox and members):
+    # there a bigger box beside a 28 px "···" read as a different control.
+    def initialize(icon: 'three-dots', trigger_label_key: 'components.overflow_menu.label', size: :medium,
+                   quiet: false)
       super()
       @icon = icon
       @trigger_label_key = trigger_label_key
       @size = size
+      @quiet = quiet
     end
 
     def render?
       items.any?
+    end
+
+    def quiet?
+      @quiet
     end
 
     attr_reader :icon, :trigger_label_key, :size

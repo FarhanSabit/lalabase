@@ -19,7 +19,7 @@
           <button type="submit" class="members-more" title="<%= t('member_management.search') %>" aria-label="<%= t('member_management.search') %>"><i class="bi bi-search" aria-hidden="true"></i></button>
         <% end %>
       <% end %>
-      <%= render 'common/contextual_help_menu', context: :settings_members %>
+      <%= render 'common/contextual_help_menu', context: :settings_members, quiet: true %>
       <% if can_manage_members %>
         <%= link_to t('views.organisations.access_matrix.link'), organisation_access_matrix_index_path(@current_organisation), class: 'members-text-action', data: { turbo_frame: '_top' } %>
         <%= link_to t('member_management.invite'), new_organisation_invitation_path(@current_organisation), class: 'members-invite', data: { turbo_frame: '_top' } %>

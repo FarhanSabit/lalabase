@@ -102,7 +102,7 @@ RSpec.describe 'Inbox (System)', type: :system, inbox_e2e: true do
     n = create_notification(state: :delivered, ticket: ticket)
 
     visit inbox_path(state_filters: ['unread'])
-    find('.more-menu__trigger').click
+    find('summary.more-menu__trigger').click
     click_button('Auswählen')
 
     within('[data-inbox-bulk-select-target="bar"]') do
