@@ -361,6 +361,12 @@ die Sidebar-Zeile liegt in der Navigation. Damit sind sie NICHT im selben Stimul
   späte Antwort rendern oder einen Timer starten. Versteckte Tabs senden keine Anfrage.
   Kein Broadcast, die Rechte bleiben in der View (Form von
   `meeting_section_sync`, node-Tests).
+  Zweiter Aufrufer seit K5c (09.11.2026): der Glossar-Knopf in der Bahn eines Dokuments
+  (`documents#glossary_source`), solange Text fehlt oder ein anderer Lauf aktiv ist. Value
+  `maxWait` begrenzt das Warten auf Text (10 min, Wiederholungen eingeschlossen); die Frist liegt
+  im `dataset` des äußeren Frames, weil jede Antwort den Controller selbst ersetzt und eine Frist
+  am Controller bei jedem `connect` neu begänne. Ein Fragment ohne `maxWait` (Lauf aktiv, Text da)
+  löscht sie wieder.
 * Die Grenzen des lebenden Knotens stehen in `doc/persoenlicher_assistent_plan.md` §7.7.
   Kurzform: Org-Wechsel und globale Suche sind `turbo: false`, und
   `knowledge/index.html.erb` trägt `<meta name="turbo-visit-control" content="reload">` —

@@ -17,6 +17,8 @@
 .mobile-sheet-head h2 { font-size: 20px; font-weight: 650; }
 .mobile-icon { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex-shrink: 0; font-size: 20px; border-radius: 9px; }
 .mobile-primary { background: rgb(var(--btn-primary)); border: 1px solid rgb(var(--ink)); border-radius: 9px; box-shadow: 2px 2px 0 rgb(var(--ink)); font-weight: 650; }
+/* D3: the dark theme has no hard shadow. */
+.dark .mobile-primary { box-shadow: none; }
 .mobile-primary:disabled { opacity: .5; }
 [hidden].mobile-selection-head, [hidden].mobile-bottom-actions, [hidden].mobile-bottom-links, [hidden].mobile-header { display: none; }
 @media screen and (width < 1024px) {

@@ -1914,6 +1914,10 @@ main:has(.layout) > div {
   transform: translate(-2px, -3px);
   box-shadow: 4px 6px 0 -1px rgba(35, 34, 30, 0.16);
 }
+/* D3: the dark theme has no hard shadow. */
+.dark .kanban-card.kanban-carried {
+  box-shadow: none;
+}
 
 /* What stays where the card was: the card itself at 55% with the plain
    edge, so one sees WHAT is missing, not an empty box. kanban-ghost is

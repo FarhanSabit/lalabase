@@ -26,15 +26,25 @@
 #   today; MAX_AI_CALLS is the net should those numbers change). The partial
 #   unique index one_active_glossary_extraction_run still catches a start that
 #   raced past the check: :run_active.
+# * With a document_version (K5c, the button in the lane of a document): a run
+#   over that one version, scope kind document. Under the same lock, after
+#   manage_glossary: the version read again in this organisation, the read right
+#   on its document (DocumentPolicy#show?, else :forbidden in words of its own),
+#   then the version must still be the document's current one and have text
+#   (DocumentVersion#text_available?, the rule the button and the run read), else
+#   :document_unavailable. One active run whatever its kind, the stale rule and
+#   the AI gate as above; everything means nothing here. Without a version the
+#   run is over the organisation: a caller never passes a document's nil.
 # * The job only after the commit, under the run's job id; an enqueue that fails
 #   ends the run (Glossary::ExtractionJob.enqueue_run).
 module Actors
   class StartGlossaryExtraction < BaseActor
-    def initialize(organisation:, current_user:, everything: false)
+    def initialize(organisation:, current_user:, everything: false, document_version: nil)
       super()
       @organisation = organisation
       @current_user = current_user
       @everything = everything == true
+      @document_version = document_version
       @run = nil
     end
 
@@ -45,6 +55,7 @@ module Actors
     def perform
       @organisation.lock!
       refuse(:forbidden) unless GlossaryPolicy.manage_allowed?(current_user, @organisation)
+      check_document_version if @document_version
 
       end_stale_runs
       refuse(:run_active) if runs.where(status: GlossaryExtractionRun::ACTIVE_STATUSES).exists?
@@ -71,6 +82,24 @@ module Actors
       GlossaryExtractionRun.where(organisation_id: @organisation.id)
     end
 
+    # The version as it is stored now, in this organisation; its document must
+    # be readable by the starter, then current and with text. Rights before
+    # state, so a refusal for a starter without the read right says nothing
+    # about the version.
+    def check_document_version
+      version = DocumentVersion.find_by(organisation_id: @organisation.id, id: @document_version.id)
+      document = version && Document.find_by(organisation_id: @organisation.id, id: version.document_id)
+      refuse(:document_unavailable) unless document
+      refuse(:forbidden, I18n.t('controllers.glossary.runs.document_forbidden')) unless DocumentPolicy.new(current_user, document).show?
+      refuse(:document_unavailable) unless document.current_version_id == version.id && version.text_available?
+    end
+
+    def run_scope
+      return { 'kind' => Glossary::Extraction::KIND, 'everything' => @everything, 'since' => nil } unless @document_version
+
+      { 'kind' => GlossaryExtractionRun::DOCUMENT_KIND, 'document_version_id' => @document_version.id, 'since' => nil }
+    end
+
     # By the row: a run that moved or ended in the meantime keeps its state.
     def end_stale_runs
       runs.where(status: GlossaryExtractionRun::ACTIVE_STATUSES).find_each do |run|
@@ -82,8 +111,7 @@ module Actors
     # one active run per organisation.
     def create_run
       GlossaryExtractionRun.create!(
-        organisation: @organisation, started_by: current_user, status: 'queued', job_id: SecureRandom.uuid,
-        scope: { 'kind' => Glossary::Extraction::KIND, 'everything' => @everything, 'since' => nil }
+        organisation: @organisation, started_by: current_user, status: 'queued', job_id: SecureRandom.uuid, scope: run_scope
       )
     rescue ActiveRecord::RecordNotUnique
       refuse(:run_active)

@@ -363,8 +363,9 @@ RSpec.describe Neo::Buttons::ButtonComponent, type: :component do
       rendered_component
 
       expect(page).to have_css('button.bg-btn-primary.text-ink.border.border-ink.rounded-lg')
-      expect(page).to have_css('button.shadow-\\[2px_2px_0_0_rgb\\(var\\(--ink\\)\\)\\]')
-      expect(page).to have_css('button.hover\\:shadow-\\[3px_3px_0_0_rgb\\(var\\(--ink\\)\\)\\]')
+      expect(page).to have_css('button.shadow-press')
+      expect(page).to have_css('button.hover\\:shadow-press-hover')
+      expect(page).to have_no_css('button[class*="shadow-["]')
       expect(page).to have_css('button.active\\:shadow-none.active\\:translate-x-\\[2px\\]')
       expect(page).to have_css('button.focus-visible\\:outline-ink.focus-visible\\:outline-offset-\\[3px\\]')
       expect(page).to have_css('button.h-8.px-\\[14px\\].text-\\[13px\\].font-semibold')

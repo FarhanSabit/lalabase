@@ -264,7 +264,8 @@ RSpec.describe GlossaryExtractionRun, :ci_guard, type: :model do
 
     it 'knows the error codes, and no code is fine' do
       expect(described_class::ERROR_CODES).to eq(%w[starter_inactive ai_unavailable ai_disabled not_configured quota_exceeded
-                                                    invalid_key provider_error parse_error interrupted stale internal_error])
+                                                    invalid_key provider_error parse_error interrupted stale internal_error
+                                                    document_unavailable])
       described_class::ERROR_CODES.each { |code| expect(built_with(error_code: code)).to be_valid }
       expect(built_with(error_code: nil)).to be_valid
 
@@ -273,11 +274,11 @@ RSpec.describe GlossaryExtractionRun, :ci_guard, type: :model do
       expect(unknown.errors.details[:error_code]).to include(a_hash_including(error: :inclusion))
     end
 
-    it 'knows one scope kind for now, the whole organisation' do
-      expect(described_class::SCOPE_KINDS).to eq(%w[organisation])
+    it 'knows two scope kinds, the whole organisation and one document, and no other' do
+      expect(described_class::SCOPE_KINDS).to eq(%w[organisation document])
       expect(built_with(scope: { 'kind' => 'organisation' })).to be_valid
 
-      [{ 'kind' => 'document' }, {}, ['organisation'], nil].each do |scope|
+      [{ 'kind' => 'ticket' }, {}, ['organisation'], nil].each do |scope|
         run = built_with(scope: scope)
         expect(run).not_to be_valid, scope.inspect
         expect(run.errors.details[:scope]).to include(a_hash_including(error: :inclusion))
@@ -295,6 +296,73 @@ RSpec.describe GlossaryExtractionRun, :ci_guard, type: :model do
 
     it 'starts with empty stats' do
       expect(described_class.new.stats).to eq({})
+    end
+  end
+
+  # K5c: a run over one document reads the version its scope names. The
+  # version is a row of an organisation, so the run holds it to its own, read
+  # without the tenant's scope (the rule of TermCorrection).
+  describe 'a run over one document' do
+    let(:project) { create(:project, organisation: organisation) }
+
+    def version_in(owner, project)
+      document = create(:document, organisation: owner, project: project)
+      create(:document_version, organisation: owner, document: document, title: 'Zorbel-Handbuch')
+    end
+
+    let(:version) { version_in(organisation, project) }
+
+    def document_scope(version_id)
+      { 'kind' => 'document', 'document_version_id' => version_id, 'since' => nil }
+    end
+
+    it 'names a version of its own organisation' do
+      run = built_with(scope: document_scope(version.id))
+
+      expect(run).to be_valid
+      expect(run).to be_document
+      expect(run.document_version_id).to eq(version.id)
+      expect(run).not_to be_everything
+    end
+
+    it 'needs a version: none, an empty or malformed id, or the id of no row is no document run' do
+      Prosopite.pause do
+        [document_scope(nil), document_scope(''), { 'kind' => 'document' }, document_scope(SecureRandom.uuid),
+         document_scope('zorbel'), document_scope(['zorbel'])].each do |scope|
+          run = built_with(scope: scope)
+          expect(run).not_to be_valid, scope.inspect
+          expect(run.errors.details[:scope]).to include(a_hash_including(error: :invalid))
+        end
+      end
+    end
+
+    it 'refuses a version of another organisation, also when no tenant is set' do
+      foreign = ActsAsTenant.with_tenant(other_organisation) do
+        version_in(other_organisation, create(:project, organisation: other_organisation))
+      end
+
+      expect(built_with(scope: document_scope(foreign.id))).not_to be_valid
+      ActsAsTenant.without_tenant do
+        run = described_class.new(organisation: organisation, job_id: 'zorbel-job', scope: document_scope(foreign.id))
+        expect(run).not_to be_valid
+        expect(run.errors.details[:scope]).to include(a_hash_including(error: :invalid))
+      end
+    end
+
+    it 'lets a run over the organisation name no version' do
+      run = built_with(scope: { 'kind' => 'organisation', 'everything' => true, 'document_version_id' => version.id })
+
+      expect(run).not_to be_valid
+      expect(run.errors.details[:scope]).to include(a_hash_including(error: :invalid))
+      expect(built_with(scope: { 'kind' => 'organisation', 'document_version_id' => nil })).to be_valid
+    end
+
+    it 'is no document run over the organisation, and names no version there' do
+      run = built_with(scope: { 'kind' => 'organisation', 'everything' => true })
+
+      expect(run).not_to be_document
+      expect(run.document_version_id).to be_nil
+      expect(described_class.new(scope: nil)).not_to be_document
     end
   end
 

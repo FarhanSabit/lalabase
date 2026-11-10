@@ -83,6 +83,10 @@ en:
         forbidden: "Only someone who keeps the glossary can search for proposals."
         run_active: "The search for proposals is already running. Please wait until it is done."
         success: "The search for proposals is running. The review list will fill up shortly."
+        # A run over one document (K5c): the starter may not read it, or the
+        # version is not the current one any more, or it has no text.
+        document_forbidden: "You may not read this document."
+        document_unavailable: "The document has changed or has no readable text. Reload the page and try again."
   views:
     organisations:
       glossary:
@@ -306,3 +310,12 @@ en:
         heard_origins:
           extraction: "from extraction"
           import: "from an import"
+        # The line about a run over one document (K5c) in the bar above the
+        # review list: the document by its title only to a reader of it (a
+        # title is project content), else as a document. It stands where a run
+        # over the organisation names its projects.
+        document_runs:
+          source: "from “%{title}”"
+          source_hidden: "from a document"
+          running_since: "Running since %{time} (%{source})."
+          failed: "Last search on %{date} failed (%{source})."

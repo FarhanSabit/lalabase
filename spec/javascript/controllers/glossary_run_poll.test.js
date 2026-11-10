@@ -10,14 +10,15 @@ const source = readFileSync(new URL("../../../app/javascript/controllers/glossar
   .replace(/^import .*\n/gm, "")
   .replace("export default class", "class PollController")
 
-function fixture({ fetch, active = true, hidden = false, freshFrame = { childNodes: [{ text: "fresh" }] } } = {}) {
+function fixture({ fetch, active = true, hidden = false, freshFrame = { childNodes: [{ text: "fresh" }] },
+  existingFrame, maxWait, now = () => Date.now() } = {}) {
   const timers = []
-  const frame = { childNodes: [{ text: "old" }], replaceChildren(...children) { this.childNodes = children } }
+  const frame = existingFrame || { dataset: {}, childNodes: [{ text: "old" }], replaceChildren(...children) { this.childNodes = children } }
   const document = { hidden, getElementById: id => (id === "glossary_results" ? frame : null) }
   const Controller = runInNewContext(`${source}\nPollController`, {
     Controller: class {},
     AbortController,
-    Date,
+    Date: class extends Date { static now() { return now() } },
     fetch,
     document,
     setTimeout: (callback, delay) => timers.push({ callback, delay, cleared: false }),
@@ -29,6 +30,8 @@ function fixture({ fetch, active = true, hidden = false, freshFrame = { childNod
   controller.urlValue = "/org/a/glossary?view=proposals"
   controller.frameValue = "glossary_results"
   controller.intervalValue = 5000
+  controller.hasMaxWaitValue = maxWait !== undefined
+  controller.maxWaitValue = maxWait
   controller.element = { isConnected: true }
   return { controller, timers, frame, document }
 }
@@ -302,4 +305,67 @@ test("a retry waits through hidden ticks without sending requests", async () => 
   await f.timers[7].callback()
   assert.equal(calls, 3)
   assert.deepEqual(f.frame.childNodes, [{ text: "fresh" }])
+})
+
+test("the wait limit survives fragment replacement and stops requests at its deadline", async () => {
+  let now = 1000
+  let requests = 0
+  const options = { maxWait: 10000, now: () => now, fetch: async () => { requests++; return page() } }
+  const first = fixture(options)
+  first.controller.connect()
+  now = 6000
+  await first.timers[0].callback()
+  first.controller.disconnect()
+
+  // A successful response replaces the controller inside the same frame.
+  const next = fixture({ ...options, existingFrame: first.frame })
+  next.controller.connect()
+  assert.equal(next.timers.length, 1)
+  now = 11000
+  await next.timers[0].callback()
+
+  assert.equal(requests, 1)
+  assert.equal(next.timers.length, 1)
+
+  const reconnected = fixture({ ...options, existingFrame: first.frame })
+  reconnected.controller.connect()
+  assert.equal(reconnected.timers.length, 0)
+})
+
+test("network errors cannot extend the wait limit", async () => {
+  let now = 1000
+  let requests = 0
+  const f = fixture({ maxWait: 10000, now: () => now, fetch: async () => { requests++; throw new Error("offline") } })
+  f.controller.connect()
+  now = 6000
+  await f.timers[0].callback()
+  assert.equal(f.timers.length, 2)
+
+  now = 11000
+  await f.timers[1].callback()
+
+  assert.equal(requests, 1)
+  assert.equal(f.timers.length, 2)
+})
+
+test("waiting for an active run clears the text deadline and can keep polling", async () => {
+  let now = 1000
+  let requests = 0
+  const first = fixture({ maxWait: 10000, now: () => now })
+  first.controller.connect()
+  first.controller.disconnect()
+
+  const next = fixture({ existingFrame: first.frame, now: () => now, fetch: async () => { requests++; return page() } })
+  next.controller.connect()
+  now = 20000
+  await next.timers[0].callback()
+  next.controller.disconnect()
+
+  // The text needs processing again: this must start a new wait period.
+  const pending = fixture({ existingFrame: first.frame, maxWait: 10000, now: () => now,
+    fetch: async () => { requests++; return page() } })
+  pending.controller.connect()
+  await pending.timers[0].callback()
+
+  assert.equal(requests, 2)
 })

@@ -72,6 +72,20 @@ class DocumentVersion < ApplicationRecord
     number ? "v#{number}" : nil
   end
 
+  # What a reader may say about this version's text, in the four words of
+  # ExtractPlainTextProcessingService.text_status (a version without a file is
+  # unavailable). The ONE rule for "has text": the button in the lane, the start
+  # of a glossary run over this version, the run itself (Glossary::Extraction)
+  # and Lalabase::Tools::GetDocument all ask here, so none of them can disagree
+  # on the same version.
+  def text_status
+    ExtractPlainTextProcessingService.file_text_status(plain_text_version, document_version_file)
+  end
+
+  def text_available?
+    text_status == 'available'
+  end
+
   after_update_commit -> { broadcast_updated }
 
   # The row, and the head's AI status with it (review of #783): the status

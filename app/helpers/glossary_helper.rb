@@ -302,30 +302,47 @@ module GlossaryHelper
 
   # The line about the last run, for every reader of the review list: running
   # since when, what a finished run read and found, or why it failed (a stale
-  # run as what it will be: ended as stale).
+  # run as what it will be: ended as stale). A run over one document (K5c)
+  # names the document where a run over the organisation names its projects
+  # (glossary_run_source).
   def glossary_run_status(run)
     scope = 'views.organisations.glossary.runs'
     return t("#{scope}.never") unless run
 
     # A clock time, so in the reader's own zone, not the app's (UTC).
     date = l(run.created_at.in_time_zone(current_user.time_zone), format: :long)
-    return t("#{scope}.running_since", time: date) if glossary_run_active?(run)
-    return t("#{scope}.last_run", date: date, summary: glossary_run_summary(run.stats)) if run.succeeded?
+    source = glossary_run_source(run) if run.document?
+    lines = source ? 'views.organisations.glossary.document_runs' : scope
+    return t("#{lines}.running_since", time: date, source: source) if glossary_run_active?(run)
+    return t("#{scope}.last_run", date: date, summary: glossary_run_summary(run.stats, place: source)) if run.succeeded?
 
     code = run.stale? ? 'stale' : run.error_code.presence || 'internal_error'
-    "#{t("#{scope}.failed", date: date)} #{t("services.glossary_extraction.errors.#{code}")}"
+    "#{t("#{lines}.failed", date: date, source: source)} #{t("services.glossary_extraction.errors.#{code}")}"
   end
 
   # What a finished run read and found (the stats of Glossary::Extraction):
   # its sources, "aus 3 von 5 Projekten" (the projects the starter could read
-  # of all of the organisation), its new proposals.
-  def glossary_run_summary(stats)
+  # of all of the organisation) or the place given instead, its new proposals.
+  def glossary_run_summary(stats, place: nil)
     stats = {} unless stats.is_a?(Hash)
     sources = stats['sources'].is_a?(Hash) ? stats['sources'].values.sum(&:to_i) : 0
     scope = 'views.organisations.glossary.runs'
-    [t("#{scope}.sources_read", count: sources),
-     t("#{scope}.projects", count: stats['projects_total'].to_i, reached: stats['projects_reached'].to_i),
+    place ||= t("#{scope}.projects", count: stats['projects_total'].to_i, reached: stats['projects_reached'].to_i)
+    [t("#{scope}.sources_read", count: sources), place,
      t("#{scope}.proposals_created", count: stats['proposals_created'].to_i)].join(', ')
+  end
+
+  # Where a run over one document read (K5c): "aus „Zorbel-Handbuch“" for a
+  # reader of the document (the document policy scope, as for a source of a
+  # proposal: glossary_readable_sources), by the title it has now; "aus einem
+  # Dokument" for any other reader of the review list and for a document that
+  # is gone. One query.
+  def glossary_run_source(run)
+    versions = glossary_readable_sources('DocumentVersion').where(id: run.document_version_id)
+    title = Document.where(organisation_id: current_organisation.id, id: versions.select(:document_id))
+                    .joins(:current_version).pick(DocumentVersion.arel_table[:title])
+    scope = 'views.organisations.glossary.document_runs'
+    title.present? ? t("#{scope}.source", title: title) : t("#{scope}.source_hidden")
   end
 
   # Whether a finished run stopped at one of its limits (stats truncated).
