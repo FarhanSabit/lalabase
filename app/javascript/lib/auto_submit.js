@@ -26,3 +26,14 @@ export function submitTrigger(target) {
 
   return "now"
 }
+
+// Is this turbo:visit only the promotion of the form's own frame answer?
+// A frame navigated with data-turbo-action is promoted to a visit of its own
+// once its answer has rendered, to write the address; the visit names the
+// frame's src. That is no navigation away from the form, so a submit typed
+// meanwhile must still go out (the inbox search: "Exp" out, "ort" typed while
+// it ran, the promotion dropped "Export"). Every other visit drops it as before.
+export function isOwnFrameEcho(visitUrl, frameSrc) {
+  if (!visitUrl || !frameSrc) return false
+  return String(visitUrl) === String(frameSrc)
+}

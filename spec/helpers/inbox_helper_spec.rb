@@ -56,7 +56,7 @@ RSpec.describe InboxHelper, type: :helper do
     it 'refuses a view it does not know' do
       with_query({})
 
-      expect { helper.inbox_status_view_url('read') }.to raise_error(KeyError)
+      expect { helper.inbox_status_view_url('gelesen') }.to raise_error(KeyError)
     end
   end
 

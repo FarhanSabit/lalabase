@@ -29,9 +29,17 @@
 </div>
 
 <div class="people-tools inbox-tools">
+  <%# The search answers while typing: auto-submit debounces the field and
+      the form reloads only the list frame, so the field keeps its focus and
+      every letter typed meanwhile; an empty field is the whole view again.
+      "replace", so a word typed letter by letter is one entry of history.
+      What else depends on the search follows in the frame answer
+      (_list_tools). The open notification stays in the address. %>
   <%= form_with url: organisation_notifications_path(current_organisation), method: :get,
-                class: 'people-search inbox-search', data: { turbo_frame: '_top' } do %>
+                class: 'people-search inbox-search',
+                data: { controller: 'auto-submit', turbo_frame: 'notifications_list_frame', turbo_action: 'replace' } do %>
     <%= inbox_hidden_query_fields(except: %w[search]) %>
+    <%= hidden_field_tag :notification, params[:notification], id: nil if params[:notification].present? %>
     <label for="inbox-search" class="people-search__field">
       <i class="bi bi-search" aria-hidden="true"></i>
       <span class="sr-only"><%= t('views.organisations.notifications.filter.search_label') %></span>
@@ -40,53 +48,8 @@
     </label>
   <% end %>
 
-  <nav class="people-filters" aria-label="<%= t('views.organisations.notifications.filter.status_label') %>">
-    <% Inbox::MasterListPresenter::STATUS_VIEWS.each_key do |view| %>
-      <% active = presenter.status_view == view %>
-      <%= link_to inbox_status_view_url(view), class: "people-pill #{'people-pill--active' if active}",
-                                               'aria-current': (active ? 'true' : nil), data: { turbo_frame: '_top' } do %>
-        <%= t("views.organisations.notifications.filter.views.#{view}") %>
-        <%= render 'organisations/notifications/unread_count', count: unread_count if view == 'unread' %>
-      <% end %>
-    <% end %>
-  </nav>
-
-  <%= form_with url: organisation_notifications_path(current_organisation), method: :get,
-                data: { turbo_frame: '_top', controller: 'auto-submit' } do %>
-    <%= inbox_hidden_query_fields(except: %w[project_id]) %>
-    <label class="inbox-project">
-      <span class="sr-only"><%= t('views.organisations.notifications.filter.project_label') %></span>
-      <%= select_tag :project_id,
-                     options_for_select([[t('views.organisations.notifications.filter.all_projects'), '']] +
-                                        projects.map { |project| [project.name, project.id] }, params[:project_id]),
-                     class: "inbox-project__select #{'inbox-project__select--active' if params[:project_id].present?}" %>
-    </label>
-  <% end %>
-
-  <%# The type filter has no control of its own any more (an old address or
-      a link from elsewhere sets it). While it narrows the list it stands
-      here as a chip, and the chip removes it. %>
-  <% if (event_type = inbox_event_type_filter) %>
-    <%= link_to inbox_without_event_type_url, class: 'people-pill people-pill--active inbox-type-chip',
-                                              title: t('views.organisations.notifications.filter.remove_type'),
-                                              data: { turbo_frame: '_top' } do %>
-      <%= t('views.organisations.notifications.filter.type_chip', type: inbox_event_type_label(event_type)) %>
-      <i class="bi bi-x" aria-hidden="true"></i>
-      <span class="sr-only"><%= t('views.organisations.notifications.filter.remove_type') %></span>
-    <% end %>
-  <% end %>
-
-  <div class="inbox-view-mode" role="group" aria-label="<%= t('views.organisations.notifications.filter.view_label') %>">
-    <% [%w[chronological list-ul], %w[grouped collection]].each do |mode, icon| %>
-      <% label = t("views.organisations.notifications.filter.view_#{mode}") %>
-      <%= link_to inbox_view_mode_url(mode), class: "inbox-view-mode__cell #{'inbox-view-mode__cell--active' if presenter.view_mode == mode}",
-                                             title: label, 'aria-label': label,
-                                             'aria-current': (presenter.view_mode == mode ? 'true' : nil),
-                                             data: { turbo_frame: '_top' } do %>
-        <i class="bi bi-<%= icon %>" aria-hidden="true"></i>
-      <% end %>
-    <% end %>
-  </div>
+  <%= render 'organisations/notifications/list_tools',
+             presenter: presenter, projects: projects, unread_count: unread_count %>
 
   <%# Selection row: lies over the tools row while rows are selected, so the
       list below never moves. Built like the selection row of the ticket list

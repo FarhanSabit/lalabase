@@ -98,6 +98,38 @@ RSpec.describe 'Inbox (System)', type: :system, inbox_e2e: true do
     within('#inbox_pane_status_pills') { expect(page).to have_button('Als gelesen') }
   end
 
+  # C10 — The search answers while typing, without Enter: only the list
+  # reloads, the field keeps its focus and its letters; an empty field shows
+  # the whole view again; a status link clicked afterwards keeps the search.
+  it 'sucht beim Tippen, ohne Enter, und behält dabei den Fokus (C10)' do
+    hit = ActsAsTenant.with_tenant(organisation) { create(:ticket, project: project, title: 'Exportfehler') }
+    miss = ActsAsTenant.with_tenant(organisation) { create(:ticket, project: project, title: 'Startseite') }
+    create_notification(state: :delivered, ticket: hit, created_at: 1.hour.ago)
+    create_notification(state: :read, ticket: miss, created_at: 2.hours.ago)
+
+    visit inbox_path
+    expect(page).to have_css('.inbox-row__title', text: 'Startseite')
+
+    field = find('#inbox-search')
+    field.click
+    field.send_keys('Export')
+    expect(page).to have_no_css('.inbox-row__title', text: 'Startseite')
+    expect(page).to have_css('.inbox-row__title', text: 'Exportfehler')
+    expect(page).to have_current_path(/search=Export/)
+    expect(page.evaluate_script('document.activeElement.id')).to eq('inbox-search')
+    expect(find('#inbox-search').value).to eq('Export')
+
+    find('#inbox-search').send_keys(*Array.new('Export'.length, :backspace))
+    expect(find('#inbox-search').value).to eq('')
+    expect(page).to have_css('.inbox-row__title', text: 'Startseite')
+
+    find('#inbox-search').send_keys('Start')
+    expect(page).to have_no_css('.inbox-row__title', text: 'Exportfehler')
+    click_link 'Gelesen'
+    expect(page).to have_current_path(/search=Start/)
+    expect(page).to have_css('.inbox-row__title', text: 'Startseite')
+  end
+
   # C2 — The checkbox sits where the unread dot is and shows on hover; from
   # the first tick on every row shows it, and "Alle" in the bar ticks all.
   it 'zeigt das Kästchen beim Drüberfahren und wählt über "Alle" alle Zeilen (C2)' do

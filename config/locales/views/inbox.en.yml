@@ -27,11 +27,14 @@ en:
               link: Clear search and project
             other_filter:
               title: No matches.
-              body: This selection is none of the three views.
+              body: This selection is none of the four views.
               link: Show all notifications
+            nothing_read:
+              title: Nothing read yet.
+              body: What you have read stays here until you archive it.
             nothing_archived:
               title: Nothing archived.
-              body: What you mark as done ends up here.
+              body: What you archive ends up here.
             nothing_yet:
               title: No notifications yet.
               body: Comments, assignments and mentions show up here.
@@ -47,8 +50,9 @@ en:
           type_chip: "Type: %{type}"
           remove_type: Remove type filter
           views:
-            unread: Unread
             all: All
+            unread: Unread
+            read: Read
             archived: Archived
         bulk:
           selected: selected

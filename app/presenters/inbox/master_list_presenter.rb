@@ -15,13 +15,16 @@ module Inbox
   class MasterListPresenter
     PAGE_SIZE = 50
 
-    # The three status views the list offers, one at a time. Each is a set of
-    # state filters; a URL that names another set (an old bookmark with "read"
-    # alone, say) shows its rows and marks no view as active, and its empty
-    # list says so (empty_reason :other_filter).
+    # The four status views the list offers, one at a time, in the order of
+    # the head (user, 2026-11-10: "Alle" first and the default, "Gelesen"
+    # new). Each is a set of state filters; a URL that names another set (an
+    # old bookmark with "unread" and "archived", say) shows its rows and marks
+    # no view as active, and its empty list says so (empty_reason
+    # :other_filter).
     STATUS_VIEWS = {
-      'unread' => %w[unread],
       'all' => %w[read unread],
+      'unread' => %w[unread],
+      'read' => %w[read],
       'archived' => %w[archived]
     }.freeze
 
@@ -105,6 +108,7 @@ module Inbox
 
       case status_view
       when 'unread' then :all_read
+      when 'read' then :nothing_read
       when 'archived' then :nothing_archived
       when 'all' then :nothing_yet
       else :other_filter

@@ -7,6 +7,7 @@ require 'rails_helper'
 # organisations/notifications/_list_head), the controller still accepts a
 # union. Behavior:
 #
+# - Bare /inbox       → redirect to the "Alle" view (read and unread).
 # - No selection      → default inbox view: everything EXCEPT archived.
 # - state_filters[]=unread      → only unread (queued/sent/delivered).
 # - state_filters[]=read        → only read.
@@ -58,10 +59,11 @@ RSpec.describe 'Inbox status filter (multi-select)', type: :request do
   end
 
   describe 'Default (keine state_filters)' do
-    it 'redirected nackten /inbox-Aufruf auf state_filters[]=unread' do
+    # The default view is "Alle" since 2026-11-10 (it was "Ungelesen").
+    it 'redirected nackten /inbox-Aufruf auf die Ansicht "Alle" (gelesen und ungelesen)' do
       get organisation_notifications_path(organisation)
       expect(response).to redirect_to(
-        organisation_notifications_path(organisation, state_filters: ['unread'])
+        organisation_notifications_path(organisation, state_filters: %w[read unread])
       )
     end
 

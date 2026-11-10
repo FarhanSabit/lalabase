@@ -27,11 +27,14 @@ de:
               link: Suche und Projekt zurücksetzen
             other_filter:
               title: Keine Treffer.
-              body: Diese Auswahl ist keine der drei Ansichten.
+              body: Diese Auswahl ist keine der vier Ansichten.
               link: Alle Meldungen ansehen
+            nothing_read:
+              title: Noch nichts gelesen.
+              body: Was du gelesen hast, steht hier, bis du es archivierst.
             nothing_archived:
               title: Nichts archiviert.
-              body: Was du als erledigt markierst, landet hier.
+              body: Was du archivierst, landet hier.
             nothing_yet:
               title: Noch keine Meldungen.
               body: Kommentare, Zuweisungen und Erwähnungen erscheinen hier.
@@ -47,8 +50,9 @@ de:
           type_chip: "Typ: %{type}"
           remove_type: Typ-Filter entfernen
           views:
-            unread: Ungelesen
             all: Alle
+            unread: Ungelesen
+            read: Gelesen
             archived: Archiviert
         bulk:
           selected: ausgewählt
