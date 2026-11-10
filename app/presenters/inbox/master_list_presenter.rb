@@ -14,6 +14,29 @@
 module Inbox
   class MasterListPresenter
     PAGE_SIZE = 50
+
+    # The three status views the list offers, one at a time. Each is a set of
+    # state filters; a URL that names another set (an old bookmark with "read"
+    # alone, say) shows its rows and marks no view as active.
+    STATUS_VIEWS = {
+      'unread' => %w[unread],
+      'all' => %w[read unread],
+      'archived' => %w[archived]
+    }.freeze
+
+    # The headings of the grouped view, newest first: a row stands under the
+    # period of its newest notification.
+    PERIODS = %i[today yesterday this_week older].freeze
+
+    # The status view a set of state filters names, or nil. No filter at all
+    # is the default list (unread and read), so it is "all" as well.
+    def self.status_view(state_filters)
+      filters = Array(state_filters).compact_blank.uniq.sort
+      return 'all' if filters.empty?
+
+      STATUS_VIEWS.find { |_key, set| set.sort == filters }&.first
+    end
+
     # The pagy helper needs a class instance that understands `params` and the
     # `pagy_*` helpers — the controller passes itself.
     def initialize(pagy_helper:, scope:, params:)
@@ -45,18 +68,26 @@ module Inbox
 
     delegate :empty?, to: :notifications
 
-    def has_active_filters?
-      @params[:search].present? ||
-        @params[:project_id].present? ||
-        @params[:event_type].present? ||
-        active_state_filters.any?
+    def status_view
+      self.class.status_view(active_state_filters)
     end
 
-    # The "X unread" banner only makes sense if unread items can appear in the
-    # current view at all: no state filter (the default shows unread+read)
-    # OR 'unread' is explicitly active.
-    def show_unread_banner?
-      active_state_filters.empty? || active_state_filters.include?('unread')
+    # A search, a project or a type narrows the rows beyond the status view.
+    def narrowed?
+      @params[:search].present? || @params[:project_id].present? || @params[:event_type].present?
+    end
+
+    # Why the list is empty, for the sentence it shows: a narrowed list found
+    # nothing, an empty unread view means everything is read (a good state,
+    # not an error), the other views simply hold nothing yet.
+    def empty_reason
+      return :no_match if narrowed?
+
+      case status_view
+      when 'unread' then :all_read
+      when 'archived' then :nothing_archived
+      else :nothing_yet
+      end
     end
 
     private
@@ -106,8 +137,24 @@ module Inbox
       @group_total = count_by_notifiable(@filtered)
       @group_unread = count_by_notifiable(@filtered.unread)
 
-      @grouped_notifications = reps.group_by { |n| n.created_at.to_date }
+      @grouped_notifications = group_by_period(reps)
       @notifications = reps
+    end
+
+    # { period => representatives } in PERIODS order, empty periods left out.
+    # "This week" starts on the week's Monday; yesterday counts as yesterday
+    # even when it was in the previous week.
+    def group_by_period(reps)
+      today = Time.zone.today
+      grouped = reps.group_by do |notification|
+        date = notification.created_at.in_time_zone.to_date
+        if date >= today then :today
+        elsif date == today - 1 then :yesterday
+        elsif date >= today.beginning_of_week then :this_week
+        else :older
+        end
+      end
+      PERIODS.filter_map { |period| [period, grouped[period]] if grouped[period] }.to_h
     end
 
     def derive_active_state_filters

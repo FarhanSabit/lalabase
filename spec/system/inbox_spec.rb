@@ -73,36 +73,68 @@ RSpec.describe 'Inbox (System)', type: :system, inbox_e2e: true do
     expect(page).not_to have_css("[data-notification-item='#{n.id}']", wait: 9)
   end
 
-  # C2 — "Select all" selects all visible items.
-  it 'selektiert alle Items via "Alle auswählen" (C2)' do
+  # C2 — The checkbox sits where the unread dot is and shows on hover; from
+  # the first tick on every row shows it, and "Alle" in the bar ticks all.
+  it 'zeigt das Kästchen beim Drüberfahren und wählt über "Alle" alle Zeilen (C2)' do
     tickets = ActsAsTenant.with_tenant(organisation) { create_list(:ticket, 3, project: project) }
-    tickets.each_with_index { |t, i| create_notification(state: :delivered, ticket: t, created_at: (i + 1).hours.ago) }
+    notifications = tickets.each_with_index.map do |t, i|
+      create_notification(state: :delivered, ticket: t, created_at: (i + 1).hours.ago)
+    end
 
     visit inbox_path(state_filters: ['unread'])
-    check('Alle auswählen', allow_label_click: true)
+    first_row = find("[data-notification-item='#{notifications.first.id}'] .inbox-row")
+    expect(first_row).to have_no_css('.inbox-row__check', visible: true)
 
-    expect(page).to have_css('[data-inbox-bulk-select-target="bar"]', visible: true)
+    first_row.hover
+    first_row.find('.inbox-row__check', visible: true).click
+    expect(page).to have_css('[data-inbox-bulk-select-target="bar"]', visible: true, text: '1 ausgewählt')
+    expect(page).to have_css('.inbox-row__check', visible: true, count: 3)
+
+    within('[data-inbox-bulk-select-target="bar"]') { click_button('Alle') }
     expect(page).to have_content('3 ausgewählt')
   end
 
-  # C7 — Bulk archive empties the list → empty state appears.
-  it 'zeigt Empty-State nachdem Bulk-Archive die Liste leert (C7)' do
-    tickets = ActsAsTenant.with_tenant(organisation) { create_list(:ticket, 2, project: project) }
-    tickets.each_with_index { |t, i| create_notification(state: :delivered, ticket: t, created_at: (i + 1).hours.ago) }
+  # C3 — "Auswählen" in the "···" menu (the way in without hover) shows every
+  # checkbox; its actions stay disabled until a row is ticked, because without
+  # ids the bulk routes act on every notification.
+  it 'öffnet den Auswahlmodus über das Menü, mit gesperrten Aktionen bis zum ersten Haken (C3)' do
+    ticket = ActsAsTenant.with_tenant(organisation) { create(:ticket, project: project) }
+    n = create_notification(state: :delivered, ticket: ticket)
 
     visit inbox_path(state_filters: ['unread'])
-    check('Alle auswählen', allow_label_click: true)
-    within('[data-inbox-bulk-select-target="bar"]') { click_button('Archivieren') }
+    find('.more-menu__trigger').click
+    click_button('Auswählen')
 
-    expect(page).to have_content('Keine Benachrichtigungen gefunden', wait: 6)
+    within('[data-inbox-bulk-select-target="bar"]') do
+      expect(page).to have_content('0 ausgewählt')
+      expect(page).to have_button('Archivieren', disabled: true)
+    end
+    find("[data-notification-item='#{n.id}'] .inbox-row__check").click
+    expect(page).to have_button('Archivieren', disabled: false)
   end
 
-  # D1 — Advanced filter auto-submits on change. Picking a project in the
-  # expandable "Erweiterte Filter" panel must narrow the list immediately,
-  # without a submit button. Regression: the Stimulus controller is mounted
-  # ON the <form>, so submitForm() must use the form element itself — looking
-  # for a *descendant* <form> returned null and the change never submitted.
-  it 'wendet den Projektfilter sofort an, wenn ein Projekt im erweiterten Filter gewählt wird (Auto-Submit)' do
+  # C7 — Bulk archive empties the unread view → "Alles gelesen." appears.
+  it 'zeigt "Alles gelesen." nachdem Bulk-Archive die Liste leert (C7)' do
+    tickets = ActsAsTenant.with_tenant(organisation) { create_list(:ticket, 2, project: project) }
+    notifications = tickets.each_with_index.map do |t, i|
+      create_notification(state: :delivered, ticket: t, created_at: (i + 1).hours.ago)
+    end
+
+    visit inbox_path(state_filters: ['unread'])
+    row = find("[data-notification-item='#{notifications.first.id}'] .inbox-row")
+    row.hover
+    row.find('.inbox-row__check', visible: true).click
+    within('[data-inbox-bulk-select-target="bar"]') do
+      click_button('Alle')
+      click_button('Archivieren')
+    end
+
+    expect(page).to have_content('Alles gelesen.', wait: 6)
+  end
+
+  # D1 — The project select of the tools row submits on change, without a
+  # submit button, and keeps the status view.
+  it 'wendet den Projektfilter sofort an, wenn ein Projekt gewählt wird (Auto-Submit)' do
     project_b = ActsAsTenant.with_tenant(organisation) { create(:project, organisation: organisation, name: 'Calc') }
     ticket_a  = ActsAsTenant.with_tenant(organisation) { create(:ticket, project: project, title: 'Aufgabe A') }
     ticket_b  = ActsAsTenant.with_tenant(organisation) { create(:ticket, project: project_b, title: 'Aufgabe B') }
@@ -115,10 +147,7 @@ RSpec.describe 'Inbox (System)', type: :system, inbox_e2e: true do
              read_at: nil, created_at: 2.hours.ago)
     end
 
-    # Pre-open the advanced-filter panel via a shared event_type (both
-    # notifications are ticket_assigned, so neither is hidden). This isolates
-    # the auto-submit behaviour from the panel-toggle Stimulus timing.
-    visit inbox_path(state_filters: ['unread'], event_type: 'ticket_assigned')
+    visit inbox_path(state_filters: ['unread'])
     expect(page).to have_css("[data-notification-item='#{n_a.id}']")
     expect(page).to have_css("[data-notification-item='#{n_b.id}']")
     expect(page).to have_select('project_id', visible: true)
@@ -129,6 +158,7 @@ RSpec.describe 'Inbox (System)', type: :system, inbox_e2e: true do
     # Auto-submit must narrow the list to project B only.
     expect(page).to have_css("[data-notification-item='#{n_b.id}']", wait: 6)
     expect(page).to have_no_css("[data-notification-item='#{n_a.id}']")
+    expect(page).to have_current_path(/state_filters/)
   end
 
   # F4 — Endless scroll loads further pages, no duplicates.

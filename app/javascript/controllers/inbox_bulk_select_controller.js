@@ -2,20 +2,43 @@ import { Controller } from "@hotwired/stimulus"
 
 // Gmail-style bulk select for the inbox master list.
 //
-// Connects a checkbox per notification item to a sticky action bar that
-// shows "X selected · Mark as read · Archive · Cancel" as soon as at least
-// one item is selected. Existing single-item actions (click to the detail
+// Connects a checkbox per notification item to an action bar over the tools
+// row that shows "X selected · All · Mark as read · Archive · ×" as soon as at
+// least one item is selected. The checkboxes show on hover (CSS); while the
+// element carries `inbox-selecting` they show on every row: from the first
+// tick on, and after "Auswählen" in the "···" menu, the way in on a phone,
+// which has no hover. Existing single-item actions (click to the detail
 // view) remain untouched — the checkbox only stops its own click, so that
 // the enclosing link_to does not fire.
 //
 // Backend: extends the existing mark_all_read / archive_all routes with
 // params[:ids][]. See doc/inbox_v1_plan.md PR-2.
 export default class extends Controller {
-  static targets = ["row", "checkbox", "bar", "count", "selectAll", "form"]
+  static targets = ["row", "checkbox", "bar", "count", "form"]
   static values  = { selectedIds: Array }
 
   connect() {
     this.selectedIdsValue = []
+    this.selecting = false
+    this._render()
+  }
+
+  // "Auswählen" in the "···" menu: show every checkbox without ticking one,
+  // and close the menu it was chosen from.
+  startSelecting(event) {
+    event?.target?.closest("details")?.removeAttribute("open")
+    this.selecting = true
+    this._render()
+  }
+
+  // "Alle" in the bulk bar: tick every row the list shows.
+  selectAll() {
+    const ids = []
+    this.checkboxTargets.forEach((cb) => {
+      cb.checked = true
+      if (cb.dataset.notificationId) ids.push(cb.dataset.notificationId)
+    })
+    this.selectedIdsValue = Array.from(new Set(ids))
     this._render()
   }
 
@@ -37,23 +60,10 @@ export default class extends Controller {
     event.stopPropagation()
   }
 
-  toggleAll(event) {
-    const checked = event.target.checked
-    const ids = new Set()
-    this.checkboxTargets.forEach((cb) => {
-      cb.checked = checked
-      if (checked && cb.dataset.notificationId) {
-        ids.add(cb.dataset.notificationId)
-      }
-    })
-    this.selectedIdsValue = checked ? Array.from(ids) : []
-    this._render()
-  }
-
   clear() {
     this.checkboxTargets.forEach((cb) => { cb.checked = false })
     this.selectedIdsValue = []
-    if (this.hasSelectAllTarget) this.selectAllTarget.checked = false
+    this.selecting = false
     this._render()
   }
 
@@ -67,24 +77,22 @@ export default class extends Controller {
 
   _render() {
     const count = this.selectedIdsValue.length
+    const selecting = this.selecting || count > 0
+    this.element.classList.toggle("inbox-selecting", selecting)
     if (this.hasBarTarget) {
-      this.barTarget.classList.toggle("hidden", count === 0)
+      this.barTarget.classList.toggle("hidden", !selecting)
     }
     if (this.hasCountTarget) {
       this.countTarget.textContent = count
     }
-    this._syncSelectAll(count)
+    // ⚠️ Without ids, mark_all_read and archive_all act on EVERY notification:
+    // the bar is open in selection mode before anything is ticked, so its
+    // actions stay disabled until a row is.
+    this.formTargets.forEach((form) => {
+      form.querySelectorAll('button[type="submit"]').forEach((button) => { button.disabled = count === 0 })
+    })
     this._syncHiddenInputs()
     this._highlightRows()
-  }
-
-  // Select-all checkbox mirrors the selection state: empty / partial
-  // (indeterminate) / all.
-  _syncSelectAll(count) {
-    if (!this.hasSelectAllTarget) return
-    const total = this.checkboxTargets.length
-    this.selectAllTarget.checked = count > 0 && count === total
-    this.selectAllTarget.indeterminate = count > 0 && count < total
   }
 
   // Writes the selected IDs as hidden inputs into all bulk action forms,
@@ -108,8 +116,7 @@ export default class extends Controller {
     const selected = new Set(this.selectedIdsValue)
     this.rowTargets.forEach((row) => {
       const id = row.dataset.notificationId
-      // Warm-Editorial: bulk selection = warm value step (cream-200), no yellow (Part G).
-      row.classList.toggle("bg-cream-200", selected.has(id))
+      row.classList.toggle("inbox-row--checked", selected.has(id))
     })
   }
 }

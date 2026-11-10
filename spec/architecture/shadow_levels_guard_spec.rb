@@ -61,7 +61,6 @@ module ShadowLevels
   LEGACY = {
     'app/components/neo/chat/transparency_notice_component.html.erb' => 1,
     'app/components/neo_card_component.rb' => 1, # shadow: :always, removed in slice S3
-    'app/components/neo_notification_filter_component.html.erb' => 1,
     'app/javascript/controllers/attribute_form_controller.js' => 2,
     'app/javascript/controllers/neo_form_section_controller.js' => 4,
     'app/javascript/controllers/tag_input_controller.js' => 3,

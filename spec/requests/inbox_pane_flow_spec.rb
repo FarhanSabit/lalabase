@@ -259,13 +259,13 @@ RSpec.describe 'Inbox pane flow', type: :request do
       expect(new_activities.map(&:id)).to match_array([older1.id, ticket_notification.id])
     end
 
-    it 'rendert den Block (grün hinterlegte Aktivitäts-Zeilen) im Pane-Frame' do
+    it 'rendert den Block (Aktivitäts-Zeilen mit Randlinie) im Pane-Frame' do
       get organisation_notifications_path(organisation),
           params: { notification: ticket_notification.id },
           headers: { 'Turbo-Frame' => 'ticket_pane' }
-      # Green-highlighted list with one row per unread activity,
-      # without a black heading.
-      expect(response.body).to include('bg-lime-50')
+      # A list with one row per unread activity, marked by its edge line,
+      # without a heading.
+      expect(response.body).to include('inbox-new-activity__item')
       expect(response.body).to include(I18n.t('views.organisations.notifications.event_short.system_message'))
     end
   end

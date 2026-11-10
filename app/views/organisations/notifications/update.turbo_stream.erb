@@ -49,17 +49,9 @@
   <% end %>
 <% end %>
 
-<%# Update the unread-count banner above the master list. %>
-<%= turbo_stream.replace 'inbox_unread_count_banner' do %>
-  <div id="inbox_unread_count_banner">
-    <% if @unread_count.to_i > 0 && show_unread_banner? %>
-      <div class="mb-4 p-3 bg-lime-50 border border-lime-200 rounded-lg">
-        <p class="text-sm text-lime-800 font-medium">
-          <%= t('organisations.notifications.index.unread_notifications', count: @unread_count) %>
-        </p>
-      </div>
-    <% end %>
-  </div>
+<%# The count in the "Ungelesen" pill of the list head. %>
+<%= turbo_stream.replace 'inbox_unread_count' do %>
+  <%= render 'organisations/notifications/unread_count', count: @unread_count %>
 <% end %>
 
 <%# Unread count: sidebar frame + count-data frame, one owner. %>

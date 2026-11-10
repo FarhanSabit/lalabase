@@ -4,24 +4,49 @@ de:
       notifications:
         index:
           title: Inbox
-          ticket_exceptions: Ticket Ausnahmen
+          ticket_exceptions: Ticket-Ausnahmen
+          settings: Einstellungen für Benachrichtigungen
+          more_actions: Weitere Aktionen
+          select_rows: Auswählen
+        periods:
+          today: Heute
+          yesterday: Gestern
+          this_week: Diese Woche
+          older: Älter
+        master_list:
+          loading_more: Lade weitere …
+          all_loaded: Alle Meldungen geladen
+          empty:
+            all_read:
+              title: Alles gelesen.
+              body: Neue Meldungen erscheinen hier von selbst.
+              link: Alle Meldungen ansehen
+            no_match:
+              title: Keine Treffer.
+              body: Keine Meldung passt zu Suche oder Projekt.
+              link: Suche und Projekt zurücksetzen
+            nothing_archived:
+              title: Nichts archiviert.
+              body: Was du als erledigt markierst, landet hier.
+            nothing_yet:
+              title: Noch keine Meldungen.
+              body: Kommentare, Zuweisungen und Erwähnungen erscheinen hier.
         filter:
-          status_label: 'Status:'
-          view_label: 'Ansicht:'
-          extended: Erweiterte Filter
+          status_label: Status
+          view_label: Ansicht
           search_label: Suche
-          search_placeholder: In Benachrichtigungen suchen...
+          search_placeholder: Suchen
           project_label: Projekt
-          type_label: Typ
-          unread: Ungelesen
-          read: Gelesen
-          archived: Archiviert
-          view_chronological: Chronologisch
-          view_grouped: Gruppiert
-          all_types: Alle Typen
           all_projects: Alle Projekte
+          view_chronological: Chronologisch
+          view_grouped: Nach Ticket gebündelt
+          views:
+            unread: Ungelesen
+            all: Alle
+            archived: Archiviert
         bulk:
           selected: ausgewählt
+          select_all: Alle
           mark_read: Als gelesen
           archive: Archivieren
           clear: Auswahl aufheben
@@ -30,40 +55,34 @@ de:
           unread_label: Ungelesen
           archived_badge: Archiviert
           select_aria: Notification auswählen
-          time_ago: vor %{time}
-          bundle_badge:
-            one: "%{count} Update"
-            other: "%{count} Updates"
+          new_count: "%{count} neu"
           bundle_badge_title:
             one: "%{count} Aktualisierung zu diesem Ticket"
             other: "%{count} Aktualisierungen zu diesem Ticket"
         event_short:
           ticket_commented: hat kommentiert
           ticket_assigned: hat dir zugewiesen
-          ticket_unassigned: hat zuweisung aufgehoben
+          ticket_unassigned: hat eine Zuweisung aufgehoben
           ticket_status_changed: hat den Status geändert
-          ticket_blocker: Blocker gemeldet
-          project_announcement: Projekt-Ankündigung
+          ticket_blocker: hat einen Blocker gemeldet
+          project_announcement: hat etwas angekündigt
           document_added: hat Dokument hinzugefügt
-          mention: hat dich erwähnt in
+          mention: hat dich erwähnt
           system_message: Systemnachricht
         pane:
-          status_unread: Ungelesen
-          status_read: Gelesen
-          status_archived: Archiviert
-          unarchive: Dearchivieren
-          archive: Archivieren
-          empty_title: Wähle eine Benachrichtigung aus
-          empty_subtitle: Klick links auf einen Eintrag, um das Ticket hier zu öffnen — ohne Seitenwechsel.
-          missing_title: Diese Benachrichtigung existiert nicht mehr
-          missing_subtitle: Sie wurde gelöscht oder du hast keinen Zugriff darauf.
+          done: Erledigt
+          mark_read: Als gelesen markieren
+          mark_unread: Als ungelesen markieren
+          unarchive: Zurück in die Inbox
+          new_activity_label: Neu seit deinem letzten Blick
+          empty_title: Wähle links eine Meldung.
+          missing_title: Diese Meldung gibt es nicht mehr
+          missing_subtitle: Sie wurde gelöscht, oder du hast keinen Zugriff mehr darauf.
           unauthorized_title: Kein Zugriff auf dieses Ticket
           unauthorized_subtitle: Du bist diesem Projekt nicht zugeordnet.
+          non_ticket_title: Diese Meldung öffnet sich in der Vollansicht
+          non_ticket_subtitle: Hier in der Spalte zeigt die Inbox nur Tickets.
           open_full_view: Im Ticket öffnen
-          go_to_ticket: Zum Ticket
-          go_to_project: Zum Projekt
-          loading_short: Lade...
-          all_loaded_short: Alle geladen
         stats:
           title: Benachrichtigungs-Statistiken
           description: Überblick über Ihre Benachrichtigungsaktivitäten in dieser Organisation

@@ -4,24 +4,49 @@ en:
       notifications:
         index:
           title: Inbox
-          ticket_exceptions: Ticket Exceptions
+          ticket_exceptions: Ticket exceptions
+          settings: Notification settings
+          more_actions: More actions
+          select_rows: Select
+        periods:
+          today: Today
+          yesterday: Yesterday
+          this_week: This week
+          older: Older
+        master_list:
+          loading_more: Loading more …
+          all_loaded: All notifications loaded
+          empty:
+            all_read:
+              title: All read.
+              body: New notifications show up here by themselves.
+              link: See all notifications
+            no_match:
+              title: No matches.
+              body: No notification matches the search or project.
+              link: Clear search and project
+            nothing_archived:
+              title: Nothing archived.
+              body: What you mark as done ends up here.
+            nothing_yet:
+              title: No notifications yet.
+              body: Comments, assignments and mentions show up here.
         filter:
-          status_label: 'Status:'
-          view_label: 'View:'
-          extended: More filters
+          status_label: Status
+          view_label: View
           search_label: Search
-          search_placeholder: Search notifications...
+          search_placeholder: Search
           project_label: Project
-          type_label: Type
-          unread: Unread
-          read: Read
-          archived: Archived
-          view_chronological: Chronological
-          view_grouped: Grouped
-          all_types: All types
           all_projects: All projects
+          view_chronological: Chronological
+          view_grouped: Bundled by ticket
+          views:
+            unread: Unread
+            all: All
+            archived: Archived
         bulk:
           selected: selected
+          select_all: All
           mark_read: Mark read
           archive: Archive
           clear: Clear selection
@@ -30,10 +55,7 @@ en:
           unread_label: Unread
           archived_badge: Archived
           select_aria: Select notification
-          time_ago: "%{time} ago"
-          bundle_badge:
-            one: "%{count} update"
-            other: "%{count} updates"
+          new_count: "%{count} new"
           bundle_badge_title:
             one: "%{count} update on this ticket"
             other: "%{count} updates on this ticket"
@@ -43,27 +65,24 @@ en:
           ticket_unassigned: removed an assignment
           ticket_status_changed: changed the status
           ticket_blocker: reported a blocker
-          project_announcement: project announcement
+          project_announcement: made an announcement
           document_added: added a document
-          mention: mentioned you in
-          system_message: system message
+          mention: mentioned you
+          system_message: System message
         pane:
-          status_unread: Unread
-          status_read: Read
-          status_archived: Archived
-          unarchive: Unarchive
-          archive: Archive
-          empty_title: Select a notification
-          empty_subtitle: Click an item on the left to open the ticket here — no page switch.
+          done: Done
+          mark_read: Mark as read
+          mark_unread: Mark as unread
+          unarchive: Back to the inbox
+          new_activity_label: New since you last looked
+          empty_title: Choose a notification on the left.
           missing_title: This notification no longer exists
-          missing_subtitle: It was deleted or you no longer have access.
+          missing_subtitle: It was deleted, or you no longer have access to it.
           unauthorized_title: No access to this ticket
           unauthorized_subtitle: You're not a member of this project.
+          non_ticket_title: This notification opens in the full view
+          non_ticket_subtitle: This column shows tickets only.
           open_full_view: Open ticket
-          go_to_ticket: Go to Ticket
-          go_to_project: Go to Project
-          loading_short: Loading...
-          all_loaded_short: All loaded
         stats:
           title: Notification Statistics
           description: Overview of your notification activity in this organization

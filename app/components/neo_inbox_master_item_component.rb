@@ -37,9 +37,19 @@ class NeoInboxMasterItemComponent < ViewComponent::Base
     @activity_line ||= Inbox::ActivityLine.new(notification)
   end
 
-  # Bundle badge "N updates" only makes sense from 2 notifications for the ticket.
-  def show_group_badge?
-    group_count.to_i > 1
+  # "3 neu": how many notifications of a bundled row are unread, shown from
+  # two on (one unread is the dot and the bold title already). Chronological
+  # rows (group_unread nil) are single notifications and never show it.
+  def new_count
+    count = @group_unread.to_i
+    count > 1 ? count : 0
+  end
+
+  # The small line under the title: who did what, and in which project. A
+  # notification without an actor (a system message) names the event alone.
+  def meta_line
+    what = notification.actor ? "#{actor_name} #{event_label}" : event_label
+    [what, project_name].compact_blank.join(' · ')
   end
 
   # In bundled mode the row counts as unread as soon as ANY
@@ -130,36 +140,13 @@ class NeoInboxMasterItemComponent < ViewComponent::Base
     end
   end
 
+  # The look lives in the inbox block of application.tailwind.css, the row
+  # only names its state: unread (bold title), archived (muted), selected
+  # (the shared selected-row tint).
   def row_classes
-    base = 'block px-4 py-3 border-b border-cream-200 transition-colors relative'
-    # Selected: value step + ink stroke (Part G/G4: ink = "here/focal", lime stays reserved for actions).
-    return "#{base} bg-cream-200 border-l-4 border-l-ink" if selected
-
-    # Hover = +1 step darker than the resting surface of the row (Part G/G3 "value step instead of hue",
-    # no new hue → nav/list recedes).
-    state, hover =
-      if archived?
-        # Archived: most strongly muted (warm), italic + left accent as anchor.
-        ['bg-cream-100 border-l-4 border-l-cream-400 opacity-70 italic', 'hover:bg-cream-200']
-      elsif unread?
-        # Unread: surface tone (cream-50) → brightest/"freshest" row; marked via the red unread dot + bold.
-        ['bg-transparent', 'hover:bg-cream-100']
-      else
-        # Read: slightly muted/receding (Gmail convention "read = grayer"), warm.
-        ['bg-cream-100', 'hover:bg-cream-200']
-      end
-    [base, state, hover].join(' ')
-  end
-
-  def primary_text_class
-    return 'text-cream-500' if archived?
-
-    unread? ? 'text-cream-900' : 'text-cream-600'
-  end
-
-  def secondary_text_class
-    return 'text-cream-400' if archived?
-
-    unread? ? 'text-cream-700' : 'text-cream-500'
+    ['people-row inbox-row',
+     ('inbox-row--unread' if unread?),
+     ('inbox-row--archived' if archived?),
+     ('selected-row' if selected)].compact.join(' ')
   end
 end
