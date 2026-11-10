@@ -339,6 +339,7 @@ jobs:
           spec/components/neo_inbox_master_item_component_spec.rb
           spec/helpers/inbox_helper_spec.rb
           spec/system/inbox_spec.rb
+          spec/system/page_title_edge_spec.rb
           spec/requests/org_switcher_signal_spec.rb
           spec/requests/notifications_avatar_preload_spec.rb
           spec/requests/organisations/archives_spec.rb

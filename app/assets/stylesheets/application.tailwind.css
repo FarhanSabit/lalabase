@@ -409,11 +409,16 @@
    (the primary Neo button) carries the hard edge and the offset shadow, as on
    the rebuilt tickets. Tokens only, so all three themes follow. */
 @layer components {
-  .people-head { @apply flex items-center gap-4 px-6 pt-5; }
+  /* No inset of its own: <main> pads every page by 24 px, and the title, the
+     tools and the list stand on that edge, as on "Alle Meetings" and every
+     other list page. Head, tools and list carried another 24 px (and the
+     head 20 px at the top) until 2026-11-10; guard:
+     spec/system/page_title_edge_spec.rb. */
+  .people-head { @apply flex items-center gap-4; }
   /* The title box takes the width; the phone's square "+" keeps its size. */
   .people-head > :not(.people-head__action) { @apply min-w-0 flex-1; }
   .people-head__action { margin-inline-start: auto; }
-  .people-tools { @apply flex flex-wrap items-center gap-2 px-6 pb-3 pt-4; }
+  .people-tools { @apply flex flex-wrap items-center gap-2 pb-3 pt-4; }
   .people-search { width: 260px; max-width: 100%; }
   .people-search__field { @apply flex items-center gap-2 rounded-lg border border-cream-400 bg-surface-raised px-2.5 py-1.5 text-[13px] text-muted; }
   .people-search__field input { @apply min-w-0 flex-1 border-0 bg-transparent p-0 text-[13px] text-heading outline-none focus:ring-0; }
@@ -423,7 +428,7 @@
   .people-pill--active { @apply font-semibold; background-color: rgb(var(--selected-row)); }
   .people-pill--active:hover { background-color: rgb(var(--selected-row-hover)); }
   .people-pill__count { @apply text-[11px] font-normal tabular-nums text-muted; }
-  .people-list { @apply mx-6 mb-6 border-t border-ink; }
+  .people-list { @apply mb-6 border-t border-ink; }
   .people-row { @apply -mx-2 flex cursor-pointer items-center gap-3 border-b border-cream-200 px-2 py-2.5 outline-none hover:bg-cream-100 focus-visible:bg-cream-100; }
   .people-row.selected-row { background-color: rgb(var(--selected-row)); }
   .people-row__text { @apply flex min-w-0 flex-1 flex-col gap-0.5; }
@@ -431,7 +436,7 @@
   .people-row__sub { @apply truncate text-xs text-muted; }
   /* S2a: the column heads (Name, Zuletzt) sort the list; the ink line moves
      from the list to the heads. Two plain words, the active one in ink. */
-  .people-columns { @apply mx-6 flex items-center gap-3 border-b border-ink pb-1.5; }
+  .people-columns { @apply flex items-center gap-3 border-b border-ink pb-1.5; }
   .people-columns + .people-list { border-top-width: 0; }
   .people-columns__head--name { @apply min-w-0 flex-1; padding-inline-start: 42px; }
   .people-columns__head--last { @apply w-[120px] flex-none text-end; }
@@ -456,7 +461,7 @@
   .participant-link-modal .people-avatar { @apply font-mono font-normal; }
   .people-page .people-avatar--contact,
   .participant-link-modal .people-avatar--contact { @apply border-cream-300 bg-surface-raised text-cream-600; }
-  .people-empty { @apply flex flex-col items-start gap-2.5 px-6 pt-8; }
+  .people-empty { @apply flex flex-col items-start gap-2.5 pt-8; }
   .people-empty__icon { @apply text-2xl text-cream-500; }
   .people-empty__title { @apply text-[15px] font-semibold text-heading; }
   .people-empty__text { @apply text-[13px] leading-relaxed text-muted; }
@@ -549,7 +554,7 @@
      tools wrap then, and so does this row, upwards into the lines the tools
      have made (it is always shorter than they are), instead of running out
      of the column with the way out at its end. */
-  .inbox-bulk { @apply absolute inset-x-6 bottom-0 top-0 z-20 flex flex-wrap content-end items-baseline gap-x-3 gap-y-1 bg-cream-50 pb-3 text-[13px] text-muted; }
+  .inbox-bulk { @apply absolute inset-x-0 bottom-0 top-0 z-20 flex flex-wrap content-end items-baseline gap-x-3 gap-y-1 bg-cream-50 pb-3 text-[13px] text-muted; }
   .inbox-bulk.hidden { display: none; }
 
   /* Period headings of the grouped view: a quiet word, not a bar. */
