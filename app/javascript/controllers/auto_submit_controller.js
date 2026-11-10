@@ -1,5 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
-import { submitTrigger } from "auto_submit"
+import { submitTrigger, isOwnFrameEcho } from "auto_submit"
 
 // Automatically submits the enclosing form on changes to selects, checkboxes,
 // radios and date inputs. Text and search inputs are debounced (300ms) so that
@@ -16,14 +16,16 @@ import { submitTrigger } from "auto_submit"
 // cancelable (undefined_url_guard vetoes visits there), and a vetoed visit
 // must not eat a pending submit -- the page stays, so the typed search still
 // has to reach the list. turbo:visit fires once navigation actually proceeds,
-// restoration visits included.
+// restoration visits included. One visit is no navigation: the promotion of
+// this form's OWN frame answer (data-turbo-action), which only writes the
+// address; a search typed while that answer ran still goes out (isOwnFrameEcho).
 export default class extends Controller {
   static values = { debounce: { type: Number, default: 300 } }
 
   connect() {
     this.boundHandle = this.handleChange.bind(this)
     this.boundInput  = this.handleInput.bind(this)
-    this.boundCancel = this.cancelPending.bind(this)
+    this.boundCancel = this.cancelOnVisit.bind(this)
     this.element.addEventListener("change", this.boundHandle)
     this.element.addEventListener("input",  this.boundInput)
     document.addEventListener("turbo:visit", this.boundCancel)
@@ -47,6 +49,16 @@ export default class extends Controller {
     if (submitTrigger(event.target) !== "debounced") return
     this.cancelPending()
     this.debounceTimer = setTimeout(() => this.submitForm(), this.debounceValue)
+  }
+
+  cancelOnVisit(event) {
+    if (isOwnFrameEcho(event?.detail?.url, this.ownFrame()?.src)) return
+    this.cancelPending()
+  }
+
+  ownFrame() {
+    const id = this.element.dataset.turboFrame
+    return id && id !== "_top" ? document.getElementById(id) : null
   }
 
   cancelPending() {

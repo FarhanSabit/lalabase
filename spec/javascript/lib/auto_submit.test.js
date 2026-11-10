@@ -5,7 +5,7 @@
 //   whose late frame answer cancelled the page visit a billing choice makes.
 import { test } from "node:test"
 import assert from "node:assert/strict"
-import { submitTrigger } from "../../../app/javascript/lib/auto_submit.js"
+import { submitTrigger, isOwnFrameEcho } from "../../../app/javascript/lib/auto_submit.js"
 
 test("a select, checkbox, date or hidden input submits at once", () => {
   for (const type of ["select-one", "checkbox", "radio", "date", "hidden", undefined]) {
@@ -44,4 +44,29 @@ test("a control marked auto-submit-skip never submits, whatever its type", () =>
 // would be indistinguishable from date inputs having been blacklisted wholesale.
 test("a date field without the mark still submits at once", () => {
   assert.equal(submitTrigger({ name: "start_date", type: "date", dataset: {} }), "now")
+})
+
+// A frame answer with data-turbo-action is promoted to a visit of its own
+// (turbo:visit) once it has rendered. For the form's OWN frame that visit only
+// writes the address of what was just shown; it is no navigation away, and a
+// search typed meanwhile must still go out. The inbox search found this: "Exp"
+// went out, "ort" was typed while it ran, the answer's promotion dropped the
+// pending "Export" and the field said "Export" over the hits for "Exp".
+const base = "https://example.com/org/1/inbox"
+
+test("the promotion of the form's own frame answer is an echo", () => {
+  const src = `${base}?state_filters%5B%5D=read&search=Exp&items=20`
+  assert.equal(isOwnFrameEcho(src, src), true)
+  assert.equal(isOwnFrameEcho(new URL(src), src), true)
+})
+
+test("a visit elsewhere is no echo: the pending submit is dropped as before", () => {
+  assert.equal(isOwnFrameEcho(`${base}/preferences`, `${base}?search=Exp`), false)
+  assert.equal(isOwnFrameEcho(`${base}?search=Ex`, `${base}?search=Exp`), false)
+})
+
+test("without a frame source there is nothing to echo", () => {
+  assert.equal(isOwnFrameEcho(`${base}?search=Exp`, null), false)
+  assert.equal(isOwnFrameEcho(`${base}?search=Exp`, ""), false)
+  assert.equal(isOwnFrameEcho(undefined, `${base}?search=Exp`), false)
 })

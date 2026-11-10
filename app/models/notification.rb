@@ -293,12 +293,29 @@ class Notification < ApplicationRecord
   }
   scope :with_event_type, ->(event_type) { where(event_type: event_type) if event_type.present? }
 
-  # Search scope - search in payload JSON data
-  scope :search, lambda { |query|
-    return all if query.blank?
+  # What an inbox row is about and shows as its title, by type and column.
+  SEARCH_TITLES = { 'Ticket' => :title, 'Meeting' => :title }.freeze
 
-    # Search in payload JSON content which contains notification details
-    where('payload::text ILIKE ?', "%#{query}%")
+  # The inbox search finds what a row shows: the title of what it is about,
+  # the project, the name of who did it (never an address: it may be a login
+  # address hidden from others). Until 2026-11-10 it searched the payload's
+  # JSON text (an activity id, the action's name), which missed the title and
+  # found every comment for "post". Guard: spec/models/notification_search_spec.rb.
+  scope :search, lambda { |query|
+    term = query.to_s.strip
+    return all if term.blank?
+
+    pattern = "%#{sanitize_sql_like(term)}%"
+    users = User.arel_table
+    whole_name = Arel::Nodes::NamedFunction.new('CONCAT_WS', [Arel::Nodes.build_quoted(' '),
+                                                              users[:first_name], users[:last_name]])
+    matches = where(project_id: Project.where(Project.arel_table[:name].matches(pattern)).select(:id))
+              .or(where(actor_id: User.where(whole_name.matches(pattern)).select(:id)))
+    SEARCH_TITLES.reduce(matches) do |relation, (type, column)|
+      klass = type.constantize
+      relation.or(where(notifiable_type: type,
+                        notifiable_id: klass.where(klass.arel_table[column].matches(pattern)).select(:id)))
+    end
   }
 
   # Date grouping scope with database-level grouping

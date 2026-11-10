@@ -9,13 +9,15 @@ class Organisations::NotificationsController < Organisations::BaseController
   before_action :set_notification_for_open, only: [:open]
 
   def index
-    # Default selection on the "bare" /inbox call: show only unread.
-    # As soon as any query param is present (even an empty state_filters[]),
-    # we respect the explicit user choice.
+    # Default selection on the "bare" /inbox call: the "Alle" view, unread
+    # and read (user, 2026-11-10; it was "Ungelesen" before). As soon as any
+    # query param is present (even an empty state_filters[]), we respect the
+    # explicit user choice.
     if request.query_string.blank?
       skip_policy_scope # Pundit after_action: no scoping needed for redirect.
-      return redirect_to organisation_notifications_path(current_organisation,
-                                                         state_filters: ['unread'])
+      return redirect_to organisation_notifications_path(
+        current_organisation, state_filters: Inbox::MasterListPresenter::STATUS_VIEWS.fetch('all')
+      )
     end
 
     # List render logic (filter + pagination + grouping + empty state)

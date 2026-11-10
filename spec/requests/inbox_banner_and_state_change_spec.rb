@@ -33,13 +33,14 @@ RSpec.describe 'Inbox banner + state-change matrix', type: :request do
     controller.instance_variable_get(:@presenter)
   end
 
-  describe 'H6: die Status-Ansicht der Pillen (Ungelesen, Alle, Archiviert)' do
+  describe 'H6: die Status-Ansicht der Pillen (Alle, Ungelesen, Gelesen, Archiviert)' do
     {
       [''] => 'all',
       ['unread'] => 'unread',
       %w[read unread] => 'all',
+      ['read'] => 'read',
       ['archived'] => 'archived',
-      ['read'] => nil
+      %w[unread archived] => nil
     }.each do |filters, view|
       it "nennt fuer state_filters #{filters.inspect} die Ansicht #{view.inspect}" do
         get organisation_notifications_path(organisation), params: { state_filters: filters }
@@ -81,11 +82,11 @@ RSpec.describe 'Inbox banner + state-change matrix', type: :request do
       expect(presenter.empty_reason).to eq(:nothing_yet)
     end
 
-    # An old address names a set of states that is none of the three views
-    # (read alone, say). Its empty list is no empty inbox: the sentence says
-    # so and leads to the view that shows everything.
-    it 'nennt eine leere Auswahl, die keine der drei Ansichten ist, nicht "Noch keine Meldungen"' do
-      get organisation_notifications_path(organisation), params: { state_filters: ['read'] }
+    # An old address names a set of states that is none of the four views
+    # (unread and archived, say). Its empty list is no empty inbox: the
+    # sentence says so and leads to the view that shows everything.
+    it 'nennt eine leere Auswahl, die keine der vier Ansichten ist, nicht "Noch keine Meldungen"' do
+      get organisation_notifications_path(organisation), params: { state_filters: %w[unread archived] }
 
       expect(presenter.empty_reason).to eq(:other_filter)
       expect(response.body).to include(I18n.t('views.organisations.notifications.master_list.empty.other_filter.title'))

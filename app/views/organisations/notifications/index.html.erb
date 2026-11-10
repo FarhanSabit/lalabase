@@ -43,6 +43,16 @@
         <turbo-frame id="notifications_list_frame" class="block">
           <div id="new_notifications_banner" class="hidden"></div>
           <%= render 'master_list', presenter: @presenter, selected_notification: @selected_notification %>
+          <%# The search reloads only this frame. The tools that carry the
+              search in their addresses stand outside it and come along as a
+              stream, INSIDE the frame: after </turbo-frame> Turbo drops it
+              (the time list's FRAME_DEPENDENT_REGIONS idiom). %>
+          <% if turbo_frame_request_id == 'notifications_list_frame' %>
+            <%= turbo_stream.replace 'inbox_list_tools' do %>
+              <%= render 'organisations/notifications/list_tools',
+                         presenter: @presenter, projects: @projects, unread_count: @unread_count %>
+            <% end %>
+          <% end %>
         </turbo-frame>
       </div>
     <% end %>

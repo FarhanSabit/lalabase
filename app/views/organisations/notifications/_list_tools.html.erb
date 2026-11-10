@@ -1,0 +1,56 @@
+<%# locals: (presenter:, projects:, unread_count:) %>
+<%# The tools of the list head that carry the search in their addresses: the
+    status views, the project, the type chip, the view mode. The search form
+    reloads only the list frame, so these are drawn again from inside its
+    answer (index.html.erb, a <turbo-stream> in the frame: after
+    </turbo-frame> Turbo would drop it). display: contents keeps each one a
+    flex item of the tools row. %>
+<div id="inbox_list_tools" class="contents">
+    <nav class="people-filters" aria-label="<%= t('views.organisations.notifications.filter.status_label') %>">
+      <% Inbox::MasterListPresenter::STATUS_VIEWS.each_key do |view| %>
+        <% active = presenter.status_view == view %>
+        <%= link_to inbox_status_view_url(view), class: "people-pill #{'people-pill--active' if active}",
+                                                 'aria-current': (active ? 'true' : nil), data: { turbo_frame: '_top' } do %>
+          <%= t("views.organisations.notifications.filter.views.#{view}") %>
+          <%= render 'organisations/notifications/unread_count', count: unread_count if view == 'unread' %>
+        <% end %>
+      <% end %>
+    </nav>
+
+    <%= form_with url: organisation_notifications_path(current_organisation), method: :get,
+                  data: { turbo_frame: '_top', controller: 'auto-submit' } do %>
+      <%= inbox_hidden_query_fields(except: %w[project_id]) %>
+      <label class="inbox-project">
+        <span class="sr-only"><%= t('views.organisations.notifications.filter.project_label') %></span>
+        <%= select_tag :project_id,
+                       options_for_select([[t('views.organisations.notifications.filter.all_projects'), '']] +
+                                          projects.map { |project| [project.name, project.id] }, params[:project_id]),
+                       class: "inbox-project__select #{'inbox-project__select--active' if params[:project_id].present?}" %>
+      </label>
+    <% end %>
+
+    <%# The type filter has no control of its own any more (an old address or
+        a link from elsewhere sets it). While it narrows the list it stands
+        here as a chip, and the chip removes it. %>
+    <% if (event_type = inbox_event_type_filter) %>
+      <%= link_to inbox_without_event_type_url, class: 'people-pill people-pill--active inbox-type-chip',
+                                                title: t('views.organisations.notifications.filter.remove_type'),
+                                                data: { turbo_frame: '_top' } do %>
+        <%= t('views.organisations.notifications.filter.type_chip', type: inbox_event_type_label(event_type)) %>
+        <i class="bi bi-x" aria-hidden="true"></i>
+        <span class="sr-only"><%= t('views.organisations.notifications.filter.remove_type') %></span>
+      <% end %>
+    <% end %>
+
+    <div class="inbox-view-mode" role="group" aria-label="<%= t('views.organisations.notifications.filter.view_label') %>">
+      <% [%w[chronological list-ul], %w[grouped collection]].each do |mode, icon| %>
+        <% label = t("views.organisations.notifications.filter.view_#{mode}") %>
+        <%= link_to inbox_view_mode_url(mode), class: "inbox-view-mode__cell #{'inbox-view-mode__cell--active' if presenter.view_mode == mode}",
+                                               title: label, 'aria-label': label,
+                                               'aria-current': (presenter.view_mode == mode ? 'true' : nil),
+                                               data: { turbo_frame: '_top' } do %>
+          <i class="bi bi-<%= icon %>" aria-hidden="true"></i>
+        <% end %>
+      <% end %>
+    </div>
+</div>

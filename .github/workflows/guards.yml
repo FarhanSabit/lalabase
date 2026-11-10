@@ -331,6 +331,8 @@ jobs:
           spec/requests/inbox_url_redirect_spec.rb
           spec/requests/inbox_bulk_actions_spec.rb
           spec/requests/inbox_row_actions_spec.rb
+          spec/requests/inbox_list_head_spec.rb
+          spec/models/notification_search_spec.rb
           spec/requests/inbox_status_filter_spec.rb
           spec/requests/inbox_pagination_spec.rb
           spec/presenters/inbox/master_list_presenter_spec.rb
