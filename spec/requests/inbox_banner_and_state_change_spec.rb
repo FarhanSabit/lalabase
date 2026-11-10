@@ -48,10 +48,10 @@ RSpec.describe 'Inbox banner + state-change matrix', type: :request do
       end
     end
 
-    it 'markiert genau die aktive Pille' do
+    it 'markiert genau den aktiven Reiter' do
       get organisation_notifications_path(organisation), params: { state_filters: ['archived'] }
-      expect(response.body.scan('aria-current="true"').size).to eq(2) # the pill and the view mode cell
-      expect(response.body).to match(/people-pill--active"[^>]*>\s*#{I18n.t('views.organisations.notifications.filter.views.archived')}/)
+      selected = Nokogiri::HTML(response.body).css('[role="tablist"] a[aria-selected="true"]')
+      expect(selected.map { |tab| tab.text.squish }).to eq([I18n.t('views.organisations.notifications.filter.views.archived')])
     end
   end
 

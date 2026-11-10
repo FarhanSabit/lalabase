@@ -242,6 +242,7 @@ else
   pin 'controllers/reveal_more_controller', to: 'controllers/reveal_more_controller.js'
   pin 'controllers/scroll_into_view_controller', to: 'controllers/scroll_into_view_controller.js'
   pin 'controllers/scroll_to_top_controller', to: 'controllers/scroll_to_top_controller.js'
+  pin 'controllers/search_disclosure_controller', to: 'controllers/search_disclosure_controller.js'
   pin 'controllers/search_overlay_controller', to: 'controllers/search_overlay_controller.js'
   pin 'controllers/session_timeout_controller', to: 'controllers/session_timeout_controller.js'
   pin 'controllers/sidebar_project_accordion_controller', to: 'controllers/sidebar_project_accordion_controller.js'

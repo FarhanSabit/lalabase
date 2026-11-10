@@ -6,19 +6,28 @@
     </turbo-frame> Turbo would drop it). display: contents keeps each one a
     flex item of the tools row. %>
 <div id="inbox_list_tools" class="contents">
-    <nav class="people-filters" aria-label="<%= t('views.organisations.notifications.filter.status_label') %>">
+    <%# The status views as the ticket list draws its tabs (F10, the same
+        classes: NeoFilterBarComponent.tab_classes). Each is a link to the
+        view's address; the strip scrolls when the row is narrow. %>
+    <div role="tablist" aria-label="<%= t('views.organisations.notifications.filter.status_label') %>"
+         class="inbox-tabs flex items-end gap-0.5 min-w-0 overflow-x-auto scrollbar-hide -mb-px">
       <% Inbox::MasterListPresenter::STATUS_VIEWS.each_key do |view| %>
         <% active = presenter.status_view == view %>
-        <%= link_to inbox_status_view_url(view), class: "people-pill #{'people-pill--active' if active}",
-                                                 'aria-current': (active ? 'true' : nil), data: { turbo_frame: '_top' } do %>
+        <%= link_to inbox_status_view_url(view), role: 'tab', 'aria-selected': active.to_s,
+                                                 class: NeoFilterBarComponent.tab_classes(active),
+                                                 data: { turbo_frame: '_top' } do %>
           <%= t("views.organisations.notifications.filter.views.#{view}") %>
           <%= render 'organisations/notifications/unread_count', count: unread_count if view == 'unread' %>
         <% end %>
       <% end %>
-    </nav>
+    </div>
+
+    <%# The tools at the right end of the row, before the search (in
+        _list_head, the last of them), as on the ticket list. %>
+    <div class="ms-auto self-center flex items-center gap-1">
 
     <%= form_with url: organisation_notifications_path(current_organisation), method: :get,
-                  data: { turbo_frame: '_top', controller: 'auto-submit' } do %>
+                  data: { turbo_frame: '_top', controller: 'auto-submit', inbox_tool: 'project' } do %>
       <%= inbox_hidden_query_fields(except: %w[project_id]) %>
       <label class="inbox-project">
         <span class="sr-only"><%= t('views.organisations.notifications.filter.project_label') %></span>
@@ -35,7 +44,7 @@
     <% period = TimeSessions::ListPeriod.normalize_for_table(params[:period]) %>
     <% narrowing = period != TimeSessions::ListPeriod::TABLE_DEFAULT %>
     <%= form_with url: organisation_notifications_path(current_organisation), method: :get,
-                  data: { turbo_frame: '_top', controller: 'auto-submit' } do %>
+                  data: { turbo_frame: '_top', controller: 'auto-submit', inbox_tool: 'period' } do %>
       <%= inbox_hidden_query_fields(except: %w[period]) %>
       <label class="inbox-project">
         <span class="sr-only"><%= t('views.organisations.notifications.filter.period_label') %></span>
@@ -58,7 +67,7 @@
       <% end %>
     <% end %>
 
-    <div class="inbox-view-mode" role="group" aria-label="<%= t('views.organisations.notifications.filter.view_label') %>">
+    <div class="inbox-view-mode" data-inbox-tool="view-mode" role="group" aria-label="<%= t('views.organisations.notifications.filter.view_label') %>">
       <% [%w[chronological list-ul], %w[grouped collection]].each do |mode, icon| %>
         <% label = t("views.organisations.notifications.filter.view_#{mode}") %>
         <%= link_to inbox_view_mode_url(mode), class: "inbox-view-mode__cell #{'inbox-view-mode__cell--active' if presenter.view_mode == mode}",
@@ -68,5 +77,6 @@
           <i class="bi bi-<%= icon %>" aria-hidden="true"></i>
         <% end %>
       <% end %>
+    </div>
     </div>
 </div>

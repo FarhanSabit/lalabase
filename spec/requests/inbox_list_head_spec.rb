@@ -70,11 +70,46 @@ RSpec.describe 'Inbox list head', type: :request do
   end
 
   it 'names the status views Alle, Ungelesen, Gelesen, Archiviert, in that order' do
-    pills = doc_for(state_filters: %w[read unread]).css('nav.people-filters a.people-pill')
+    tabs = doc_for(state_filters: %w[read unread]).css('[role="tablist"] a[role="tab"]')
 
-    expect(pills.map { |pill| pill.children.find(&:text?)&.text.to_s.squish })
+    expect(tabs.map { |tab| tab.children.find(&:text?)&.text.to_s.squish })
       .to eq(%w[all unread read archived].map { |key| view_word(key) })
-    expect(pills.first['aria-current']).to eq('true')
+    expect(tabs.first['aria-selected']).to eq('true')
+  end
+
+  # The bar of the ticket list (user, 2026-11-10): the views as its tabs (F10,
+  # the same classes), the tools at the right end, the search the last of
+  # them, a magnifier that grows into the field (F35, the same markers and
+  # stylesheet).
+  describe 'the bar of the ticket list' do
+    it 'draws the views as the ticket list draws its tabs' do
+      tabs = doc_for(state_filters: %w[read]).css('[role="tablist"] a[role="tab"]')
+      active, *others = tabs.partition { |tab| tab['aria-selected'] == 'true' }.flatten(1).then { |a| [a.first, *a.drop(1)] }
+
+      expect(active['class']).to eq("#{NeoFilterBarComponent::TAB_BASE_CLASSES} #{NeoFilterBarComponent::TAB_ACTIVE_CLASSES}")
+      expect(others.map { |tab| tab['class'] })
+        .to all(eq("#{NeoFilterBarComponent::TAB_BASE_CLASSES} #{NeoFilterBarComponent::TAB_INACTIVE_CLASSES}"))
+      expect(active.text).to include(view_word(:read))
+    end
+
+    it 'puts the search last in the row, closed while it is empty' do
+      row = doc_for(state_filters: %w[read unread]).at_css('.inbox-tools')
+      search = row.at_css('[data-fb-search]')
+
+      expect(search).to be_present
+      expect(search['data-controller']).to eq('search-disclosure')
+      expect(search.key?('data-fb-search-open')).to be(false)
+      expect(search.at_css('button[data-fb-search-open-button]')).to be_present
+      last_tool = row.css('[data-inbox-tool]').last
+      expect(last_tool['data-inbox-tool']).to eq('search')
+    end
+
+    it 'stands open while a search is typed' do
+      search = doc_for(state_filters: %w[read unread], search: 'Export').at_css('[data-fb-search]')
+
+      expect(search.key?('data-fb-search-open')).to be(true)
+      expect(search.at_css('input[name="search"]')['value']).to eq('Export')
+    end
   end
 
   it 'shows only the read ones under "Gelesen", and marks it' do
@@ -82,7 +117,7 @@ RSpec.describe 'Inbox list head', type: :request do
 
     ids = controller.instance_variable_get(:@notifications).map(&:id)
     expect(ids).to eq([read_one.id])
-    active = doc.at_css('nav.people-filters a[aria-current="true"]')
+    active = doc.at_css('[role="tablist"] a[aria-selected="true"]')
     expect(active.text).to include(view_word(:read))
   end
 
@@ -120,7 +155,8 @@ RSpec.describe 'Inbox list head', type: :request do
 
       stream = frame.at_css('turbo-stream[action="replace"][target="inbox_list_tools"]')
       expect(stream).to be_present, 'the tools ride inside the frame, or Turbo drops them'
-      links = Nokogiri::HTML(stream.at_css('template').inner_html).css('a.people-pill').map { |a| a['href'] }
+      links = Nokogiri::HTML(stream.at_css('template').inner_html).css('a[role="tab"]').map { |a| a['href'] }
+      expect(links.size).to eq(4)
       expect(links).to all(include('search=Export'))
     end
 
