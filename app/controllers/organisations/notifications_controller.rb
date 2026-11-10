@@ -179,6 +179,8 @@ class Organisations::NotificationsController < Organisations::BaseController
         read_at: @notification.read_at || Time.current
       )
     end
+    # Bundling: archiving took the whole ticket, so does the way back.
+    cascade_notifiable_state(@notification, :unarchived)
     @unread_count = current_user.unread_notifications_count(current_organisation)
     @action_type = 'unarchive'
     setup_pane_vars_from_action_notification
@@ -241,7 +243,7 @@ class Organisations::NotificationsController < Organisations::BaseController
     selected_ids = Array(params[:ids]).reject(&:blank?)
     return refuse_empty_selection if empty_selection?(selected_ids)
 
-    scope = scope.where(id: selected_ids) if selected_ids.any?
+    scope = with_whole_tickets(scope, selected_ids) if selected_ids.any?
     marked_count = scope.unread
                         .bulk_transition!(state: 'read', read_at: Time.current)
 
@@ -281,7 +283,7 @@ class Organisations::NotificationsController < Organisations::BaseController
       return refuse_empty_selection if empty_selection?(selected_ids)
 
       if selected_ids.any?
-        scope = scope.where(id: selected_ids)
+        scope = with_whole_tickets(scope, selected_ids)
         archived_count = scope.bulk_transition!(state: 'archived', archived_at: Time.current)
       else
         archived_count = scope.read
@@ -664,7 +666,7 @@ class Organisations::NotificationsController < Organisations::BaseController
 
   # Bundling: set all in_app notifications of the same notifiable (ticket) to
   # one target state. read → only unread; archived → all non-
-  # archived. Via update_all (no callbacks) — consistent with
+  # archived; unarchived → the archived ones back to read. Via update_all (no callbacks) — consistent with
   # mark_all_read/archive_all. mark_unread DELIBERATELY does NOT cascade (only the
   # newest/displayed notification flips back to unread).
   # Only rows the person sees: rows about the same project can differ by the area of
@@ -685,6 +687,12 @@ class Organisations::NotificationsController < Organisations::BaseController
     when :archived
       scope.where.not(state: Notification.states[:archived])
            .bulk_transition!(state: 'archived', archived_at: Time.current)
+    when :unarchived
+      # Back as read, like the single unarchive: a row the bulk bar archived
+      # unread has no read_at yet and gets one, the others keep theirs.
+      archived = scope.where(state: Notification.states[:archived])
+      archived.where(read_at: nil).bulk_transition!(state: 'read', archived_at: nil, read_at: Time.current)
+      archived.bulk_transition!(state: 'read', archived_at: nil)
     end
   rescue StandardError => e
     Rails.logger.warn("cascade_notifiable_state failed: #{e.class}: #{e.message}")
@@ -782,6 +790,18 @@ class Organisations::NotificationsController < Organisations::BaseController
   # The bulk bar of the inbox names its requests (selection=1). One of them
   # without ids would be the whole-inbox action the bar never offers, so it is
   # refused; the header dropdown asks for that action without the marker.
+  # One ticket is one row: a selected row stands for every notification of its
+  # ticket, as the single actions do (cascade_notifiable_state). In the bundled
+  # view a row carries the id of its newest notification only; archiving that
+  # one alone left the row standing with the next.
+  def with_whole_tickets(scope, selected_ids)
+    selected = scope.where(id: selected_ids)
+    tickets = selected.where.not(notifiable_id: nil).distinct.pluck(:notifiable_type, :notifiable_id)
+    return selected if tickets.empty?
+
+    tickets.map { |type, id| scope.where(notifiable_type: type, notifiable_id: id) }.reduce(selected, :or)
+  end
+
   def empty_selection?(selected_ids)
     params[:selection].present? && selected_ids.empty?
   end
@@ -954,12 +974,16 @@ class Organisations::NotificationsController < Organisations::BaseController
   # to also update the pane, in case the affected notification
   # is currently open. Sets @selected_notification + @pane_state, so that
   # update.turbo_stream.erb can re-render the pane partial.
+  # The open notification is the one the page's address names (?notification=,
+  # the referrer), NOT the one acted on: since the "···" menu of a row acts on
+  # any row, taking the acted one swapped the lane's buttons to it and moved
+  # the selected row (spec/requests/inbox_row_actions_spec.rb).
   def setup_pane_vars_from_action_notification
     return unless @notification
 
-    @selected_notification = @notification
+    @selected_notification = open_notification_from_referrer
     notifiable = @notification.notifiable
-    if notifiable.is_a?(Ticket)
+    if @selected_notification&.id == @notification.id && notifiable.is_a?(Ticket)
       @ticket = notifiable
       @project = notifiable.project
       @pane_state = :ticket
@@ -972,6 +996,16 @@ class Organisations::NotificationsController < Organisations::BaseController
     @notification_still_in_filter = notification_matches_state_filters?(
       @notification, @active_state_filters
     )
+  end
+
+  # The notification open in the lane of the page the action came from, through
+  # the policy scope like the pane loader; nil without one.
+  def open_notification_from_referrer
+    id = inbox_referrer_query&.dig('notification').presence
+    return nil unless id.is_a?(String)
+    return @notification if id == @notification.id
+
+    policy_scope(current_user.notifications).for_current_tenant_user(current_user).find_by(id: id)
   end
 
   # Reads state_filters[] either from params (pill click) or from the

@@ -38,4 +38,16 @@
       <% end %>
     </span>
   <% end %>
+
+  <%# The actions on this notification without opening it: "···" in the place
+      of the time, shown on hover and on focus like the checkbox in the
+      gutter, always on a touch screen (no hover there). The same buttons as
+      the head of the lane. A <details>, so the menu opens without JavaScript
+      too; details-autoclose closes it on a click outside and on Escape. %>
+  <details class="more-menu inbox-row__menu" data-controller="details-autoclose">
+    <summary class="more-menu__trigger" title="<%= menu_label %>" aria-label="<%= menu_label %>"><i class="bi bi-three-dots" aria-hidden="true"></i></summary>
+    <div class="more-menu__items">
+      <%= render 'organisations/notifications/notification_actions', notification: notification %>
+    </div>
+  </details>
 </div>

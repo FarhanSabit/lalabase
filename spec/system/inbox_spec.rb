@@ -73,6 +73,31 @@ RSpec.describe 'Inbox (System)', type: :system, inbox_e2e: true do
     expect(page).not_to have_css("[data-notification-item='#{n.id}']", wait: 9)
   end
 
+  # C9 — The "···" of a row stands in the place of the time on hover and acts
+  # on that row without opening it; the lane keeps the notification it shows.
+  it 'archiviert eine Zeile über ihr Menü, ohne die offene Bahn zu wechseln (C9)' do
+    open_ticket = ActsAsTenant.with_tenant(organisation) { create(:ticket, project: project, title: 'Offen in der Bahn') }
+    other_ticket = ActsAsTenant.with_tenant(organisation) { create(:ticket, project: project, title: 'Nur in der Liste') }
+    open_one = create_notification(state: :delivered, ticket: open_ticket, created_at: 1.hour.ago)
+    other = create_notification(state: :delivered, ticket: other_ticket, created_at: 2.hours.ago)
+
+    visit inbox_path(state_filters: ['unread'], notification: open_one.id)
+    expect(page).to have_css('#ticket_pane', text: 'Offen in der Bahn')
+    row = find("[data-notification-item='#{other.id}'] .inbox-row")
+    expect(row).to have_no_css('.inbox-row__menu summary', visible: true)
+    expect(row).to have_css('.inbox-row__time', visible: true)
+
+    row.hover
+    expect(row).to have_no_css('.inbox-row__time', visible: true)
+    row.find('.inbox-row__menu summary', visible: true).click
+    row.click_button('Archivieren')
+
+    expect(page).to have_no_css("[data-notification-item='#{other.id}']")
+    expect(other.reload).to be_state_archived
+    expect(page).to have_css('#ticket_pane', text: 'Offen in der Bahn')
+    within('#inbox_pane_status_pills') { expect(page).to have_button('Als gelesen') }
+  end
+
   # C2 — The checkbox sits where the unread dot is and shows on hover; from
   # the first tick on every row shows it, and "Alle" in the bar ticks all.
   it 'zeigt das Kästchen beim Drüberfahren und wählt über "Alle" alle Zeilen (C2)' do
@@ -102,7 +127,7 @@ RSpec.describe 'Inbox (System)', type: :system, inbox_e2e: true do
     n = create_notification(state: :delivered, ticket: ticket)
 
     visit inbox_path(state_filters: ['unread'])
-    find('summary.more-menu__trigger').click
+    find('.people-head summary.more-menu__trigger').click
     click_button('Auswählen')
 
     within('[data-inbox-bulk-select-target="bar"]') do

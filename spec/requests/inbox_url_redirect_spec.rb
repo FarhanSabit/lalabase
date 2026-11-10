@@ -212,12 +212,20 @@ RSpec.describe 'Inbox URL rename', type: :request do
          missing_title missing_subtitle
          unauthorized_title unauthorized_subtitle
          non_ticket_title non_ticket_subtitle
-         done mark_read mark_unread unarchive
          open_full_view].each do |key|
         it "views.organisations.notifications.pane.#{key} (#{locale.upcase})" do
           value = I18n.t("views.organisations.notifications.pane.#{key}",
                          locale: locale, default: nil)
           expect(value).to be_present, "Missing pane.#{key} in #{locale}"
+        end
+      end
+      # The actions moved out of pane.* (2026-11-10): the lane and the "···"
+      # of a row share them.
+      %w[mark_read mark_unread archive unarchive].each do |key|
+        it "views.organisations.notifications.actions.#{key} (#{locale.upcase})" do
+          value = I18n.t("views.organisations.notifications.actions.#{key}",
+                         locale: locale, default: nil)
+          expect(value).to be_present, "Missing actions.#{key} in #{locale}"
         end
       end
     end

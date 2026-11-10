@@ -593,6 +593,20 @@
   .inbox-row__archived { @apply flex-none rounded border border-cream-300 px-1.5 text-[11px] text-muted; }
   .inbox-row--archived .inbox-row__title { @apply text-muted; }
   .inbox-row--checked { background-color: rgb(var(--selected-row)); }
+  /* The "···" of a row takes the place of the time, the way the checkbox
+     takes the unread dot's: on hover, on focus and while its menu is open.
+     Hidden by opacity, not display, so Tab still reaches it. */
+  .inbox-row { position: relative; }
+  .inbox-row__menu { @apply absolute right-1 top-1.5 opacity-0; }
+  .inbox-row:hover .inbox-row__menu, .inbox-row:focus-within .inbox-row__menu, .inbox-row__menu[open] { opacity: 1; }
+  .inbox-row:hover .inbox-row__time, .inbox-row:focus-within .inbox-row__time, .inbox-row:has(.inbox-row__menu[open]) .inbox-row__time { visibility: hidden; }
+  /* No hover on a touch screen: the "···" stands there always, and the time
+     moves left of it. */
+  @media (hover: none) {
+    .inbox-row__menu { opacity: 1; }
+    .inbox-row .inbox-row__time, .inbox-row:focus-within .inbox-row__time { visibility: visible; }
+    .inbox-row__line:first-child { padding-right: 2rem; }
+  }
 
   .inbox-empty { @apply py-12; }
   .inbox-empty__title { @apply mb-1 flex items-center gap-2 text-base font-semibold text-heading; }
@@ -610,8 +624,9 @@
   .inbox-lane-head__actions--alone .people-lane__divider { display: none; }
   .inbox-lane-actions { @apply flex flex-none items-center gap-2; }
   .inbox-lane-actions__open { @apply me-1 inline-flex items-center gap-1.5 text-xs text-muted no-underline hover:text-heading; }
-  .inbox-lane-actions__icon { @apply inline-flex h-8 w-8 items-center justify-center rounded-lg border border-cream-300 bg-surface-raised text-cream-700 hover:border-ink hover:text-heading; }
-  .inbox-lane-actions__button { @apply inline-flex items-center gap-1.5 rounded-lg border border-ink bg-surface-raised px-3 py-1.5 text-[13px] font-semibold text-heading hover:bg-cream-100; }
+  /* F2 of the design table, one form for both actions: neither is the main
+     action of the lane, so no ink edge and no bold. */
+  .inbox-lane-actions__button { @apply inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-cream-300 bg-surface-raised px-3 text-[13px] font-medium text-heading hover:border-cream-400 hover:bg-cream-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2; }
   .inbox-new-activity { @apply mb-4 border-l-[3px] pl-3; border-color: rgb(var(--btn-primary)); }
   .inbox-new-activity__item { @apply flex items-baseline gap-2 py-0.5 text-[13px]; }
   .inbox-new-activity__who { @apply font-semibold text-heading; }

@@ -61,6 +61,7 @@ de:
           unread_label: Ungelesen
           archived_badge: Archiviert
           select_aria: "%{title} auswählen"
+          actions_for: "Aktionen für „%{title}“"
           new_count: "%{count} neu"
           bundle_badge_title:
             one: "%{count} Aktualisierung zu diesem Ticket"
@@ -75,11 +76,12 @@ de:
           document_added: hat Dokument hinzugefügt
           mention: hat dich erwähnt
           system_message: Systemnachricht
-        pane:
-          done: Erledigt
-          mark_read: Als gelesen markieren
-          mark_unread: Als ungelesen markieren
+        actions:
+          mark_read: Als gelesen
+          mark_unread: Als ungelesen
+          archive: Archivieren
           unarchive: Zurück in die Inbox
+        pane:
           new_activity_label: Neu seit deinem letzten Blick
           empty_title: Wähle links eine Meldung.
           missing_title: Diese Meldung gibt es nicht mehr
