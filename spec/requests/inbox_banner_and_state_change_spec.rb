@@ -80,6 +80,113 @@ RSpec.describe 'Inbox banner + state-change matrix', type: :request do
       get organisation_notifications_path(organisation), params: { state_filters: %w[read unread] }
       expect(presenter.empty_reason).to eq(:nothing_yet)
     end
+
+    # An old address names a set of states that is none of the three views
+    # (read alone, say). Its empty list is no empty inbox: the sentence says
+    # so and leads to the view that shows everything.
+    it 'nennt eine leere Auswahl, die keine der drei Ansichten ist, nicht "Noch keine Meldungen"' do
+      get organisation_notifications_path(organisation), params: { state_filters: ['read'] }
+
+      expect(presenter.empty_reason).to eq(:other_filter)
+      expect(response.body).to include(I18n.t('views.organisations.notifications.master_list.empty.other_filter.title'))
+      expect(response.body).not_to include(I18n.t('views.organisations.notifications.master_list.empty.nothing_yet.title'))
+      link = Nokogiri::HTML(response.body).at_css('.inbox-empty__body a')
+      expect(Rack::Utils.parse_nested_query(URI.parse(link['href']).query)).to eq('state_filters' => %w[read unread])
+    end
+  end
+
+  describe 'der Typ-Filter ohne eigenes Bedienelement (event_type=)' do
+    def notify(event_type)
+      ActsAsTenant.with_tenant(organisation) do
+        create(:notification, recipient: user, organisation: organisation, notifiable: ticket, project: project,
+                              channel: 'in_app', state: :delivered, event_type: event_type)
+      end
+    end
+
+    it 'zeigt den wirkenden Filter als Marke, die ihn entfernt und die Ansicht behaelt' do
+      mention = notify('mention')
+      assigned = notify('ticket_assigned')
+
+      get organisation_notifications_path(organisation),
+          params: { state_filters: ['unread'], view_mode: 'chronological', event_type: 'mention' }
+
+      expect(response.body).to include("data-notification-item=\"#{mention.id}\"")
+      expect(response.body).not_to include("data-notification-item=\"#{assigned.id}\"")
+      chip = Nokogiri::HTML(response.body).at_css('a.inbox-type-chip')
+      expect(chip.text).to include(I18n.t('activerecord.enums.notification.event_type.mention'))
+      expect(Rack::Utils.parse_nested_query(URI.parse(chip['href']).query))
+        .to eq('state_filters' => ['unread'], 'view_mode' => 'chronological')
+    end
+
+    it 'zeigt ohne Filter keine Marke' do
+      get organisation_notifications_path(organisation), params: { state_filters: ['unread'] }
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).not_to include('inbox-type-chip')
+    end
+
+    it 'uebergeht einen Typ, den es nicht gibt: alle Zeilen, keine Marke, kein Fehler' do
+      assigned = notify('ticket_assigned')
+
+      get organisation_notifications_path(organisation), params: { state_filters: ['unread'], event_type: 'nope' }
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("data-notification-item=\"#{assigned.id}\"")
+      expect(response.body).not_to include('inbox-type-chip')
+      expect(response.body).not_to include('event_type=nope')
+    end
+  end
+
+  # A list redrawn by a stream answers an action address, so its filters come
+  # from the page it was sent from (the Referer). ALL of them: the rows used
+  # to be read without search and project while the links around them kept
+  # both, so a list narrowed to one project showed every project after the
+  # first click.
+  describe 'die Liste, die ein Stream neu zeichnet, bleibt eingegrenzt' do
+    let!(:other_project) { ActsAsTenant.with_tenant(organisation) { create(:project, organisation: organisation) } }
+    let!(:other_ticket) { ActsAsTenant.with_tenant(organisation) { create(:ticket, project: other_project) } }
+
+    def notify(ticket)
+      ActsAsTenant.with_tenant(organisation) do
+        create(:notification, recipient: user, organisation: organisation, notifiable: ticket, project: ticket.project,
+                              channel: 'in_app', state: :delivered)
+      end
+    end
+
+    it 'behaelt das Projekt der Seite, von der die Aktion kam' do
+      mine = notify(ticket)
+      other = notify(other_ticket)
+      opened = notify(ticket)
+
+      patch mark_read_organisation_notification_path(organisation, opened),
+            headers: { 'Accept' => 'text/vnd.turbo-stream.html',
+                       'Referer' => organisation_notifications_url(organisation, state_filters: %w[read unread],
+                                                                                 view_mode: 'chronological',
+                                                                                 project_id: project.id) }
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("data-notification-item=\"#{mine.id}\"")
+      expect(response.body).not_to include("data-notification-item=\"#{other.id}\"")
+      # ... and so do the links of the redrawn rows: a click pushes their address.
+      row_link = Nokogiri::HTML(response.body).at_css("[data-notification-item='#{mine.id}'] a.inbox-row__link")
+      expect(Rack::Utils.parse_nested_query(URI.parse(row_link['href']).query))
+        .to eq('state_filters' => %w[read unread], 'view_mode' => 'chronological', 'project_id' => project.id,
+               'notification' => mine.id)
+    end
+
+    it 'nimmt beim Aufruf der Seite selbst nichts aus dem Referer: die Adresse sagt, was die Liste zeigt' do
+      mine = notify(ticket)
+      other = notify(other_ticket)
+
+      get organisation_notifications_path(organisation), params: { state_filters: ['unread'], view_mode: 'chronological' },
+                                                         headers: { 'Referer' => organisation_notifications_url(
+                                                           organisation, state_filters: ['archived'], project_id: project.id, search: 'x'
+                                                         ) }
+
+      expect(response.body).to include("data-notification-item=\"#{mine.id}\"")
+      expect(response.body).to include("data-notification-item=\"#{other.id}\"")
+      expect(presenter.narrowed?).to be(false)
+    end
   end
 
   describe 'H2: State-Change wenn Item weiter zum Filter passt' do

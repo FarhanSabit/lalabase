@@ -128,6 +128,49 @@ RSpec.describe 'Inbox bulk actions with ids[] filter', type: :request do
   # response: inbox_master_list must NOT contain the marked items
   # anymore. state_filters come from the referrer (the bulk-form URL does
   # not carry them).
+  # The bulk bar of the inbox names its requests (selection=1). Without ids
+  # such a request would be the whole-inbox action the bar never offers (the
+  # buttons are disabled, but Turbo re-enables a submitter after a failed
+  # request), so the routes refuse it and change nothing. The header dropdown
+  # keeps asking for the whole inbox without the marker (the example above).
+  describe 'a request of the bulk bar without ids' do
+    let(:turbo) { { 'Accept' => 'text/vnd.turbo-stream.html' } }
+
+    it 'mark_all_read refuses it and marks nothing' do
+      bulk_patch mark_all_read_organisation_notifications_path(organisation),
+                 params: { selection: '1', ids: [''] }, headers: turbo
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.body).to include(I18n.t('flash.notifications.nothing_selected'))
+      notifications.each { |n| expect(n.reload.state).to eq('delivered') }
+    end
+
+    it 'archive_all refuses it and archives nothing' do
+      notifications.first.update!(state: 'read', read_at: 1.minute.ago)
+      bulk_patch archive_all_organisation_notifications_path(organisation),
+                 params: { selection: '1' }, headers: turbo
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(notifications.first.reload.state).to eq('read')
+    end
+
+    it 'answers the plain form with a redirect and the reason' do
+      bulk_patch archive_all_organisation_notifications_path(organisation), params: { selection: '1' }
+
+      expect(response).to redirect_to(organisation_notifications_path(organisation))
+      expect(flash[:alert]).to eq(I18n.t('flash.notifications.nothing_selected'))
+    end
+
+    it 'still acts on the named ids when the bar sends them' do
+      bulk_patch mark_all_read_organisation_notifications_path(organisation),
+                 params: { selection: '1', ids: [notifications.first.id] }, headers: turbo
+
+      expect(response).to have_http_status(:ok)
+      expect(notifications.first.reload.state).to eq('read')
+      notifications.last(3).each { |n| expect(n.reload.state).to eq('delivered') }
+    end
+  end
+
   describe 'Bulk-Action refresht Liste filter-korrekt (turbo_stream)' do
     let(:unread_referrer) do
       organisation_notifications_path(organisation, state_filters: ['unread'])

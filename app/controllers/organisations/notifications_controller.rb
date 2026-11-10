@@ -239,6 +239,8 @@ class Organisations::NotificationsController < Organisations::BaseController
     scope = scope.where(notifiable_type: params[:notifiable_type], notifiable_id: params[:notifiable_id]) if params[:notifiable_type].present? && params[:notifiable_id].present?
     # Inbox bulk select: individual notification IDs (Gmail-style).
     selected_ids = Array(params[:ids]).reject(&:blank?)
+    return refuse_empty_selection if empty_selection?(selected_ids)
+
     scope = scope.where(id: selected_ids) if selected_ids.any?
     marked_count = scope.unread
                         .bulk_transition!(state: 'read', read_at: Time.current)
@@ -276,6 +278,8 @@ class Organisations::NotificationsController < Organisations::BaseController
       # If ids are given: archive the selected ones regardless of their
       # state (i.e. also unread), not only the already-read ones.
       selected_ids = Array(params[:ids]).reject(&:blank?)
+      return refuse_empty_selection if empty_selection?(selected_ids)
+
       if selected_ids.any?
         scope = scope.where(id: selected_ids)
         archived_count = scope.bulk_transition!(state: 'archived', archived_at: Time.current)
@@ -309,7 +313,7 @@ class Organisations::NotificationsController < Organisations::BaseController
         format.turbo_stream do
           render turbo_stream: turbo_stream.replace(
             'flash_messages',
-            partial: 'shared/flash_message',
+            partial: 'shared/flash',
             locals: { type: :alert, message: flash_message }
           ), status: :internal_server_error
         end
@@ -775,53 +779,73 @@ class Organisations::NotificationsController < Organisations::BaseController
                   state_filters: [])
   end
 
+  # The bulk bar of the inbox names its requests (selection=1). One of them
+  # without ids would be the whole-inbox action the bar never offers, so it is
+  # refused; the header dropdown asks for that action without the marker.
+  def empty_selection?(selected_ids)
+    params[:selection].present? && selected_ids.empty?
+  end
+
+  def refuse_empty_selection
+    message = t('flash.notifications.nothing_selected')
+    respond_to do |format|
+      format.turbo_stream do
+        render turbo_stream: turbo_stream.replace('flash_messages', partial: 'shared/flash',
+                                                                    locals: { type: :alert, message: message }),
+               status: :unprocessable_content
+      end
+      format.html { redirect_to organisation_notifications_path(current_organisation), alert: message }
+      format.json { render json: { error: message }, status: :unprocessable_content }
+    end
+  end
+
   # Builds the presenter with the current filter/pagination state.
-  # Used in index AND in update.turbo_stream.erb after state changes,
-  # so that live update and initial render use the same code.
+  # Used in index AND in the stream templates after state changes, so that
+  # live update and initial render use the same code.
   #
   # State filter param sources (priority):
-  # 1. params[:state_filters] (pill click via redirect_to_inbox)
+  # 1. params[:state_filters] (a status view link or a form of the list head)
   # 2. Referrer URL (Stimulus fetch without param, e.g. delayed mark-read)
   # 3. Default → no filters
-  # Query context for item URLs on turbo_stream re-renders. Reconstructs
-  # the master URL params (state_filters, view_mode, etc.), so that the
-  # newly rendered items do not generate their inbox links without filters.
-  def presenter_query_context(presenter)
-    ctx = {}
-    ctx[:state_filters] = presenter.active_state_filters if presenter.active_state_filters.any?
-    ctx[:view_mode] = presenter.view_mode if presenter.view_mode != 'grouped'
-    %i[search project_id event_type].each do |k|
-      ctx[k] = params[k] if params[k].present?
-    end
-    ctx
-  end
-  helper_method :presenter_query_context
-
   def build_master_list_presenter(extra_params = {})
     merged = filter_params.to_h.merge(extra_params.transform_keys(&:to_s))
+    merge_referrer_filters(merged) unless request.get? || request.head?
+    # A type that does not exist (a hand-made address) is no filter: Postgres
+    # refuses the value of its enum, and the page would answer 500.
+    merged.delete('event_type') unless Notification.event_types.key?(merged['event_type'])
 
-    # Referrer fallback for ALL master filter dimensions. On Stimulus
-    # fetches (e.g. delayed mark-read) and member action forms, the
-    # action URL carries no filter context — it lives only in the inbox URL
-    # (= referrer). Per dimension: only adopt if params did NOT
-    # explicitly set the key (explicit user choice wins).
+    # The rows and the presenter read the SAME filters. The rows used to be
+    # read with the request's own (none, on an action address) while the
+    # presenter had the referrer's: a list narrowed to a project showed every
+    # project again after the first stream.
+    base_scope = policy_scope(current_user.notifications)
+                 .for_current_tenant_user(current_user)
+                 .channel_in_app
+                 .apply_filters(merged)
+    Inbox::MasterListPresenter.new(
+      pagy_helper: self,
+      scope: base_scope,
+      params: merged,
+      time_zone: current_user.time_zone
+    )
+  end
+  helper_method :build_master_list_presenter
+
+  # Referrer fallback for ALL master filter dimensions, on action addresses
+  # only. On Stimulus fetches (e.g. delayed mark-read) and member action
+  # forms, the action URL carries no filter context: it lives only in the
+  # inbox URL (= referrer). Per dimension: only adopt if params did NOT
+  # explicitly set the key (explicit user choice wins).
+  # ⚠️ Never on a GET of the inbox itself: its address says what the list
+  # shows, and the page before it (the referrer of a pill, of the reset link)
+  # would bring back the search the reader has just dropped.
+  def merge_referrer_filters(merged)
     ref = master_filters_from_referrer
     merged['state_filters'] = ref[:state_filters] if !params.key?(:state_filters) && ref[:state_filters].any?
     %w[view_mode search project_id event_type].each do |key|
       merged[key] = ref[key.to_sym] if !params.key?(key) && ref[key.to_sym].present?
     end
-
-    base_scope = policy_scope(current_user.notifications)
-                 .for_current_tenant_user(current_user)
-                 .channel_in_app
-                 .apply_filters(filter_params)
-    Inbox::MasterListPresenter.new(
-      pagy_helper: self,
-      scope: base_scope,
-      params: merged
-    )
   end
-  helper_method :build_master_list_presenter
 
   # Extracts the master filter dimensions from the referrer (inbox URL).
   def master_filters_from_referrer

@@ -3,7 +3,11 @@
     ticket): a title and a sentence in the lane's ordinary type, no symbol
     in a circle. link: [label, url] for the full view, optional. %>
 <%= turbo_frame_tag 'ticket_pane', class: 'block' do %>
-  <div class="inbox-lane-notice">
+  <%# inbox-lane-content marks LOADED content for layout-toggle and index-page. %>
+  <div class="inbox-lane-head__actions inbox-lane-head__actions--alone">
+    <%= render 'organisations/notifications/pane_close' %>
+  </div>
+  <div class="inbox-lane-notice inbox-lane-content">
     <h2 class="inbox-lane-notice__title"><%= title %></h2>
     <p class="inbox-lane-notice__body"><%= body %></p>
     <% if link %>

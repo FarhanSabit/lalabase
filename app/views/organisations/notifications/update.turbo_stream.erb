@@ -40,12 +40,11 @@
 <% else %>
   <%# Inbox default: re-render the entire master via the presenter. %>
   <% presenter = build_master_list_presenter %>
-  <% query_ctx = presenter_query_context(presenter) %>
   <%= turbo_stream.replace 'inbox_master_list' do %>
     <%= render 'master_list',
                presenter: presenter,
                selected_notification: @selected_notification,
-               query_context: query_ctx %>
+               query_context: presenter.query_context %>
   <% end %>
 <% end %>
 

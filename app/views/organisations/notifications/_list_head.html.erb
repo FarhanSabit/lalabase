@@ -63,6 +63,19 @@
     </label>
   <% end %>
 
+  <%# The type filter has no control of its own any more (an old address or
+      a link from elsewhere sets it). While it narrows the list it stands
+      here as a chip, and the chip removes it. %>
+  <% if (event_type = inbox_event_type_filter) %>
+    <%= link_to inbox_without_event_type_url, class: 'people-pill people-pill--active inbox-type-chip',
+                                              title: t('views.organisations.notifications.filter.remove_type'),
+                                              data: { turbo_frame: '_top' } do %>
+      <%= t('views.organisations.notifications.filter.type_chip', type: inbox_event_type_label(event_type)) %>
+      <i class="bi bi-x" aria-hidden="true"></i>
+      <span class="sr-only"><%= t('views.organisations.notifications.filter.remove_type') %></span>
+    <% end %>
+  <% end %>
+
   <div class="inbox-view-mode" role="group" aria-label="<%= t('views.organisations.notifications.filter.view_label') %>">
     <% [%w[chronological list-ul], %w[grouped collection]].each do |mode, icon| %>
       <% label = t("views.organisations.notifications.filter.view_#{mode}") %>
@@ -82,19 +95,24 @@
       actions stay in the row: the inbox has no lane panel to confirm them in.
       OUTSIDE the turbo-frame of the list, so that stream refreshes keep its
       Stimulus state. %>
-  <% text_action = "#{NeoFilterBarComponent::TEXT_ACTION_CLASSES} whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline" %>
-  <div data-inbox-bulk-select-target="bar" class="inbox-bulk hidden" aria-live="polite">
-    <span class="font-semibold text-heading whitespace-nowrap">
+  <% text_action = NeoFilterBarComponent::SELECTION_ACTION_CLASSES %>
+  <div data-inbox-bulk-select-target="bar" class="inbox-bulk hidden">
+    <span class="font-semibold text-heading whitespace-nowrap" aria-live="polite" aria-atomic="true">
       <span data-inbox-bulk-select-target="count">0</span>
       <%= t('views.organisations.notifications.bulk.selected') %>
     </span>
     <button type="button" class="<%= text_action %>" data-action="click->inbox-bulk-select#selectAll">
       <%= t('views.organisations.notifications.bulk.select_all') %>
     </button>
+    <%# selection=1 names the request as one of this bar: the routes refuse it
+        without ids instead of acting on every notification, which the
+        header dropdown (no marker) still asks for on purpose. %>
     <% { mark_all_read_organisation_notifications_path(current_organisation) => 'mark_read',
          archive_all_organisation_notifications_path(current_organisation) => 'archive' }.each do |url, key| %>
       <%= form_with url: url, method: :patch, class: 'inline',
-                    data: { inbox_bulk_select_target: 'form', action: 'turbo:submit-end->inbox-bulk-select#onBulkSubmit' } do %>
+                    data: { inbox_bulk_select_target: 'form',
+                            action: 'submit->inbox-bulk-select#guardSubmit turbo:submit-end->inbox-bulk-select#onBulkSubmit' } do %>
+        <%= hidden_field_tag :selection, '1', id: nil %>
         <button type="submit" class="<%= text_action %>"><%= t("views.organisations.notifications.bulk.#{key}") %></button>
       <% end %>
     <% end %>

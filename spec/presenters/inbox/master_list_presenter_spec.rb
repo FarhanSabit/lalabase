@@ -35,11 +35,12 @@ RSpec.describe Inbox::MasterListPresenter do
 
   before { ActsAsTenant.current_tenant = organisation }
 
-  def build(params = {})
+  def build(params = {}, options = {})
     described_class.new(
       pagy_helper: FakePagyHelper.new,
       scope: scope,
-      params: { view_mode: 'grouped' }.merge(params)
+      params: { view_mode: 'grouped' }.merge(params),
+      **options
     )
   end
 
@@ -113,6 +114,22 @@ RSpec.describe Inbox::MasterListPresenter do
         notif(ticket_a, created_at: Time.zone.local(2026, 11, 8, 12)) # Sunday
 
         expect(build.grouped_notifications.keys).to eq([:yesterday])
+      end
+    end
+
+    # The day is the reader's (User#time_zone), not the server's: at 00:30 in
+    # Berlin the UTC day is still the one before, and everything of the Berlin
+    # day before would read "Heute".
+    it 'zählt die Tage in der Zeitzone des Lesers, nicht in UTC' do
+      berlin = ActiveSupport::TimeZone['Europe/Berlin']
+      travel_to berlin.local(2026, 11, 11, 0, 30) do # 23:30 UTC on the 10th
+        notif(ticket_a, created_at: berlin.local(2026, 11, 11, 0, 10)) # today in Berlin
+        notif(ticket_b, created_at: berlin.local(2026, 11, 10, 15)) # yesterday in Berlin, the same UTC day
+
+        grouped = build({}, time_zone: berlin).grouped_notifications
+
+        expect(grouped.transform_values { |reps| reps.map(&:notifiable_id) })
+          .to eq(today: [ticket_a.id], yesterday: [ticket_b.id])
       end
     end
   end

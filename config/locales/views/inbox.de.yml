@@ -25,6 +25,10 @@ de:
               title: Keine Treffer.
               body: Keine Meldung passt zu Suche oder Projekt.
               link: Suche und Projekt zurücksetzen
+            other_filter:
+              title: Keine Treffer.
+              body: Diese Auswahl ist keine der drei Ansichten.
+              link: Alle Meldungen ansehen
             nothing_archived:
               title: Nichts archiviert.
               body: Was du als erledigt markierst, landet hier.
@@ -40,6 +44,8 @@ de:
           all_projects: Alle Projekte
           view_chronological: Chronologisch
           view_grouped: Nach Ticket gebündelt
+          type_chip: "Typ: %{type}"
+          remove_type: Typ-Filter entfernen
           views:
             unread: Ungelesen
             all: Alle
@@ -54,7 +60,7 @@ de:
           system_actor: System
           unread_label: Ungelesen
           archived_badge: Archiviert
-          select_aria: Notification auswählen
+          select_aria: "%{title} auswählen"
           new_count: "%{count} neu"
           bundle_badge_title:
             one: "%{count} Aktualisierung zu diesem Ticket"
@@ -83,6 +89,7 @@ de:
           non_ticket_title: Diese Meldung öffnet sich in der Vollansicht
           non_ticket_subtitle: Hier in der Spalte zeigt die Inbox nur Tickets.
           open_full_view: Im Ticket öffnen
+          close: Schließen
         stats:
           title: Benachrichtigungs-Statistiken
           description: Überblick über Ihre Benachrichtigungsaktivitäten in dieser Organisation

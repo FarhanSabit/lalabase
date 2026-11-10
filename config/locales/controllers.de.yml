@@ -384,6 +384,7 @@ de:
       deleted: "Benachrichtigung gelöscht."
       marked_read: "%{count} Benachrichtigungen als gelesen markiert."
       invalid_action: "Ungültige Aktion"
+      nothing_selected: "Keine Meldung ausgewählt."
       no_permission: "Keine Berechtigung."
       unmuted: "Stummschaltung aufgehoben."
       exception_removed: "Ausnahme entfernt."

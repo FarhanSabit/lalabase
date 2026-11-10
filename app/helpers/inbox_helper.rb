@@ -6,7 +6,11 @@
 # rendered by a stream answers an action address, not the inbox: it passes
 # the list state it was given (query:) instead of the request's query.
 module InboxHelper
-  INBOX_DROPPED_PARAMS = %w[notification page items].freeze
+  # The dimensions of the list, the only keys a link or a form of the head
+  # carries along. An allowlist, not a denylist: a stray key of a hand-made
+  # address (partial=, format=, or a name like submit= that would shadow a
+  # method of the form it is written into) must not travel with the list.
+  INBOX_LIST_PARAMS = %w[state_filters state view_mode search project_id event_type].freeze
 
   # The list address with one status view: unread, all or archived.
   def inbox_status_view_url(view, query: nil)
@@ -22,6 +26,29 @@ module InboxHelper
   # The list address without search, project and type: the status view stays.
   def inbox_reset_narrowing_url(query: nil)
     inbox_list_url(inbox_list_query(query).except('search', 'project_id', 'event_type'))
+  end
+
+  # The list address with one notification open in the lane.
+  def inbox_notification_url(notification, query: nil)
+    inbox_list_url(inbox_list_query(query).merge('notification' => notification.id))
+  end
+
+  # The type filter has no control of its own any more: an old address or a
+  # link from elsewhere sets it. The type that narrows the list now, or nil;
+  # the head shows it as a chip that removes it.
+  def inbox_event_type_filter
+    inbox_list_query['event_type'].presence
+  end
+
+  # The type as a noun ("Erwähnung"), from the model's own words
+  # (activerecord.enums). The row's event_short is a verb phrase ("hat dich
+  # erwähnt") and reads wrong behind "Typ:".
+  def inbox_event_type_label(event_type)
+    t("activerecord.enums.notification.event_type.#{event_type}", default: event_type.to_s.humanize)
+  end
+
+  def inbox_without_event_type_url
+    inbox_list_url(inbox_list_query.except('event_type'))
   end
 
   # The rest of the list state as hidden fields of a head form, so that the
@@ -43,8 +70,12 @@ module InboxHelper
 
   private
 
+  # A type that does not exist is no filter (the controller reads it the
+  # same way), so it does not travel either.
   def inbox_list_query(query = nil)
-    (query || request.query_parameters).to_h.deep_stringify_keys.except(*INBOX_DROPPED_PARAMS)
+    list = (query || request.query_parameters).to_h.deep_stringify_keys.slice(*INBOX_LIST_PARAMS)
+    list.delete('event_type') unless Notification.event_types.key?(list['event_type'])
+    list
   end
 
   def inbox_list_url(query)

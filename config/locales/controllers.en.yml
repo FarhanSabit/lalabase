@@ -380,6 +380,7 @@ en:
       deleted: "Notification deleted."
       marked_read: "%{count} notifications marked as read."
       invalid_action: "Invalid action"
+      nothing_selected: "No notification selected."
       no_permission: "No permission."
       unmuted: "Mute removed."
       exception_removed: "Exception removed."
