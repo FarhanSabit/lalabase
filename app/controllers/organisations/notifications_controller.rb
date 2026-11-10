@@ -785,7 +785,7 @@ class Organisations::NotificationsController < Organisations::BaseController
   end
 
   def filter_params
-    params.permit(:search, :project_id, :state, :event_type, :view_mode, :page,
+    params.permit(:search, :project_id, :state, :event_type, :view_mode, :page, :period,
                   state_filters: [])
   end
 
@@ -835,6 +835,10 @@ class Organisations::NotificationsController < Organisations::BaseController
     # A type that does not exist (a hand-made address) is no filter: Postgres
     # refuses the value of its enum, and the page would answer 500.
     merged.delete('event_type') unless Notification.event_types.key?(merged['event_type'])
+    # The period: one of the time area's presets; the whole time (the default)
+    # and an unknown value are no narrowing and leave the address.
+    period = TimeSessions::ListPeriod.normalize_for_table(merged['period'])
+    period == TimeSessions::ListPeriod::TABLE_DEFAULT ? merged.delete('period') : merged['period'] = period
 
     # The rows and the presenter read the SAME filters. The rows used to be
     # read with the request's own (none, on an action address) while the
@@ -844,6 +848,7 @@ class Organisations::NotificationsController < Organisations::BaseController
                  .for_current_tenant_user(current_user)
                  .channel_in_app
                  .apply_filters(merged)
+                 .created_in_period(merged['period'], time_zone: current_user.time_zone)
     Inbox::MasterListPresenter.new(
       pagy_helper: self,
       scope: base_scope,
@@ -864,14 +869,14 @@ class Organisations::NotificationsController < Organisations::BaseController
   def merge_referrer_filters(merged)
     ref = master_filters_from_referrer
     merged['state_filters'] = ref[:state_filters] if !params.key?(:state_filters) && ref[:state_filters].any?
-    %w[view_mode search project_id event_type].each do |key|
+    %w[view_mode search project_id event_type period].each do |key|
       merged[key] = ref[key.to_sym] if !params.key?(key) && ref[key.to_sym].present?
     end
   end
 
   # Extracts the master filter dimensions from the referrer (inbox URL).
   def master_filters_from_referrer
-    blank = { state_filters: [], view_mode: nil, search: nil, project_id: nil, event_type: nil }
+    blank = { state_filters: [], view_mode: nil, search: nil, project_id: nil, event_type: nil, period: nil }
     q = inbox_referrer_query
     return blank unless q
 
@@ -880,7 +885,8 @@ class Organisations::NotificationsController < Organisations::BaseController
       view_mode: q['view_mode'].presence,
       search: q['search'].presence,
       project_id: q['project_id'].presence,
-      event_type: q['event_type'].presence
+      event_type: q['event_type'].presence,
+      period: q['period'].presence
     }
   end
 

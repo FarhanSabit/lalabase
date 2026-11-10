@@ -23,8 +23,8 @@ en:
               link: See all notifications
             no_match:
               title: No matches.
-              body: No notification matches the search or project.
-              link: Clear search and project
+              body: No notification matches the search, project or period.
+              link: Clear search, project and period
             other_filter:
               title: No matches.
               body: This selection is none of the four views.
@@ -44,6 +44,7 @@ en:
           search_label: Search
           search_placeholder: Search
           project_label: Project
+          period_label: Period
           all_projects: All projects
           view_chronological: Chronological
           view_grouped: Bundled by ticket
