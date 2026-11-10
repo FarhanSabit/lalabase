@@ -593,7 +593,7 @@
   .inbox-lane-actions { @apply flex flex-none items-center gap-2; }
   .inbox-lane-actions__open { @apply me-1 inline-flex items-center gap-1.5 text-xs text-muted no-underline hover:text-heading; }
   .inbox-lane-actions__icon { @apply inline-flex h-8 w-8 items-center justify-center rounded-lg border border-cream-300 bg-surface-raised text-cream-700 hover:border-ink hover:text-heading; }
-  .inbox-lane-actions__button { @apply inline-flex items-center gap-1.5 rounded-lg border border-ink bg-surface-raised px-3 py-1.5 text-[13px] font-semibold text-heading hover:shadow-[2px_2px_0_0_rgb(var(--ink))]; }
+  .inbox-lane-actions__button { @apply inline-flex items-center gap-1.5 rounded-lg border border-ink bg-surface-raised px-3 py-1.5 text-[13px] font-semibold text-heading hover:bg-cream-100; }
   .inbox-new-activity { @apply mb-4 border-l-[3px] pl-3; border-color: rgb(var(--btn-primary)); }
   .inbox-new-activity__item { @apply flex items-baseline gap-2 py-0.5 text-[13px]; }
   .inbox-new-activity__who { @apply font-semibold text-heading; }
