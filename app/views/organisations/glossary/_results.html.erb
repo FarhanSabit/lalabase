@@ -50,6 +50,15 @@
       <i class="bi bi-book people-empty__icon" aria-hidden="true"></i>
       <p class="people-empty__title"><%= t('views.organisations.glossary.index.empty_title') %></p>
       <p class="people-empty__text width-text"><%= t('views.organisations.glossary.index.empty_description') %></p>
+      <%# The import also lies in the head's "···"; an empty glossary is where
+          it is needed most, so it stands here in plain sight as well. _top
+          for the address without JavaScript: this is the list frame. No icon:
+          below sm the button drops the gap between icon and word. %>
+      <% import = glossary_import_link %>
+      <%= render Neo::Buttons::ButtonComponent.new(variant: :secondary, size: :medium, url: import[:url],
+                                                   data: import[:data].merge(turbo_frame: '_top', glossary_empty_import: true)) do %>
+        <%= t('views.organisations.glossary.import.open') %>
+      <% end %>
     </div>
   <% else %>
     <div class="people-empty">

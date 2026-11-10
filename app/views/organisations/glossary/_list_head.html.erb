@@ -1,13 +1,18 @@
 <%# locals: (status_counts:, origin_projects:, proposal_counts:) %>
-<%# The head of the list: the title, "Liste importieren" for every reader of
-    the glossary and the "+" for those who may keep it (both open their state
-    in the lane, ?new=import and ?new=term), the status filter as pills with
-    their counts, and project and category as selects (a full visit of the
-    index, auto-submitted). Above the terms a pill leads to the review list
-    of the extraction (K5b), with the number of open proposals, also at 0;
-    in the review list the pills are the statuses of a proposal, behind the
+<%# The head of the list, built like "Alle Meetings": the title with the "+"
+    for those who may keep the glossary (?new=term in the lane), and on the
+    right the "···" with "Liste importieren" for every reader (?new=import,
+    GlossaryHelper#glossary_import_link). Below, the status filter as pills
+    with their counts, and project and category as selects (a full visit of
+    the index, auto-submitted). Above the terms a pill leads to the review
+    list of the extraction (K5b), with the number of open proposals, also at
+    0; in the review list the pills are the statuses of a proposal, behind the
     way back to the terms. Switching the view leaves the status behind (it
-    belongs to its view); project and category go along. %>
+    belongs to its view); project and category go along.
+    No way back to the meetings in the head (user, 2026-11-10): the sidebar
+    keeps "Alle Meetings" lit on this page (MEETINGS_SECTION_CONTROLLERS),
+    and that entry is the way back. A back button, or a cobalt word, was the
+    one thing in the head that was neither the page's action nor its menu. %>
 <% frame_id = Organisations::GlossaryController::DETAIL_FRAME_ID %>
 <% mobile = @viewport_mode == 'mobile' %>
 <% can_create = policy(GlossaryTerm).create? %>
@@ -21,26 +26,21 @@
      lane_link_remove_value: GlossaryHelper::SELECTION_PARAMS.to_json,
      lane_link_focus_value: '#glossary_term_term'
    } %>
-<%# The index answers the lane frame for ?new=import itself (no route of its own). %>
-<% import_state = Organisations::GlossaryController::IMPORT_STATE %>
-<% import_url = organisation_glossary_terms_path(@current_organisation, list_state.merge('new' => import_state)) %>
-<% import_data = {
-     controller: 'lane-link',
-     action: 'click->lane-link#click',
-     lane_link_url_value: organisation_glossary_terms_path(@current_organisation, new: import_state),
-     lane_link_frame_value: frame_id,
-     lane_link_set_value: { new: import_state }.to_json,
-     lane_link_remove_value: GlossaryHelper::SELECTION_PARAMS.to_json,
-     lane_link_focus_value: '#glossary_import_text',
-     glossary_import_link: true
-   } %>
+<%# The "···" of the head. The import opens in the lane and the head stays,
+    so the item closes its menu itself (dropdown#close). The trigger takes
+    the height of the "+" beside it (F40): 40 px on a phone, 32 px above. %>
+<% import = glossary_import_link %>
+<% more_menu = capture do %>
+  <%= render Neo::OverflowMenuComponent.new(size: mobile ? :large : :medium) do |menu| %>
+    <% menu.with_item(label: t('views.organisations.glossary.import.open'), url: import[:url], icon: 'list-ul',
+                      data: import[:data].merge(action: 'click->lane-link#click click->dropdown#close',
+                                                glossary_import_link: true)) %>
+  <% end %>
+<% end %>
 <div class="people-head">
   <% if mobile %>
-    <%# Without its icon: below sm the button drops the gap between icon and word. %>
     <div class="people-head__action flex items-center gap-2">
-      <%= render Neo::Buttons::ButtonComponent.new(variant: :secondary, size: :large, url: import_url, data: import_data) do %>
-        <%= t('views.organisations.glossary.import.open') %>
-      <% end %>
+      <%= more_menu %>
       <% if can_create %>
         <%= render Neo::Buttons::IconButtonComponent.new(variant: :primary, icon: 'plus-lg', size: :large, url: add_url,
                                                          title: t('views.organisations.glossary.index.new_term'), data: add_data) %>
@@ -48,25 +48,14 @@
     </div>
   <% else %>
     <%= render NeoTitleBoxComponent.new(title: t('views.organisations.glossary.index.title'), margin_bottom: nil) do |box| %>
-      <% box.with_title_action do %>
-        <%= render Neo::Buttons::ButtonComponent.new(variant: :secondary, size: :medium, icon: 'list-ul', url: import_url, data: import_data) do %>
-          <%= t('views.organisations.glossary.import.open') %>
-        <% end %>
-        <% if can_create %>
+      <% if can_create %>
+        <% box.with_title_action do %>
           <%= render Neo::Buttons::IconButtonComponent.new(variant: :primary, icon: 'plus-lg', size: :medium, url: add_url,
                                                            title: t('views.organisations.glossary.index.new_term'), data: add_data) %>
         <% end %>
       <% end %>
-      <%# The way back into the meetings area this page belongs to (no sidebar
-          entry of its own since 04.11.2026), for those who may read meetings. %>
-      <% if AccessCheck::ProjectAccessService.accessible_project_ids(current_user, @current_organisation, action: :read, area: :meetings).any? %>
-        <% box.with_right_content do %>
-          <%= render Neo::Buttons::ButtonComponent.new(variant: :secondary, size: :medium, icon: 'arrow-left',
-                                                       url: organisation_meetings_path(@current_organisation),
-                                                       data: { turbo_frame: '_top', glossary_meetings_link: true }) do %>
-            <%= t('navigation.all_meetings') %>
-          <% end %>
-        <% end %>
+      <% box.with_right_content do %>
+        <%= more_menu %>
       <% end %>
     <% end %>
   <% end %>

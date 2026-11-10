@@ -2,8 +2,8 @@
 
 require 'rails_helper'
 
-# The import of a pasted list into the glossary, on its page (K5a): the button
-# in the head of the list, the import lane (?new=import), the check (a dry run
+# The import of a pasted list into the glossary, on its page (K5a): the item
+# in the "···" of the list head (and a button in the empty glossary), the import lane (?new=import), the check (a dry run
 # of Actors::ImportGlossaryTerms in the lane frame, nothing written) and the
 # import itself, which lands on the list with the counts as its notice. Every
 # reader of the glossary may import: with manage_glossary the new terms are
@@ -97,7 +97,7 @@ RSpec.describe 'Organisations::Glossary import', :ci_guard, type: :request do
     I18n.t("#{ci}.success", summary: parts.map { |key, count| I18n.t("#{ci}.counts.#{key}", count: count) }.to_sentence)
   end
 
-  describe 'the button in the head of the list' do
+  describe 'the item in the "···" of the head' do
     { 'view_glossary' => :viewer, 'manage_glossary' => :manager }.each do |right, reader|
       [nil, 'mobile'].each do |viewport|
         it "is there for a reader with #{right} (#{viewport || 'desktop'}) and opens the import lane" do
@@ -114,8 +114,66 @@ RSpec.describe 'Organisations::Glossary import', :ci_guard, type: :request do
           expect(JSON.parse(link['data-lane-link-set-value'])).to eq('new' => 'import')
           expect(link['data-lane-link-frame-value']).to eq(frame_id)
           expect(link['data-lane-link-url-value']).to eq(organisation_glossary_terms_path(organisation, new: 'import'))
+          # In the menu since 2026-11-10 (user: the head read oddly). The lane
+          # opens and the head stays, so the item closes its menu itself.
+          menu = link.ancestors('[data-controller="dropdown"]').first
+          expect(menu).to be_present
+          expect(menu.at_css("[title='#{I18n.t('components.overflow_menu.label')}']")).to be_present
+          expect(link['data-action'].split).to eq(%w[click->lane-link#click click->dropdown#close])
         end
       end
+    end
+
+    it 'leaves the head with the title, the "+" and the "···" and nothing else to click' do
+      sign_in manager
+      create(:glossary_term, organisation: organisation, term: 'Zorbel')
+
+      get organisation_glossary_terms_path(organisation)
+
+      head = page.at_css('.people-head')
+      expect(head.at_css('h1').text.squish).to eq(I18n.t('views.organisations.glossary.index.title'))
+      expect(head.css('a').map { |a| a['title'] || a.text.squish })
+        .to eq([I18n.t('views.organisations.glossary.index.new_term'), I18n.t("#{gi}.open")])
+    end
+
+    it 'keeps the "+" beside the "···" on a phone, both 40 px' do
+      sign_in manager
+
+      get organisation_glossary_terms_path(organisation, viewport: 'mobile')
+
+      action = page.at_css('.people-head__action')
+      expect(action.at_css('a[data-glossary-import-link]').ancestors('[data-dropdown-target="menu"]')).to be_present
+      add = action.at_css("a[title='#{I18n.t('views.organisations.glossary.index.new_term')}']")
+      expect(add['class']).to include('h-10')
+      trigger = action.at_css("[title='#{I18n.t('components.overflow_menu.label')}']")
+      expect(trigger['class']).to include('h-10')
+    end
+  end
+
+  describe 'the button in the empty glossary' do
+    it 'opens the import in the lane, as the item of the head does' do
+      sign_in viewer
+
+      get organisation_glossary_terms_path(organisation)
+
+      button = page.at_css('.people-empty a[data-glossary-empty-import]')
+      expect(button).to be_present
+      expect(button.text.squish).to eq(I18n.t("#{gi}.open"))
+      item = page.at_css('a[data-glossary-import-link]')
+      expect(button['href']).to eq(item['href'])
+      %w[data-controller data-lane-link-url-value data-lane-link-frame-value data-lane-link-set-value].each do |name|
+        expect(button[name]).to eq(item[name]), name
+      end
+    end
+
+    it 'is not there once the glossary holds a term' do
+      sign_in viewer
+      create(:glossary_term, organisation: organisation, term: 'Zorbel')
+
+      get organisation_glossary_terms_path(organisation)
+
+      expect(page.at_css('a[data-glossary-import-link]')).to be_present
+      expect(page.at_css('a[data-glossary-empty-import]')).to be_nil
     end
   end
 

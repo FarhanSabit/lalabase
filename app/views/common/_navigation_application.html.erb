@@ -192,7 +192,7 @@
           <% end %>
           <%# No glossary entry (user, 04.11.2026): the glossary serves the
               transcription of meetings and is reached from the head of the
-              meetings pages (meetings/_glossary_link). %>
+              meetings pages (meetings/_head_menu). %>
           <%# The people directory: a right of its own (PersonPolicy). %>
           <% if policy(Person).index? %>
             <%= render 'common/navigation_item', name: t('navigation.people'), path: organisation_people_path(organisation_id: current_organisation.id), icon: 'bi bi-people', active: controller_name == 'people' %>
