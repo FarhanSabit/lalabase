@@ -1,7 +1,7 @@
 <%# locals: (presenter:, projects:, unread_count:) %>
 <%# The head of the inbox list, built like the heads of "Personen" and "Alle
-    Meetings": the title box with the help, then one row of tools (search,
-    the three status views, the project, the view mode). The rarer things,
+    Meetings": the title box with the view switch and the help, then one row
+    of tools (the status views, the project, the period, the search). The rarer things,
     selecting rows on a phone, ticket exceptions and the settings, sit behind
     "···". The bulk bar lies over the tools row while rows are selected, so
     the list below never moves. A search, the project and the links are full
@@ -10,20 +10,25 @@
   <%= render NeoTitleBoxComponent.new(title: t('views.organisations.notifications.index.title'),
                                       variant: :organisation, margin_bottom: nil) do |box| %>
     <% box.with_right_content do %>
-      <details class="more-menu" data-controller="details-autoclose">
-        <summary class="more-menu__trigger" title="<%= t('views.organisations.notifications.index.more_actions') %>"
-                 aria-label="<%= t('views.organisations.notifications.index.more_actions') %>"><i class="bi bi-three-dots" aria-hidden="true"></i></summary>
-        <div class="more-menu__items">
-          <button type="button" data-action="click->inbox-bulk-select#startSelecting">
-            <%= t('views.organisations.notifications.index.select_rows') %>
-          </button>
-          <%= link_to t('views.organisations.notifications.index.ticket_exceptions'),
-                      ticket_exceptions_organisation_notifications_path(current_organisation) %>
-          <%= link_to t('views.organisations.notifications.index.settings'),
-                      preferences_organisation_notifications_path(current_organisation) %>
+      <div class="flex items-center">
+        <%= render 'organisations/notifications/view_switch', presenter: presenter %>
+        <div class="flex items-center gap-2">
+          <details class="more-menu" data-controller="details-autoclose">
+            <summary class="more-menu__trigger" title="<%= t('views.organisations.notifications.index.more_actions') %>"
+                     aria-label="<%= t('views.organisations.notifications.index.more_actions') %>"><i class="bi bi-three-dots" aria-hidden="true"></i></summary>
+            <div class="more-menu__items">
+              <button type="button" data-action="click->inbox-bulk-select#startSelecting">
+                <%= t('views.organisations.notifications.index.select_rows') %>
+              </button>
+              <%= link_to t('views.organisations.notifications.index.ticket_exceptions'),
+                          ticket_exceptions_organisation_notifications_path(current_organisation) %>
+              <%= link_to t('views.organisations.notifications.index.settings'),
+                          preferences_organisation_notifications_path(current_organisation) %>
+            </div>
+          </details>
+          <%= render 'common/contextual_help_menu', context: :inbox, quiet: true %>
         </div>
-      </details>
-      <%= render 'common/contextual_help_menu', context: :inbox, quiet: true %>
+      </div>
     <% end %>
   <% end %>
 </div>

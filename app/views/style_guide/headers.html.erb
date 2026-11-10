@@ -13,13 +13,15 @@
       NeoViewSwitchComponent
     </h2>
     <p class="text-gray-600 mb-6">
-      Umschalter zwischen den <strong>Ansichten einer Seite</strong> (Tickets: Tabelle | Kanban, Zeiten: Übersicht | Liste).
-      Zwei Formen: die <strong>Rinne</strong> (zwei bis vier Segmente in einer versenkten Mulde, die aktive
-      Stellung als helles Plättchen) für drei bis fünf gleichrangige Stellungen, die oft gewechselt werden;
-      das <strong>Symbolpaar</strong> (<code class="px-1 bg-gray-100 rounded">variant: :icon_pair</code>, zwei Flächen
-      30 × 30 ohne Behälter, aktiv im Hover-Ton der Nebenaktionen, nie im Auswahl-Ton) für zwei seltene Stellungen
-      wie Liste | Kanban. Das Symbol ist die sichtbare Beschriftung, der Titel wird vorgelesen und erscheint beim
-      Paar auch bei Tastaturfokus.
+      Umschalter zwischen den <strong>Ansichten einer Seite</strong> (Tickets: Liste | Kanban, Zeiten: Liste | Übersicht,
+      Inbox: Chronologisch | Nach Ticket gebündelt). <strong>Eine Form für alle</strong>: das Symbolpaar, eine Fläche
+      30 × 30 je Ansicht, 2 px Abstand, ohne Behälter, aktiv mit einem Hauch Tinte (5 %), der auf jedem Grund
+      eine Stufe dunkler ist (weiße Spalte, Schale, dunkles Thema), nie im Auswahl-Ton.
+      Er steht im Seitenkopf, rechts vorn: zuerst die Ansicht, dann „···“ und „?“, die Hauptaktion ganz außen.
+      Das Listen-Zeichen steht immer links. Das Symbol ist die sichtbare Beschriftung, der Titel wird vorgelesen und
+      erscheint bei Tastaturfokus. Zeichen: <code class="px-1 bg-gray-100 rounded">:list</code>,
+      <code class="px-1 bg-gray-100 rounded">:kanban</code>, <code class="px-1 bg-gray-100 rounded">:bars</code>,
+      <code class="px-1 bg-gray-100 rounded">:stack</code> (eigene Zeichnungen in der Komponente).
       Links (<code class="px-1 bg-gray-100 rounded">method: :get</code>) navigieren per Adresse und tragen
       <code class="px-1 bg-gray-100 rounded">aria-current</code>; andere Methoden rendern ein <code class="px-1 bg-gray-100 rounded">button_to</code>-Formular
       (eine Einstellung, die der Server speichert).
@@ -29,32 +31,30 @@
       <%= render NeoViewSwitchComponent.new(
         label: 'Ansicht',
         items: [
-          { key: :overview, icon: 'bi-bar-chart', title: 'Übersicht', active: true, path: '#' },
-          { key: :list, icon: 'bi-list-ul', title: 'Liste', active: false, path: '#' }
-        ]
-      ) %>
-      <%= render NeoViewSwitchComponent.new(
-        label: 'Ansicht',
-        items: [
-          { key: :table, icon: 'bi-table', title: 'Tabelle', active: false, path: '#' },
-          { key: :kanban, icon: 'bi-kanban', title: 'Kanban', active: true, path: '#' }
-        ]
-      ) %>
-      <%# The icon pair (designer, 09.09.2026): the tickets' switch. %>
-      <%= render NeoViewSwitchComponent.new(
-        label: 'Ansicht',
-        variant: :icon_pair,
-        items: [
           { key: :table, icon: :list, title: 'Liste', active: true, path: '#' },
           { key: :kanban, icon: :kanban, title: 'Kanban', active: false, path: '#' }
+        ]
+      ) %>
+      <%= render NeoViewSwitchComponent.new(
+        label: 'Ansicht',
+        items: [
+          { key: :list, icon: :list, title: 'Liste', active: false, path: '#' },
+          { key: :overview, icon: :bars, title: 'Übersicht', active: true, path: '#' }
+        ]
+      ) %>
+      <%= render NeoViewSwitchComponent.new(
+        label: 'Ansicht',
+        items: [
+          { key: :chronological, icon: :list, title: 'Chronologisch', active: false, path: '#' },
+          { key: :grouped, icon: :stack, title: 'Nach Ticket gebündelt', active: true, path: '#' }
         ]
       ) %>
     </div>
     <pre class="bg-gray-900 text-gray-100 p-4 rounded overflow-x-auto text-sm mt-4"><code>&lt;%= render NeoViewSwitchComponent.new(
   label: t('views.organisations.time_sessions.index.view_switch_label'),
   items: [
-    { key: :overview, icon: 'bi-bar-chart', title: t('...view_overview'), active: @view == 'overview', path: time_list_path(org, view: 'overview') },
-    { key: :list,     icon: 'bi-list-ul',  title: t('...view_list'),     active: @view == 'list',     path: time_list_path(org) }
+    { key: :list,     icon: :list, title: t('...view_list'),     active: @view == 'list',     path: time_list_path(org) },
+    { key: :overview, icon: :bars, title: t('...view_overview'), active: @view == 'overview', path: time_list_path(org, view: 'overview') }
   ]
 ) %&gt;</code></pre>
   </div>

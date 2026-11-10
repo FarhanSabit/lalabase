@@ -103,6 +103,26 @@ RSpec.describe 'Time list: overview view', type: :request do
       expect(assigns(:project_statistics)).to be_nil
     end
 
+    # One view switch on every page (user, 2026-11-11): the tickets' icon pair,
+    # the list first; in the head the switch, then help, the main action
+    # outermost. Until then the time list wore a groove between "+" and "?",
+    # and a 40 px "?" to match it.
+    it 'heads the page like the tickets: the switch (list first), help, the main action outermost' do
+      get times_path
+
+      switch = doc.at_css("nav[aria-label='#{switch_label}']")
+      expect(switch.css('a').map { |a| a['title'] })
+        .to eq(%w[view_list view_overview].map { |key| I18n.t("views.organisations.time_sessions.index.#{key}") })
+      expect(switch.css('a svg').size).to eq(2)
+      expect(switch['class']).not_to include('bg-selected')
+
+      row = switch.parent.element_children
+      expect(row.first).to eq(switch)
+      expect(row[1].at_css("[title='#{I18n.t('components.contextual_help.label')}']")['class']).to include('h-8')
+      expect(row.last['title']).to eq(I18n.t('views.organisations.time_sessions.index.record_button'))
+      expect(row.last['class']).to include('bg-btn-primary')
+    end
+
     it 'shows the status table INSTEAD of the list in the overview view' do
       get overview_path
 

@@ -7,8 +7,8 @@
     href stays the full slug#anchor deep link as no-JS fallback.
     The trigger takes the height of its row (F40 of the Belegungstabelle):
     size: :medium (default, 32 px) beside the head buttons (F1/F2) or alone,
-    size: :large (40 px) only beside the 40 px groove of the view switch (F8)
-    or a big gear; the 30 px icon pair of the tickets is no groove,
+    size: :large (40 px) only beside a big gear or another 40 px control;
+    the 30 px view switch (NeoViewSwitchComponent) is none,
     quiet: true for the borderless 28 px trigger beside a "···" (inbox,
     members). Pinned per page by spec/requests/contextual_help_menu_spec.rb. %>
 <%= render Neo::OverflowMenuComponent.new(

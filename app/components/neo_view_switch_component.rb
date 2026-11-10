@@ -1,114 +1,101 @@
 # frozen_string_literal: true
 
-# A switch between the VIEWS of one page. Two forms, decided by :variant:
+# THE switch between the views of one page, and its one form (user,
+# 2026-11-11): the tickets' Liste | Kanban, the time list's Übersicht | Liste
+# and the inbox's Chronologisch | Nach Ticket gebündelt. It stands in the page
+# head, first in its right group, before "···" and "?"; the main action stays
+# outermost.
 #
-#   :groove (default): two to four segments in ONE sunken groove (cream trough,
-#     NO border) where the active position sits as a light plate, so it reads
-#     as a switch and not as two buttons next to the header actions (user,
-#     04.09.2026). For three to five positions of equal rank that are changed
-#     often; the time list's "Übersicht | Liste" wears it. A segment shows a
-#     word when the item carries a label, else its icon (a bi-* class).
-#   :icon_pair: two icon tiles, 30 x 30, 2px apart, no container, no groove,
-#     no tint around the pair (designer, 09.09.2026): the groove was four
-#     signals for one statement (trough, plate, shadow, bold word) on a control
-#     that is used seldom. Active: the neighbours' hover tone (cream-100) with
-#     the icon in ink, no weight, no shadow, no edge. Inactive: transparent,
-#     the icon in cream-500 (the nearest token to the designer's #8A857A, the
-#     same mapping the selection box made); hover and keyboard focus look like
-#     the active tile. NEVER the selected tone (cream-200): in lists it means
-#     "this row is chosen", in filters "this value is set", and a switch that
-#     wears it as a container devalues it there. The icons are inline SVG
-#     (15px, stroke 1.7, currentColor), not the icon font; :icon names one of
-#     ICONS. The caption is mandatory, not decoration: title and aria-label
-#     carry the word, and on keyboard focus the tooltip shows the same word
-#     (components/view_switch.css), or the function is unnamed for the
-#     keyboard. Both tiles always stand: a pair is readable, a lone icon not.
-#     The tickets' "Liste | Kanban" wears it.
+# The form is the icon pair (designer, 09.09.2026): one 30 x 30 tile per view,
+# 2px apart, no container, no groove, no tint around the tiles. The groove the
+# time list wore until 2026-11-11 was four signals for one statement (trough,
+# plate, shadow, bold word) on a control that is used seldom, its trough was
+# the selected tone and its plate a soft shadow, which in this app means "it
+# floats and closes again". The inbox had a frame of its own, active in the
+# selected tone too.
 #
-# Two kinds of segment, decided per item by :method:
+# Active: a breath of ink over whatever the head stands on (ink at 5 %) with
+# the icon in ink, no weight, no shadow, no edge. Inactive: transparent, the
+# icon in cream-500 (the nearest token to the designer's #8A857A, the same
+# mapping the selection box made); hover and keyboard focus look like the
+# active tile. The designer's tone was cream-100, the neighbours' hover tone,
+# and that is the shell's own ground: on the time list, whose head stands on
+# the shell and not on a white column, the active tile vanished (2026-11-11).
+# The tint is one step darker than ANY ground, white, shell or dark theme,
+# with one class. NEVER the selected tone (cream-200): in lists it means "this
+# row is chosen", in filters "this value is set", and a switch that wears it
+# devalues it there.
+#
+# The icons are inline SVG (15px, stroke 1.7, currentColor), not the icon
+# font; :icon names one of ICONS. The caption is mandatory, not decoration:
+# title and aria-label carry the word, and on keyboard focus the tooltip shows
+# the same word (components/view_switch.css), or the function is unnamed for
+# the keyboard. Every tile always stands: a pair is readable, a lone icon not.
+#
+# Two kinds of tile, decided per item by :method:
 #   :get   -> a link (navigation via query param), aria-current="page" when active
 #   other  -> a button_to form (a preference written on the server), like the tickets
 #
-# Items: { key:, icon:, title:, label: nil, active:, path:, method: :get,
-# params: {}, disabled: false }. label (optional, groove only) is a visible word
-# replacing the icon; without it the icon is the whole visible label and the
-# title is the tooltip AND the spoken name.
+# Items: { key:, icon:, title:, active:, path:, method: :get, params: {},
+# disabled: false }.
 class NeoViewSwitchComponent < ViewComponent::Base
-  VARIANTS = %i[groove icon_pair].freeze
-
-  # The groove is the selected surface with an 8 px radius and 2 px of inner
-  # air; the active tile is the raised surface with a 6 px radius and a very
-  # flat shadow, no border of its own (designer, 08.09.2026): a switch, not a
-  # button beside the main action.
-  CONTAINER_CLASSES = 'inline-flex items-center h-10 p-0.5 bg-selected rounded-lg'
-  SEGMENT_CLASSES = 'h-full px-3 text-sm font-medium inline-flex items-center justify-center rounded-md'
-  ACTIVE_CLASSES = 'bg-surface-raised text-cream-900 shadow-[0_1px_2px_rgba(35,34,30,0.10)]'
-  INACTIVE_CLASSES = 'text-cream-600 hover:text-cream-900'
+  CONTAINER_CLASSES = 'inline-flex items-center gap-0.5'
+  TILE_CLASSES = 'view-switch-tile h-[30px] w-[30px] rounded-md inline-flex items-center justify-center ' \
+                 'transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ink'
+  ACTIVE_CLASSES = 'bg-ink/5 text-ink'
+  INACTIVE_CLASSES = 'text-cream-500 hover:bg-ink/5 hover:text-ink focus-visible:bg-ink/5 focus-visible:text-ink'
   DISABLED_CLASSES = 'opacity-30 cursor-not-allowed'
 
-  PAIR_CONTAINER_CLASSES = 'inline-flex items-center gap-0.5'
-  PAIR_TILE_CLASSES = 'view-switch-tile h-[30px] w-[30px] rounded-md inline-flex items-center justify-center ' \
-                      'transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ink'
-  PAIR_ACTIVE_CLASSES = 'bg-cream-100 text-ink'
-  PAIR_INACTIVE_CLASSES = 'text-cream-500 hover:bg-cream-100 hover:text-ink focus-visible:bg-cream-100 focus-visible:text-ink'
-
-  # The two signs, drawn on a 16-grid as tag name and attributes (rendered
-  # through the tag helpers, nothing marked safe by hand): the list as three
-  # horizontal strokes, the board as a frame with two dividers, the second
-  # shorter.
+  # The signs, drawn on a 16-grid as tag name and attributes (rendered through
+  # the tag helpers, nothing marked safe by hand), straight strokes and plain
+  # shapes only (spec/architecture/one_icon_set_guard_spec.rb):
+  #   list:   three horizontal strokes, the same list in every switch
+  #   kanban: a frame with two dividers, the second shorter
+  #   bars:   three columns of different height, as high as the board's frame (an overview)
+  #   stack:  a card with two shorter edges behind it (bundled by ticket)
   ICONS = {
     list: [[:path, { d: 'M2.5 4h11M2.5 8h11M2.5 12h11' }]],
     kanban: [[:rect, { x: 1.85, y: 2.35, width: 12.3, height: 11.3, rx: 1.5 }],
-             [:path, { d: 'M6 2.35v11.3M10.15 2.35v7.2' }]]
+             [:path, { d: 'M6 2.35v11.3M10.15 2.35v7.2' }]],
+    bars: [[:rect, { x: 2.35, y: 8.35, width: 2.6, height: 5.3, rx: 0.6 }],
+           [:rect, { x: 6.7, y: 2.35, width: 2.6, height: 11.3, rx: 0.6 }],
+           [:rect, { x: 11.05, y: 5.85, width: 2.6, height: 7.8, rx: 0.6 }]],
+    stack: [[:rect, { x: 1.85, y: 6.6, width: 12.3, height: 7.05, rx: 1.5 }],
+            [:path, { d: 'M3.75 4.1h8.5M5.75 1.6h4.5' }]]
   }.freeze
 
   # label: the accessible name of the whole switch ("Ansicht"); container_class:
   # extra classes on the box (the tickets hide theirs on phones).
-  def initialize(label:, items:, container_class: nil, variant: :groove)
+  def initialize(label:, items:, container_class: nil)
     super()
-    raise ArgumentError, "unknown variant #{variant.inspect}" unless VARIANTS.include?(variant)
-
     @label = label
-    @variant = variant
     @items = items.map { |item| { method: :get, params: {}, disabled: false }.merge(item) }
     @extra_classes = container_class
+    @items.each { |item| ICONS.fetch(item[:icon].to_sym) { raise ArgumentError, "unknown icon #{item[:icon].inspect}" } }
   end
 
   private
 
-  attr_reader :label, :items, :variant
-
-  def icon_pair?
-    variant == :icon_pair
-  end
+  attr_reader :label, :items
 
   def container_classes
-    [icon_pair? ? PAIR_CONTAINER_CLASSES : CONTAINER_CLASSES, @extra_classes].compact.join(' ')
+    [CONTAINER_CLASSES, @extra_classes].compact.join(' ')
   end
 
-  def segment_classes(item)
-    if icon_pair?
-      [PAIR_TILE_CLASSES,
-       item[:active] ? PAIR_ACTIVE_CLASSES : PAIR_INACTIVE_CLASSES,
-       (DISABLED_CLASSES if item[:disabled])].compact.join(' ')
-    else
-      [SEGMENT_CLASSES,
-       item[:active] ? ACTIVE_CLASSES : INACTIVE_CLASSES,
-       (DISABLED_CLASSES if item[:disabled])].compact.join(' ')
-    end
+  def tile_classes(item)
+    [TILE_CLASSES,
+     item[:active] ? ACTIVE_CLASSES : INACTIVE_CLASSES,
+     (DISABLED_CLASSES if item[:disabled])].compact.join(' ')
   end
 
-  # The attributes every segment carries; the pair adds the spoken name and
-  # the tooltip's word, both the title.
-  def segment_attributes(item)
-    attributes = { class: segment_classes(item), title: item[:title] }
-    attributes.merge!('aria-label': item[:title], 'data-tip': item[:title]) if icon_pair?
-    attributes
+  # The attributes every tile carries: the spoken name and the tooltip's word
+  # are both the title.
+  def tile_attributes(item)
+    { class: tile_classes(item), title: item[:title], 'aria-label': item[:title], 'data-tip': item[:title] }
   end
 
   def icon_svg(item)
-    parts = ICONS.fetch(item[:icon].to_sym) { raise ArgumentError, "unknown icon #{item[:icon].inspect}" }
-    drawing = safe_join(parts.map { |name, attributes| tag.public_send(name, nil, **attributes) })
+    drawing = safe_join(ICONS.fetch(item[:icon].to_sym).map { |name, attributes| tag.public_send(name, nil, **attributes) })
     tag.svg(drawing, viewBox: '0 0 16 16', width: 15, height: 15, fill: 'none', stroke: 'currentColor',
                      'stroke-width': '1.7', 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
                      'aria-hidden': true)
