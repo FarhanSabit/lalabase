@@ -253,6 +253,7 @@ else
   pin 'controllers/subscriber_picker_controller', to: 'controllers/subscriber_picker_controller.js'
   pin 'controllers/subtask_quick_add_controller', to: 'controllers/subtask_quick_add_controller.js'
   pin 'controllers/summary_modal_controller', to: 'controllers/summary_modal_controller.js'
+  pin 'controllers/tab_strip_controller', to: 'controllers/tab_strip_controller.js'
   pin 'controllers/tabs_controller', to: 'controllers/tabs_controller.js'
   pin 'controllers/tag_input_controller', to: 'controllers/tag_input_controller.js'
   pin 'controllers/team_member_edit_controller', to: 'controllers/team_member_edit_controller.js'

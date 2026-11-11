@@ -44,6 +44,14 @@
   different owners (2px ink, short; 1px hairline, long) meeting in one row of
   pixels.
 
+  On a phone the bar is ONE row (since 2026-11-11): below md the tabs keep
+  their line and the row scrolls sideways, without a scrollbar (scrollbar-hide,
+  as the ticket list's strip), and tab_strip_controller keeps the open tab in
+  view by moving the row, never the page. Wrapped, the six KI tabs took two
+  rows there, and an open tab of the first row had its underline in the middle
+  of the bar instead of on its rule. From md on the row wraps as before.
+  Measured in spec/system/management_phone_spec.rb.
+
   @param title_action / right_content [String] captured blocks from the caller
   @param below_tab [Boolean] the page is not the active tab itself but a page
     below it (a form or a record of that tab, which names itself in the crumb
@@ -70,7 +78,8 @@
         tab stands and marks exactly where an open one would. %>
     <% tab_box = 'inline-block border-b-2 pb-3 pt-1 text-sm whitespace-nowrap' %>
     <% active_marker = 'border-ink text-cream-900 font-bold' %>
-    <ul class="flex flex-wrap gap-x-6 gap-y-1 md:gap-x-8 -mb-px">
+    <ul class="flex overflow-x-auto scrollbar-hide gap-x-6 gap-y-1 md:flex-wrap md:overflow-visible md:gap-x-8 -mb-px"
+        data-controller="tab-strip">
       <% tabs.each do |tab| %>
         <% is_active = (active.to_sym == tab[:key]) %>
         <li>
