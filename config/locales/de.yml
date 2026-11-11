@@ -2124,8 +2124,6 @@ de:
         title: Rollen & Berechtigungen
         view_label: Ansicht
       new:
-        back: Zurück
-        cancel: Abbrechen
         create_role: Rolle erstellen
         description_label: Beschreibung
         errors_prevent_save:

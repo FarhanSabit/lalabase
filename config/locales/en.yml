@@ -2037,8 +2037,6 @@ en:
         title: Roles & Permissions
         view_label: View
       new:
-        back: Back
-        cancel: Cancel
         create_role: Create Role
         description_label: Description
         errors_prevent_save:

@@ -4,7 +4,7 @@ require 'rails_helper'
 
 # What: NeoViewSwitchComponent, the switch between the views of one page (the
 #       tickets' Liste | Kanban, the time list's Liste | Übersicht, the inbox's
-#       Chronologisch | Nach Ticket gebündelt).
+#       Chronologisch | Nach Ticket gebündelt, the roles' list and matrix).
 # Type: Component spec.
 # Why:  One form for every view switch (user, 2026-11-11): the icon pair
 #       (designer, 09.09.2026). Two 30x30 tiles, 2px apart, no container tone,
@@ -97,12 +97,12 @@ RSpec.describe NeoViewSwitchComponent, type: :component do
       page.find('svg', visible: :all).native.inner_html
     end
 
-    expect(described_class::ICONS.keys).to contain_exactly(:list, :kanban, :bars, :stack)
+    expect(described_class::ICONS.keys).to contain_exactly(:list, :kanban, :bars, :stack, :grid)
     expect(drawings.uniq.size).to eq(drawings.size)
   end
 
   it 'refuses an unknown icon and the retired variant' do
-    expect { described_class.new(label: 'Ansicht', items: [links.first.merge(icon: :grid)]) }.to raise_error(ArgumentError)
+    expect { described_class.new(label: 'Ansicht', items: [links.first.merge(icon: :gallery)]) }.to raise_error(ArgumentError)
     expect { described_class.new(label: 'Ansicht', items: [links.first.merge(icon: 'bi-list-ul')]) }.to raise_error(ArgumentError)
     expect { described_class.new(label: 'Ansicht', items: links, variant: :groove) }.to raise_error(ArgumentError)
   end
