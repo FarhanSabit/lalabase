@@ -82,6 +82,8 @@ RSpec.describe 'Management: the tab row of the KI section', type: :request do
 
   # The six tabs in their order, each a link to its page, and while AI is off the
   # three that wait for it locked: no link, the lock, the reason as the tooltip.
+  # A screen reader hears the same: the tab is disabled, the reason is read out
+  # (a tooltip is not), and the lock is a picture it skips.
   def expect_six_tabs(doc)
     row = tabs(doc)
     expect(row.map { |tab| label_of(tab) }).to eq(six_tabs.map { |(_, label_key)| ai_t(label_key) })
@@ -91,8 +93,13 @@ RSpec.describe 'Management: the tab row of the KI section', type: :request do
       if needs_ai && !ai_on
         expect(tab.name).to eq('span'), "#{label} is <#{tab.name}> while AI is off, not a locked <span>"
         expect(tab.css('a, [href]')).to be_empty, "#{label} leads somewhere while AI is off"
-        expect(tab.at_css('i.bi-lock')).to be_present, "#{label} carries no lock while AI is off"
+        lock = tab.at_css('i.bi-lock')
+        expect(lock).to be_present, "#{label} carries no lock while AI is off"
         expect(tab['title']).to eq(ai_t('tabs.locked')), "#{label} does not say why it is locked"
+        expect(tab['aria-disabled']).to eq('true'), "#{label} is not announced as disabled while AI is off"
+        read_out = tab.css('.sr-only').map { |text| text.text.squish }
+        expect(read_out).to eq([ai_t('tabs.locked')]), "#{label} does not read its reason out"
+        expect(lock['aria-hidden']).to eq('true'), "the lock of #{label} is read out as a picture"
       else
         expect(tab.name).to eq('a'), "#{label} is no link#{' while AI is off' unless ai_on}"
         expect(tab['href']).to eq(public_send(route, organisation))

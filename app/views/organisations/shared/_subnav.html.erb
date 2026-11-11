@@ -28,10 +28,13 @@
     locked: true and locked_title: (the reason) on a tab that does not open
     yet: the AI tabs while AI is off (NavigationHelper#ai_section_tabs). A
     locked tab stays in the row, as the AI hub keeps its locked rows, and is
-    no link: muted like those rows (text-faint), a lock sign, the reason as
-    its tooltip and once more for screen readers. Opened by its URL anyway,
-    it is the active tab like any other (the marker, aria-current), still no
-    link and still with the lock. A locked tab without a reason raises.
+    no link but a span marked aria-disabled, as those rows are. It carries a
+    lock sign, which the rows do not, and its label is faint (text-faint), the
+    tone a locked row gives only its description (the row's name is
+    text-muted). The reason is its tooltip and is read once more to screen
+    readers. Opened by its URL anyway, it is the active tab like any other (the
+    marker in place of the faint label, aria-current), still no link and still
+    with the lock. A locked tab without a reason raises.
   @param active [Symbol] the tab that is current (with below_tab: the tab the
     page belongs to)
   @param aria_label [String] names the nav for screen readers
