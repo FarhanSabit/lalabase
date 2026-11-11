@@ -186,6 +186,7 @@ else
   pin 'controllers/lane_split_controller', to: 'controllers/lane_split_controller.js'
   pin 'controllers/layout_toggle_controller', to: 'controllers/layout_toggle_controller.js'
   pin 'controllers/list_row_controller', to: 'controllers/list_row_controller.js'
+  pin 'controllers/management_return_controller', to: 'controllers/management_return_controller.js'
   pin 'controllers/meeting_analysis_composer_controller', to: 'controllers/meeting_analysis_composer_controller.js'
   pin 'controllers/meeting_move_modal_controller', to: 'controllers/meeting_move_modal_controller.js'
   pin 'controllers/meeting_participants_controller', to: 'controllers/meeting_participants_controller.js'

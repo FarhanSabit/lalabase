@@ -94,6 +94,35 @@ RSpec.describe 'Management sidebar', type: :request do
       expect(back_href(doc)).to eq(inbox)
     end
 
+    ['', '?layout=rows'].each do |query|
+      it "replaces an earlier Inbox destination when entering from the dashboard#{query}" do
+        path = "#{organisation_root_path(organisation_id: organisation.id)}#{query}"
+        doc_for(organisation_settings_path(organisation), referer: inbox)
+
+        expect(back_href(doc_for(organisation_settings_path(organisation), referer: path))).to eq(path)
+      end
+    end
+
+    [1023, 1024].each do |bytes|
+      it "preserves a #{bytes}-byte return address within the session budget" do
+        prefix = "#{inbox}&q="
+        path = prefix + 'a' * (bytes - prefix.bytesize)
+
+        expect(back_href(doc_for(organisation_settings_path(organisation), referer: path))).to eq(path)
+      end
+    end
+
+    [1025, 2800].each do |bytes|
+      it "replaces a #{bytes}-byte return address with the dashboard without overflowing the session cookie" do
+        prefix = "#{inbox}&q="
+        doc_for(organisation_settings_path(organisation), referer: inbox)
+        path = prefix + 'a' * (bytes - prefix.bytesize)
+
+        expect(back_href(doc_for(organisation_settings_path(organisation), referer: path)))
+          .to eq(organisation_root_path(organisation_id: organisation.id))
+      end
+    end
+
     it 'leads to the dashboard without such a page, from a foreign host or another organisation' do
       expect(back_href(doc_for(organisation_settings_path(organisation)))).to eq(organisation_root_path(organisation_id: organisation.id))
 

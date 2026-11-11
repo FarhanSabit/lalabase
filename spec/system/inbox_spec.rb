@@ -46,6 +46,31 @@ RSpec.describe 'Inbox (System)', type: :system, inbox_e2e: true do
     organisation_notifications_path(organisation, **params)
   end
 
+  it 'returns from management to the Inbox selection visible when the invitation link was opened' do
+    page.current_window.resize_to(1440, 1000)
+    ticket = ActsAsTenant.with_tenant(organisation) { create(:ticket, project: project, title: 'Ausgewähltes Ticket') }
+    notification = create_notification(state: :read, ticket: ticket)
+
+    visit inbox_path(state_filters: %w[read unread])
+    expect(page).to have_css('.layout.hide-content')
+    find("[data-notification-item='#{notification.id}'] a.inbox-row__link").click
+    expect(page).to have_css('#ticket_pane', text: 'Ausgewähltes Ticket')
+    expect(page).to have_current_path(/notification=#{notification.id}/)
+    selected_path = URI.parse(page.current_url).request_uri
+
+    find('#sidebar details[data-controller="details-autoclose"] > summary').click
+    find("#sidebar a[href='#{new_organisation_invitation_path(organisation)}']").click
+    expect(page).to have_css('#sidebar [data-management-nav]')
+    find("#sidebar a[href='#{organisation_roles_path(organisation)}']").click
+    expect(page).to have_current_path(organisation_roles_path(organisation))
+
+    back = find('#sidebar a', text: I18n.t('navigation.management_back'), exact_text: true)
+    expect(URI.parse(back[:href]).request_uri).to eq(selected_path)
+    back.click
+    expect(page).to have_current_path(selected_path)
+    expect(page).to have_css('#ticket_pane', text: 'Ausgewähltes Ticket')
+  end
+
   # B1 — Clicking a ticket notification loads the ticket in the pane.
   it 'lädt das Ticket im Pane beim Klick (B1)' do
     ticket = ActsAsTenant.with_tenant(organisation) { create(:ticket, project: project, title: 'Login-Bug') }
