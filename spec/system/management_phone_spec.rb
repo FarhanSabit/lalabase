@@ -170,11 +170,34 @@ RSpec.describe 'Management area on a phone', type: :system do
                                                                        yDistance: 0, speed: 800, gestureSourceType: 'touch')
     end
 
+    # Two animation frames: what changed is laid out, and a move of the row is reported.
+    def two_frames = page.evaluate_async_script('requestAnimationFrame(() => requestAnimationFrame(arguments[0]))')
+
     # The phone turned to `width`, laid out and reported to the row's observer.
     def turn_phone_to(width)
       page.driver.browser.execute_cdp('Emulation.setDeviceMetricsOverride', width: width, height: 844,
                                                                             deviceScaleFactor: 1, mobile: true)
-      page.evaluate_async_script('requestAnimationFrame(() => requestAnimationFrame(arguments[0]))')
+      two_frames
+    end
+
+    # The row's own move is not the reader's (review round 2 of S4A). Opened by its
+    # address, without any input, the row moves itself to the open tab, and the
+    # browser reports that move a frame later. Tabs that grow afterwards (here:
+    # letter spacing on every tab) still bring the open tab into view.
+    it "takes the row's own move for its own: grown tabs still bring the open tab into view" do
+      visit organisation_ai_protocol_path(organisation)
+      expect(page).to have_css('main nav [aria-current="page"]', exact_text: tab_labels.last)
+      loaded = settled_row
+      expect(loaded['scroll_left']).to be_positive
+      two_frames
+
+      page.execute_script(<<~JS, section)
+        document.querySelectorAll(`main nav[aria-label="${CSS.escape(arguments[0])}"] li > :first-child`)
+          .forEach(tab => { tab.style.letterSpacing = '2px' })
+      JS
+      row = row_geometry
+      expect(open_tab_in_view?(row)).to be(true), "the grown tabs left the open tab outside the row's visible box: #{row.inspect}"
+      expect(row['scroll_left']).to be > loaded['scroll_left'], "the row did not follow the grown tabs: #{row.inspect}"
     end
 
     # The reader's hand wins (review of S4A): a tab that changed size later, as with

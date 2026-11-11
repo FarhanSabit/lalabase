@@ -60,7 +60,10 @@ function fixture({ widths = KI_TABS, open, clientWidth = 358, scrollLeft = 0 } =
     },
     removeEventListener(type, listener) { listeners.get(type)?.delete(listener) }
   }
-  const fire = type => { for (const listener of [...(listeners.get(type) ?? [])]) listener({ type }) }
+  const fire = (type, detail = {}) => {
+    for (const listener of [...(listeners.get(type) ?? [])]) listener({ type, ...detail })
+  }
+  let panned = false // the browser took the finger's pointer over for a pan
 
   class FakeResizeObserver {
     constructor(callback) {
@@ -89,13 +92,38 @@ function fixture({ widths = KI_TABS, open, clientWidth = 358, scrollLeft = 0 } =
     resized() { observer.callback([]) },
     // The browser reports a scroll of the row, whoever moved it (a frame after the move).
     scrolled() { fire("scroll") },
-    // The reader's hand on the row, before it has moved anything.
-    touched(type) { fire(type) },
     // The reader swipes the row to `to`, and the browser reports the scroll.
     readerScrolls(to) {
       offset = clamp(to)
       fire("scroll")
     },
+    // The events of a hand on the row in the browser's order, before anything moves.
+    fingerDown() {
+      panned = false
+      fire("pointerdown", { pointerType: "touch" })
+      fire("touchstart", { targetTouches: [{}] })
+    },
+    // The browser takes the finger over for a pan (pointercancel, the finger stays
+    // down) and moves the row to `to`.
+    pan(to) {
+      panned = true
+      fire("pointercancel", { pointerType: "touch" })
+      this.readerScrolls(to)
+    },
+    fingerUp() {
+      if (!panned) fire("pointerup", { pointerType: "touch" })
+      fire("touchend", { targetTouches: [] })
+    },
+    penDown() { fire("pointerdown", { pointerType: "pen" }) },
+    penUp() { fire("pointerup", { pointerType: "pen" }) },
+    mousePress() {
+      fire("pointerdown", { pointerType: "mouse" })
+      fire("pointerup", { pointerType: "mouse" })
+    },
+    // A vertical wheel over the row: the row cannot scroll that way, nothing moves.
+    wheel() { fire("wheel", { deltaX: 0, deltaY: 120 }) },
+    // The browser pulls the row back to its end when the tabs shrank below it.
+    clampToEnd() { offset = clamp(offset) },
     // The open tab against the row's visible box, both from the row's left edge.
     openTab() {
       const box = items[open].tab.getBoundingClientRect()
@@ -196,18 +224,73 @@ test("a row the reader scrolled stays where the reader left it when a tab change
   assert.equal(f.row.scrollLeft, 0)
 })
 
-test("a finger, a pen, a mouse or a wheel on the row holds it before any scroll is reported", () => {
-  for (const type of ["pointerdown", "touchstart", "wheel"]) {
+// Review round 2 of S4A: a hand on the row does not hold it, only a MOVEMENT of the
+// row that did not come from here does. Measured in Chrome at 390 px before: a
+// vertical wheel over the row (deltaY 120) held it without moving it, and tabs
+// grown by letter spacing then left the open tab at 393..472 of a 358 px row.
+const HANDS = [["fingerDown", "fingerUp"], ["penDown", "penUp"]]
+
+test("a finger or a pen on the row pauses reveals while it is down, and the reveal it held back comes when it lifts", () => {
+  for (const [down, up] of HANDS) {
     const f = fixture({ open: 5 })
     f.controller.connect()
     f.resized()
+    f.scrolled()
     f.writes.length = 0
 
-    f.touched(type)
+    f[down]()
     f.layout.widths[0] += 10 // the open tab now ends past the row
     f.resized()
-    assert.deepEqual(f.writes, [], `${type} did not hold the row`)
+    assert.deepEqual(f.writes, [], `${down}: a reveal while the hand is down`)
+
+    f[up]()
+    assertInView(f, `${up}: the reveal held back`)
   }
+})
+
+test("a vertical wheel or a mouse press that does not move the row leaves it free: a later size change brings the open tab back", () => {
+  for (const input of ["wheel", "mousePress"]) {
+    const f = fixture({ open: 5 })
+    f.controller.connect()
+    f.resized()
+    f.scrolled()
+
+    f[input]()
+    f.layout.widths[0] += 10
+    f.resized()
+    assertInView(f, input)
+  }
+})
+
+test("a finger or a pen lifted without moving the row leaves it free: a later size change brings the open tab back", () => {
+  for (const [down, up] of HANDS) {
+    const f = fixture({ open: 5 })
+    f.controller.connect()
+    f.resized()
+    f.scrolled()
+
+    f[down]()
+    f[up]()
+    f.layout.widths[0] += 10
+    f.resized()
+    assertInView(f, `after ${up}`)
+  }
+})
+
+test("a pan while the finger is down holds the row, also after the finger lifts", () => {
+  const f = fixture({ open: 5 })
+  f.controller.connect()
+  f.resized()
+  f.scrolled()
+
+  f.fingerDown()
+  f.pan(0)
+  f.fingerUp()
+  f.writes.length = 0
+  f.layout.widths[0] += 10
+  f.resized()
+  assert.deepEqual(f.writes, [])
+  assert.equal(f.row.scrollLeft, 0)
 })
 
 test("the row's own move, reported back by the browser, is not the reader's", () => {
@@ -248,11 +331,28 @@ test("once the reader has moved the row, not even a turned phone pulls it back",
   assert.equal(f.row.scrollLeft, 0)
 })
 
-test("it listens on the row once per kind of input and takes every listener away on disconnect", () => {
-  const types = ["pointerdown", "touchstart", "wheel", "scroll"]
+test("it listens on the row once per event it needs, not to the wheel, and takes every listener away on disconnect", () => {
+  const types = ["touchstart", "touchend", "touchcancel", "pointerdown", "pointerup", "pointercancel", "scroll", "wheel"]
   const f = fixture({ open: 5 })
   f.controller.connect()
-  assert.deepEqual(types.map(type => f.listeners.get(type)?.size ?? 0), [1, 1, 1, 1])
+  assert.deepEqual(types.map(type => f.listeners.get(type)?.size ?? 0), [1, 1, 1, 1, 1, 1, 1, 0])
   f.controller.disconnect()
-  assert.deepEqual(types.map(type => f.listeners.get(type)?.size ?? 0), [0, 0, 0, 0])
+  assert.deepEqual(types.map(type => f.listeners.get(type)?.size ?? 0), [0, 0, 0, 0, 0, 0, 0, 0])
+})
+
+// Review round 2 of S4A: the tabs shrink after this controller left the row at its
+// end (188), and the browser pulls the row back to the new, nearer end (178) before
+// it reports the move. The position no longer equals the one left here, and the row
+// counted as moved by the reader.
+test("the row pulled back to a nearer end by the browser, before this controller's move is reported, is still this controller's", () => {
+  const f = fixture({ open: 5 })
+  f.controller.connect()
+  f.resized()
+  f.layout.widths[0] -= 10
+  f.clampToEnd()
+  f.scrolled()
+
+  f.layout.widths[0] += 20 // the open tab now ends past the row
+  f.resized()
+  assertInView(f, "after the clamp")
 })
