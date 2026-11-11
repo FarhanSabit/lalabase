@@ -1,4 +1,4 @@
-# Karte: app/controllers/concerns (Stand: 2026-11-04)
+# Karte: app/controllers/concerns (Stand: 2026-11-11)
 
 > Für die Ticket-**Domäne** (Attributsystem, Kanban, Actors, Fallen) gilt zusätzlich
 > `docs/architektur/tickets_lesepfad.md`. Diese Karte hier beschreibt nur den **Stack**.
@@ -54,7 +54,12 @@ Lese-Reihenfolge, um eine Listen-Seite wirklich zu verstehen:
    damit die projektlosen Assistant-Controller dasselbe Gate nutzen),
    `meeting_in_project.rb` (24.10.2026: `with_meeting_in_project { ... }`, die Sperre eines
    Meeting-Schreibwegs im Controller, Abschnitt zu `Meeting#lock_in_project!` in der
-   Wurzel-`CLAUDE.md`; der Wächter fragt jede schreibende Aktion der Meeting-Controller).
+   Wurzel-`CLAUDE.md`; der Wächter fragt jede schreibende Aktion der Meeting-Controller),
+   `organisations/management_return.rb` (11.11.2026, in `Organisations::BaseController`):
+   merkt sich beim Betreten der Verwaltung die App-Seite, von der man kam, für „‹ Zurück“
+   der Verwaltungs-Seitenleiste. ⚠️ Ein `before_action` ruft hier nie `helpers`: der Proxy
+   ist memoisiert und behielte die Instanzvariablen dieses Moments (vor `@project` und Co.
+   der Unterklasse); die Abschnittsfrage beantwortet `NavigationHelper.section_key_for`.
 
 Daneben liegen **Patches in Rails-eigene Controller**, die nicht per `include` im App-Controller,
 sondern über einen `to_prepare`-Initializer eingehängt werden: `direct_uploads_guard.rb` →

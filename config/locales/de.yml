@@ -1564,6 +1564,7 @@ de:
     settings_session: Session-Dauer
     settings_api_tokens: API-Tokens
     management: Verwaltung
+    management_back: Zurück
     preferences: Präferenzen
     show_all_projects: Alle Projekte anzeigen
     org_dashboard: Dashboard

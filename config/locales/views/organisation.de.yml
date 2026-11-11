@@ -364,7 +364,6 @@ de:
       access_matrix:
         index:
           title: Zugriffsübersicht
-          back_to_members: Zu den Mitgliedern
           member_header: Mitglied
           column_link_title: Team von %{project} bearbeiten
           wide_screen_hint: Für die vollständige Matrix empfiehlt sich ein breiter Bildschirm — der Filter grenzt Spalten und Zeilen ein.

@@ -28,20 +28,25 @@ module NavigationHelper
   # offered at all. It is data rather than an inline `if` in the renderer so a second
   # gated tab needs no new branch. The gate hides the ENTRANCE only; the matching
   # policy still has to refuse the actions (CodebaseImportFilePolicy#import_permitted?).
+  #
+  # Since 2026-11-11 the sections are no tab row any more but the sidebar's own list while
+  # the area is open (common/_navigation_management, doc/verwaltung_seitennavigation_plan.md).
+  # `icon:` is the row's sign there, `group:` the block it stands in (a hairline between
+  # blocks), in this order: what the organisation is, what it uses, the account above it.
   SETTINGS_TABS = [
-    { key: :general,         controller_name: 'organisation_settings', label_key: 'settings.organisation_settings', path_helper: :organisation_settings_path },
-    { key: :members,         controller_name: 'memberships',           label_key: 'settings.members',               path_helper: :organisation_memberships_path },
-    { key: :roles,           controller_name: 'roles',                 label_key: 'settings.roles_permissions',     path_helper: :organisation_roles_path },
-    { key: :archive,         controller_name: 'archives',              label_key: 'settings.archive',               path_helper: :organisation_archives_path },
-    { key: :ai,              controller_name: 'ai_overviews',          label_key: 'settings.ai',                    path_helper: :organisation_ai_overview_path },
-    { key: :import,          controller_name: 'codebase_import_files', label_key: 'settings.import_data',           path_helper: :organisation_codebase_import_files_path, gate: :data_import_enabled? },
-    { key: :appearance,      controller_name: 'appearances',           label_key: 'settings.appearance',            path_helper: :organisation_appearance_path },
-    # Billing sits LAST on purpose: it is the only tab that leaves the organisation and
-    # talks about the account above it. Like every other tab it is rendered for everyone
-    # who reaches the management area and gated per page by Pundit
-    # (AccountPolicy#show_overview?) -- the same contract the subnav partial documents,
-    # not an exception made here.
-    { key: :billing,         controller_name: 'billing',               label_key: 'settings.billing',               path_helper: :organisation_billing_path }
+    { key: :general,    controller_name: 'organisation_settings', label_key: 'settings.organisation_settings', path_helper: :organisation_settings_path,              icon: 'bi-building',          group: :organisation },
+    { key: :members,    controller_name: 'memberships',           label_key: 'settings.members',               path_helper: :organisation_memberships_path,           icon: 'bi-people',            group: :organisation },
+    { key: :roles,      controller_name: 'roles',                 label_key: 'settings.roles_permissions',     path_helper: :organisation_roles_path,                 icon: 'bi-shield-check',      group: :organisation },
+    { key: :archive,    controller_name: 'archives',              label_key: 'settings.archive',               path_helper: :organisation_archives_path,              icon: 'bi-archive',           group: :organisation },
+    { key: :appearance, controller_name: 'appearances',           label_key: 'settings.appearance',            path_helper: :organisation_appearance_path,            icon: 'bi-palette',           group: :organisation },
+    { key: :ai,         controller_name: 'ai_overviews',          label_key: 'settings.ai',                    path_helper: :organisation_ai_overview_path,           icon: 'bi-stars',             group: :uses },
+    { key: :import,     controller_name: 'codebase_import_files', label_key: 'settings.import_data',           path_helper: :organisation_codebase_import_files_path, icon: 'bi-box-arrow-in-down', group: :uses, gate: :data_import_enabled? },
+    # Billing sits LAST on purpose: it is the only section that leaves the organisation
+    # and talks about the account above it (BillingController forwards there), which its
+    # row says with an outward sign (`leaves:`). Like every other section it is offered to
+    # everyone who reaches the management area and gated per page by Pundit
+    # (AccountPolicy#show_overview?).
+    { key: :billing,    controller_name: 'billing',               label_key: 'settings.billing',               path_helper: :organisation_billing_path,               icon: 'bi-receipt',           group: :account, leaves: true }
   ].each(&:freeze).freeze
 
   # Controller names that make up the management section — derived from the tab
@@ -83,8 +88,16 @@ module NavigationHelper
   # three conflicts at the most expensive spot: the trap from §7 of the plan, whose break
   # switches the sidebar dark across the whole area.
   AI_AREA_CONTROLLERS = %w[
-    ai_overviews ai_settings ai_sync_statuses prompt_personas ai_usages ai_protocols
+    ai_overviews ai_settings ai_sync_statuses prompt_personas ai_usages ai_protocols ai_configurations
   ].freeze
+
+  # Pages below a section that are no section of their own: the section they belong to
+  # stays marked in the sidebar while they are open. The access overview and the
+  # invitation form belong to the members; every page of the AI area to "KI".
+  MANAGEMENT_PAGE_SECTIONS = {
+    'access_matrix' => :members,
+    'invitations' => :members
+  }.merge(AI_AREA_CONTROLLERS.index_with { :ai }).freeze
 
   # The organisations shown in the switcher menu: the user's ACTIVE-membership orgs (active_
   # organisations already merges Membership.active), ordered case-insensitively by name and capped
@@ -98,21 +111,62 @@ module NavigationHelper
     user.active_organisations.by_name.limit(ORG_MENU_LIMIT)
   end
 
-  # Render-ready tab list for the settings subnav: resolves label + path for `org`,
-  # dropping every tab whose `gate:` predicate the org answers false to.
+  # Render-ready section list: resolves label + path for `org`, dropping every section
+  # whose `gate:` predicate the org answers false to. The sidebar's management list and the
+  # phone's "Mehr" page render it.
   def organisation_settings_tabs(org)
     SETTINGS_TABS.filter_map do |tab|
       next if tab[:gate] && !org&.public_send(tab[:gate])
 
-      { key: tab[:key], label: t(tab[:label_key]), path: public_send(tab[:path_helper], org) }
+      { key: tab[:key], label: t(tab[:label_key]), path: public_send(tab[:path_helper], org),
+        icon: tab[:icon], group: tab[:group], leaves: tab[:leaves] == true }
     end
   end
 
-  # True on any organisation-management page — the eight tabs plus every page of the AI
-  # area behind the "KI" tab. Drives the sidebar "Verwaltung" active-state so it stays
-  # lit no matter how deep the user is.
+  # The section the current page belongs to (a SETTINGS_TABS key), nil outside the
+  # management area: a section page by its controller, a page below one through
+  # MANAGEMENT_PAGE_SECTIONS.
+  def management_section_key(name = controller_name)
+    NavigationHelper.section_key_for(name)
+  end
+
+  # The same answer without a view: Organisations::ManagementReturn asks it in a
+  # before_action, where calling `helpers` would build (and keep) a view context before
+  # the controller has set its instance variables.
+  def self.section_key_for(name)
+    SETTINGS_TABS.find { |tab| tab[:controller_name] == name }&.dig(:key) || MANAGEMENT_PAGE_SECTIONS[name]
+  end
+
+  # True on any organisation-management page: a section, or a page below one. It switches
+  # the sidebar to the management list and lights the gear in the organisation header.
   def management_section_active?
-    SETTINGS_TAB_CONTROLLERS.include?(controller_name) || AI_AREA_CONTROLLERS.include?(controller_name)
+    !management_section_key.nil?
+  end
+
+  # The label of a section, for the page head: the head names the section.
+  def management_section_label(key)
+    tab = SETTINGS_TABS.find { |entry| entry[:key] == key.to_sym }
+    t(tab.fetch(:label_key))
+  end
+
+  # The tabs of the members section (doc/verwaltung_seitennavigation_plan.md §5): the list
+  # and the access overview, the second only for whom the matrix opens.
+  def members_section_tabs(org)
+    tabs = [{ key: :members, label: t('settings.members'), path: organisation_memberships_path(org) }]
+    if policy(:access_matrix).index?
+      tabs << { key: :access_matrix, label: t('views.organisations.access_matrix.index.title'),
+                path: organisation_access_matrix_index_path(org) }
+    end
+    tabs
+  end
+
+  # Where "‹ Zurück" of the management list leads: the app page the reader came from
+  # (Organisations::ManagementReturn keeps it in the session when the area is entered),
+  # the dashboard if there is none or it belongs to another organisation.
+  def management_return_path(org)
+    stored = session[Organisations::ManagementReturn::SESSION_KEY]
+    prefix = "#{organisation_root_path(organisation_id: org.id)}/"
+    stored.is_a?(String) && stored.start_with?(prefix) ? stored : organisation_root_path(organisation_id: org.id)
   end
 
   # The tabs of the times area this reader may open (TIMES_TABS, policy applied).

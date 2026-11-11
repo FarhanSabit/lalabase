@@ -48,5 +48,10 @@
       <i class="<%= icon %> <%= sidebar_row_icon_classes %>"></i>
     <% end %>
     <span><%= name %></span>
+    <%# A row that leads out of where it stands (the management list's "Rechnung",
+        which leaves the organisation for its account) says so at its end. %>
+    <% if local_assigns[:trailing_icon].present? %>
+      <i class="<%= trailing_icon %> ms-auto text-xs <%= sidebar_row_icon_classes %>" aria-hidden="true"></i>
+    <% end %>
   <% end %>
 <% end %>

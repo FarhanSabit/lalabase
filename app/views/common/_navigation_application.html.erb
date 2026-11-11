@@ -72,6 +72,9 @@
                     min-h-[44px] keeps the whole row a comfortable touch target. %>
                 <%= form_with url: set_organisation_path, method: :post, data: { turbo: false } do %>
                   <%= hidden_field_tag :organisation_id, org.id %>
+                  <%# In the management area the switch stays in the open section
+                      (OrganisationsController#set checks it may). %>
+                  <%= hidden_field_tag :section, management_section_key, id: nil if management_section_active? %>
                   <%= button_tag type: :submit,
                         "aria-current": (is_current ? 'true' : nil),
                         class: [row_base, 'w-full text-left min-h-[44px]', ('font-bold text-cream-900' if is_current)] do %>
@@ -134,7 +137,11 @@
       The people directory is a right of its own (PersonPolicy) and opens the
       block too: a customer role may hold it without any project. The glossary
       does not: it has no entry here, it is reached from the meetings pages. %>
-  <% if user_signed_in? && (policy(Project).index? || policy(TimeSession).index? || assistant_available? || policy(Person).index?) %>
+  <%# While a page of the management area is open the sidebar lists its sections
+      instead (common/_navigation_management); the frame around stays. %>
+  <% if user_signed_in? && management_section_active? %>
+    <%= render 'common/navigation_management', current_organisation: current_organisation %>
+  <% elsif user_signed_in? && (policy(Project).index? || policy(TimeSession).index? || assistant_available? || policy(Person).index?) %>
     <div class="w-full px-4 pt-3">
       <div class="mb-2">
         <% can_view_times = TimeSessionNavigationService.new(current_user, current_organisation).can_show_all_time_sessions_menu? %>
@@ -203,7 +210,8 @@
   <% end %>
   <%# Organisation management is reached via the gear in the org header (see the summary above),
       not a permanent sidebar entry — a rarely-used, admin-only destination should not hold a
-      divider-emphasised primary-nav slot. management_section_active? drives the gear's active state. %>
+      divider-emphasised primary-nav slot. management_section_active? drives the gear's active
+      state and, since 2026-11-11, switches this block to the management list. %>
 <% else %>
   <div class="w-full px-4 pt-4">
     <p class="text-xs text-cream-600 px-2 italic"><%= t('navigation.select_organisation_prompt') %></p>

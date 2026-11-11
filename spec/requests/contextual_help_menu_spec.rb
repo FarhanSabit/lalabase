@@ -206,7 +206,8 @@ RSpec.describe 'Contextual help menu', type: :request do
 
   # The "?" takes the height of its neighbours in the row (F40 of the
   # Belegungstabelle): 40 px only beside the big gear (the 30 px view switch is
-  # none; the time list's 40 px groove left on 2026-11-11), the quiet 28 px trigger beside a "···" or the members search, and
+  # none; the time list's 40 px groove left on 2026-11-11), the quiet 28 px trigger beside a "···" (the
+  # members' help stood beside their search until 2026-11-11 and is in their head now), and
   # otherwise the 32 px of the head buttons (F1/F2). Until 2026-11-10 it was
   # 40 px everywhere, a box bigger than "+" and "Glossar" beside it.
   describe 'the size of the trigger follows its row' do
@@ -238,7 +239,7 @@ RSpec.describe 'Contextual help menu', type: :request do
       'Name/Domain' => [:medium, -> { organisation_settings_path(organisation) }],
       'Konto' => [:medium, -> { edit_user_registration_path }],
       'Inbox' => [:quiet, -> { organisation_notifications_path(organisation, state_filters: ['unread']) }],
-      'Mitglieder' => [:quiet, -> { organisation_memberships_path(organisation) }]
+      'Mitglieder' => [:medium, -> { organisation_memberships_path(organisation) }]
     }.each do |page_name, (form, path)|
       it "#{page_name}: #{form}" do
         get instance_exec(&path)

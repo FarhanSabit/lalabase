@@ -305,8 +305,9 @@ stands apart by tone and edge (rule 5 in `doc/belegungstabelle_oberflaeche.md`, 
 | `shadow-press-hover` | `3px 3px 0 0 rgb(var(--ink))` | the main action hovered; pressed, it sinks and loses it |
 | `shadow-lift` | `4px 4px 0 0 rgb(var(--ink))` | a card that is wholly a link or a button, while hovered |
 
-* Hard shadows stand in three places only: the main action (also in CSS, as `.members-invite`
-  and `.mobile-primary`), a clickable card while hovered (flat at rest), and the logo tile
+* Hard shadows stand in three places only: the main action (also in CSS, as `.mobile-primary`;
+  the members page's `.members-invite` became the square "+" on 2026-11-11), a clickable card
+  while hovered (flat at rest), and the logo tile
   (`shared/_brand_mark`, its own value, as on the website). Every other button is flat.
 * **Written values**: every arbitrary value `shadow-[...]` whose shadow is hard (an offset, no
   blur; any prefix) in `app/views`, `app/components`, `app/javascript`, `app/helpers`,

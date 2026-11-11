@@ -37,7 +37,9 @@ RSpec.describe 'Membership management', :ci_guard, type: :request do
     expect(response.body).not_to include(invitation.token, 'tr[data-href]')
     expect(workspace.css('thead th').map(&:text).join).not_to include('Aktiv')
     expect(workspace.at_css("#membership_#{membership.id} time").text).to eq(I18n.l(membership.created_at.to_date))
-    expect(workspace.css('.members-invite').size).to eq(1)
+    # The invite is the head's "+" since 2026-11-11, outside the workspace frame.
+    invite = Nokogiri::HTML(response.body).css("a[href='#{new_organisation_invitation_path(organisation)}'][title='#{I18n.t('member_management.invite')}']")
+    expect(invite.size).to eq(1)
     expect(workspace.at_css("#membership_#{admin_membership.id}").text).to include('du')
     expect(workspace.at_css("#membership_#{admin_membership.id}").text).not_to include('Aus der Organisation entfernen')
     expect(workspace.at_css("#membership_#{membership.id}").text).to include('Aus der Organisation entfernen')
@@ -49,7 +51,8 @@ RSpec.describe 'Membership management', :ci_guard, type: :request do
     get organisation_memberships_path(organisation)
 
     expect(response).to have_http_status(:ok)
-    expect(workspace.css('select, .more-menu, .members-invite, .members-text-action, #pending-invitations')).to be_empty
+    expect(workspace.css('select, .more-menu, #pending-invitations')).to be_empty
+    expect(Nokogiri::HTML(response.body).css("a[href='#{new_organisation_invitation_path(organisation)}']")).to be_empty
     expect(response.body).not_to include(invitation.email, invitation.token)
   end
 

@@ -1,13 +1,14 @@
 <div>
-<%= render 'organisations/shared/settings_subnav', active: :general %>
-<%# Capped (layout.css, "Page widths"): a form row holds one thing and one value.
-    The tools row belongs to the content block and ends with it. %>
-<div class="flex justify-end mb-3.5 width-capped">
+<%# The head names the section and carries its help, as every page head does
+    (doc/verwaltung_seitennavigation_plan.md §5). The form keeps its save button. %>
+<% head_tools = capture do %>
   <%= render 'common/contextual_help_menu', context: :settings_general %>
-</div>
+<% end %>
+<%= render 'organisations/shared/settings_subnav', active: :general, right_content: head_tools %>
 
-<%# Warm-Editorial (Part G + layout decision D4=B): a single-group settings tab needs
-    NO card. The active tab already names the section. Structure comes from
+<%# Warm-Editorial (Part G + layout decision D4=B): a single-group settings section
+    needs NO card. The head already names the section. Capped (layout.css, "Page
+    widths"): a form row holds one thing and one value. Structure comes from
     two-column rows (label + help text on the left, field on the right) with thin dividers —
     uses the width, no redundant frame/header, no card tone problem. %>
 <div class="mt-2 width-capped">

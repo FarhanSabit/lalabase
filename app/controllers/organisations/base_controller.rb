@@ -9,6 +9,8 @@ class Organisations::BaseController < ApplicationController
   before_action :set_organisation
   before_action :set_current_membership
   before_action :ensure_items_parameter
+  # After set_organisation: it reads the organisation to tell an app page of it.
+  include Organisations::ManagementReturn
 
   # Enforce Pundit checks in all environments
   # Use lambda conditions instead of only:/except: to avoid errors on controllers

@@ -805,6 +805,7 @@ jobs:
           spec/controllers/concerns/api/token_authenticatable_spec.rb
           spec/requests/users/personal_access_tokens_spec.rb
           spec/requests/organisations/memberships_management_spec.rb
+          spec/requests/organisations/management_sidebar_spec.rb
           spec/requests/organisations/tickets/notification_reads_spec.rb
           spec/models/action_text/rich_text_embed_validation_spec.rb
           spec/models/action_text/rich_text_embed_missing_spec.rb

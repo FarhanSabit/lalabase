@@ -52,7 +52,7 @@ class OrganisationsController < ApplicationController
       ActsAsTenant.without_tenant do
         organisation = current_user.organisations.find(params[:organisation_id])
         flash[:notice] = t('flash.organisations.selected')
-        redirect_to_organisation(organisation)
+        redirect_to_organisation(organisation, section: params[:section])
       end
     rescue StandardError => e
       # Error handling
@@ -101,12 +101,20 @@ class OrganisationsController < ApplicationController
   end
 
   # Helper to safely redirect to an organization
-  def redirect_to_organisation(organisation)
+  def redirect_to_organisation(organisation, section: nil)
     # Set the tenant
     ActsAsTenant.current_tenant = organisation
     session[:current_organisation_id] = organisation.id
 
-    # Redirect to the organisation root
-    redirect_to organisation_root_path(organisation_id: organisation.id)
+    # The open section of the management area, where the reader may manage the other
+    # organisation and it offers the section (doc/verwaltung_seitennavigation_plan.md
+    # §10); the organisation root otherwise.
+    redirect_to management_section_path(organisation, section) || organisation_root_path(organisation_id: organisation.id)
+  end
+
+  def management_section_path(organisation, key)
+    return unless key.is_a?(String) && helpers.can_manage_organisation?(organisation)
+
+    helpers.organisation_settings_tabs(organisation).find { |tab| tab[:key].to_s == key }&.dig(:path)
   end
 end
