@@ -1,18 +1,16 @@
-<div class="pt-6">
-  <%= render NeoTitleBoxComponent.new(
-    title: t('views.organisations.roles.edit.title'),
-    subtitle: @role.title,
-    variant: :organisation
-  ) do |component| %>
-    <% component.with_right_content do %>
-      <%= render Neo::Buttons::HeaderButtonComponent.new(
-        variant: :secondary,
-        icon: "arrow-left",
-        label: t('views.organisations.roles.edit.back'),
-        url: organisation_roles_path(@current_organisation)
-      ) %>
-    <% end %>
-  <% end %>
+<%# One block for head, crumb and form: the content column of the layout puts its
+    gap (gap-6) between its children, and head and crumb are one thing. %>
+<div>
+  <%# The head of the section and the crumb line under it
+      (doc/verwaltung_seitennavigation_plan.md §7a, 1): the title names the
+      section, the crumb the way back and the role. It is the only way back: a
+      button that only leads to the list does not stand here. The stored title,
+      not the one just typed: after a refused save the form shows the attempt,
+      the crumb still names the role. %>
+  <%= render 'organisations/shared/settings_subnav', active: :roles %>
+  <%= render 'organisations/shared/section_crumb', back_label: management_section_label(:roles),
+                                                    back_path: organisation_roles_path(current_organisation),
+                                                    page: @role.title_in_database %>
 
   <% if @role.is_default || @role.account_admin? || true %>
     <div class="max-w-6xl mt-4 mb-4">
@@ -458,11 +456,6 @@
 
       <!-- Footer with buttons -->
       <div class="flex items-center justify-end gap-4 pt-6">
-        <%= render Neo::Buttons::ButtonComponent.new(variant: :secondary, size: :large,
-              url: organisation_roles_path(@current_organisation)) do %>
-          <%= t('views.organisations.roles.edit.cancel') %>
-        <% end %>
-
         <%= render Neo::Buttons::ButtonComponent.new(variant: :primary, size: :large, tag: :button, type: "submit") do %>
           <%= t('views.organisations.roles.edit.save') %>
         <% end %>

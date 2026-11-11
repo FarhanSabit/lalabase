@@ -242,7 +242,6 @@ en:
           tooltip_delete: Delete
         new:
           title: Upload CodebaseHQ file
-          back: Back
           file_upload: File upload
           file_type_label: File type
           file_type_users: Users (users.xml)
@@ -260,7 +259,6 @@ en:
           upload_note_delete: The file can be deleted at any time
           upload_note_format: Only XML files in CodebaseHQ format are accepted
           submit: Upload file
-          cancel: Cancel
           help_title: Where can I find my CodebaseHQ data?
           help_step1_title: 1. Export from CodebaseHQ
           help_step1_text: Log in to your CodebaseHQ account and navigate to the export options.
@@ -272,7 +270,6 @@ en:
           title_tickets: Select project for ticket import
           title_time: Select project for time entry import
           subtitle: Select the target project for importing %{count} %{type} from the CodebaseHQ file.
-          back: Back
           file_info: File information
           filename: Filename
           item_count: Number of %{type}
@@ -289,7 +286,6 @@ en:
         assign_uploads:
           title: Assign uploads
           subtitle: Assign upload files to tickets in project "%{project}"
-          back: Back to overview
           project_info: Project information
           project_label: 'Project:'
           processed_tickets: 'Processed tickets:'
@@ -301,14 +297,12 @@ en:
           important_info_title: Important information
           important_info_text: The upload assignment is only performed for tickets that have already been imported into the system. Only uploads of type "Tickets::Update" are assigned to the corresponding ticket posts.
           start_assignment: Start upload assignment
-          cancel: Cancel
           no_uploads_title: No upload files available
           no_uploads_description: No upload files are available for assignment. Please upload an uploads.xml file first.
           upload_file_btn: Upload file
         preview_import:
           title: User import preview
           subtitle: Decide for each user from the CodebaseHQ file how they should be imported.
-          back: Back
           import_overview: Import overview
           progress: Progress
           progress_text: "%{configured} of %{total} users configured"
@@ -334,12 +328,10 @@ en:
           more_matches: "+%{count} more..."
           no_matches: No matches
           users_ready: "%{count} users ready for import"
-          cancel: Cancel
           start_import: Start import
         preview_tickets:
           title: Ticket import preview
           subtitle: "%{count} tickets will be imported into a new project"
-          back: Back
           new_project: New project
           project_name: Project name
           project_name_placeholder: Name for the new project
@@ -389,7 +381,6 @@ en:
           note_groups: Booked billings will be automatically created
           start_import: Start import
           import_background_hint: The import will be executed in the background. You can track the progress on the overview page.
-          cancel: Cancel
           sample_entries: First 10 entries (sample)
           th_date: Date
           th_time: Time
@@ -408,7 +399,6 @@ en:
           rollback_done: Rollback completed
           import_failed: Import failed
           delete_file: Delete file
-          back_to_overview: Back to overview
           file_size: File size
           uploaded_by: Uploaded by
           uploaded_at: Uploaded at
@@ -531,7 +521,6 @@ en:
           objects_count: "%{count} objects"
           confirm_delete: I confirm that I want to delete all objects created by this import.
           confirm_irreversible: I understand that this action cannot be undone.
-          cancel: Cancel
           execute_rollback: Execute rollback
       project_repositories:
         index:

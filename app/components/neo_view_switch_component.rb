@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
 # THE switch between the views of one page, and its one form (user,
-# 2026-11-11): the tickets' Liste | Kanban, the time list's Übersicht | Liste
-# and the inbox's Chronologisch | Nach Ticket gebündelt. It stands in the page
-# head, first in its right group, before "···" and "?"; the main action stays
-# outermost.
+# 2026-11-11): the tickets' Liste | Kanban, the time list's Übersicht | Liste,
+# the inbox's Chronologisch | Nach Ticket gebündelt and the roles' list and
+# matrix. It stands in the page head, first in its right group, before "···"
+# and "?"; the main action stays outermost.
 #
 # The form is the icon pair (designer, 09.09.2026): one 30 x 30 tile per view,
 # 2px apart, no container, no groove, no tint around the tiles. The groove the
@@ -53,6 +53,8 @@ class NeoViewSwitchComponent < ViewComponent::Base
   #   kanban: a frame with two dividers, the second shorter
   #   bars:   three columns of different height, as high as the board's frame (an overview)
   #   stack:  a card with two shorter edges behind it (bundled by ticket)
+  #   grid:   the board's frame, divided once across and once down: rows and
+  #           columns, where the list has rows only (the matrix of roles and rights)
   ICONS = {
     list: [[:path, { d: 'M2.5 4h11M2.5 8h11M2.5 12h11' }]],
     kanban: [[:rect, { x: 1.85, y: 2.35, width: 12.3, height: 11.3, rx: 1.5 }],
@@ -61,7 +63,9 @@ class NeoViewSwitchComponent < ViewComponent::Base
            [:rect, { x: 6.7, y: 2.35, width: 2.6, height: 11.3, rx: 0.6 }],
            [:rect, { x: 11.05, y: 5.85, width: 2.6, height: 7.8, rx: 0.6 }]],
     stack: [[:rect, { x: 1.85, y: 6.6, width: 12.3, height: 7.05, rx: 1.5 }],
-            [:path, { d: 'M3.75 4.1h8.5M5.75 1.6h4.5' }]]
+            [:path, { d: 'M3.75 4.1h8.5M5.75 1.6h4.5' }]],
+    grid: [[:rect, { x: 1.85, y: 2.35, width: 12.3, height: 11.3, rx: 1.5 }],
+           [:path, { d: 'M8 2.35v11.3M1.85 8h12.3' }]]
   }.freeze
 
   # label: the accessible name of the whole switch ("Ansicht"); container_class:

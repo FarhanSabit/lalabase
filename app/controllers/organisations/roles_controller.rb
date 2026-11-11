@@ -3,9 +3,15 @@
 class Organisations::RolesController < Organisations::BaseController
   before_action :set_role, only: %i[show edit update destroy set_default]
 
+  # Two views of one page: the list of the roles, or the matrix of every role
+  # against every right. The address chooses (?view=matrix, as the time list's
+  # ?view=overview), any other value is the list, and nothing is remembered
+  # between requests (doc/verwaltung_seitennavigation_plan.md §7a, 3). The
+  # template renders the chosen view only.
   def index
     @roles = policy_scope(Role).includes(:permissions, :memberships)
     authorize @roles
+    @view = params[:view] == 'matrix' ? 'matrix' : 'list'
   end
 
   def show

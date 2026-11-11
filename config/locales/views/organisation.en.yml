@@ -80,8 +80,6 @@ en:
           save: Save
       roles:
         edit:
-          title: Edit Role
-          back: Back
           default_role_badge: Default Role
           admin_badge: Administrator
           custom_role_badge: Custom Role
@@ -105,11 +103,10 @@ en:
           read_access: Read Access
           write_access: Write Access
           project_management: Project Management
-          cancel: Cancel
           save: Save
         index:
           new_role_tooltip: Create new role
-          matrix_view_tooltip: 'Permission matrix: Overview of all roles and permissions'
+          matrix_view_tooltip: Permission matrix
       project_permissions:
         index:
           title: Team

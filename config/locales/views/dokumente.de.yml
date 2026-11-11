@@ -244,7 +244,6 @@ de:
           tooltip_delete: Löschen
         new:
           title: CodebaseHQ Datei hochladen
-          back: Zurück
           file_upload: Datei-Upload
           file_type_label: Dateityp
           file_type_users: Benutzer (users.xml)
@@ -262,7 +261,6 @@ de:
           upload_note_delete: Die Datei kann jederzeit wieder gelöscht werden
           upload_note_format: Nur XML-Dateien im CodebaseHQ-Format werden akzeptiert
           submit: Datei hochladen
-          cancel: Abbrechen
           help_title: Wo finde ich meine CodebaseHQ Daten?
           help_step1_title: 1. Export aus CodebaseHQ
           help_step1_text: Melden Sie sich in Ihrem CodebaseHQ Account an und gehen Sie zu den Export-Optionen.
@@ -274,7 +272,6 @@ de:
           title_tickets: Projekt für Ticket-Import auswählen
           title_time: Projekt für Zeit-Einträge-Import auswählen
           subtitle: Wählen Sie das Ziel-Projekt für den Import der %{count} %{type} aus der CodebaseHQ-Datei.
-          back: Zurück
           file_info: Datei-Informationen
           filename: Dateiname
           item_count: Anzahl %{type}
@@ -291,7 +288,6 @@ de:
         assign_uploads:
           title: Uploads zuordnen
           subtitle: Ordnen Sie Upload-Dateien den Tickets im Projekt "%{project}" zu
-          back: Zurück zur Übersicht
           project_info: Projekt-Informationen
           project_label: 'Projekt:'
           processed_tickets: 'Verarbeitete Tickets:'
@@ -303,14 +299,12 @@ de:
           important_info_title: Wichtige Informationen
           important_info_text: Die Upload-Zuordnung wird nur für Tickets durchgeführt, die bereits im System importiert wurden. Nur Uploads vom Typ "Tickets::Update" werden den entsprechenden Ticket-Posts zugeordnet.
           start_assignment: Upload-Zuordnung starten
-          cancel: Abbrechen
           no_uploads_title: Keine Upload-Dateien verfügbar
           no_uploads_description: Es sind keine Upload-Dateien für die Zuordnung vorhanden. Laden Sie zuerst eine uploads.xml-Datei hoch.
           upload_file_btn: Upload-Datei hochladen
         preview_import:
           title: User-Import Vorschau
           subtitle: Entscheiden Sie für jeden User aus der CodebaseHQ-Datei, wie er importiert werden soll.
-          back: Zurück
           import_overview: Import-Übersicht
           progress: Fortschritt
           progress_text: "%{configured} von %{total} User konfiguriert"
@@ -336,12 +330,10 @@ de:
           more_matches: "+%{count} weitere..."
           no_matches: Keine Matches
           users_ready: "%{count} User zum Import bereit"
-          cancel: Abbrechen
           start_import: Import starten
         preview_tickets:
           title: Ticket-Import Preview
           subtitle: "%{count} Tickets werden in ein neues Projekt importiert"
-          back: Zurück
           new_project: Neues Projekt
           project_name: Projektname
           project_name_placeholder: Name für das neue Projekt
@@ -391,7 +383,6 @@ de:
           note_groups: Gebuchte Abrechnungen werden automatisch erstellt
           start_import: Import starten
           import_background_hint: Der Import wird im Hintergrund ausgeführt. Sie können den Fortschritt auf der Übersichtsseite verfolgen.
-          cancel: Abbrechen
           sample_entries: Erste 10 Einträge (Beispiel)
           th_date: Datum
           th_time: Zeit
@@ -410,7 +401,6 @@ de:
           rollback_done: Rollback durchgeführt
           import_failed: Import fehlgeschlagen
           delete_file: Datei löschen
-          back_to_overview: Zurück zur Übersicht
           file_size: Dateigröße
           uploaded_by: Hochgeladen von
           uploaded_at: Hochgeladen am
@@ -533,7 +523,6 @@ de:
           objects_count: "%{count} Objekte"
           confirm_delete: Ich bestätige, dass ich alle durch diesen Import erstellten Objekte löschen möchte.
           confirm_irreversible: Ich verstehe, dass diese Aktion nicht rückgängig gemacht werden kann.
-          cancel: Abbrechen
           execute_rollback: Rollback durchführen
       project_repositories:
         index:
