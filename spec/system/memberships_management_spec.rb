@@ -113,11 +113,13 @@ RSpec.describe 'Membership management browser interactions', type: :system do
 
   it 'removes a membership from the lane and keeps reload on the member list' do
     visit organisation_memberships_path(@organisation, membership_id: @membership.id)
+    expect(page).to have_css('#members_count', text: '6', exact_text: true)
     within('.members-panel') do
       accept_confirm(/Zuweisungen bleiben bestehen/) { click_button 'Aus der Organisation entfernen …' }
     end
     expect(page).not_to have_css("#membership_#{@membership.id}")
     expect(page).to have_current_path(organisation_memberships_path(@organisation))
+    expect(page).to have_css('#members_count', text: '5', exact_text: true)
     page.refresh
     expect(page).to have_css('.members-row', count: 5)
     expect(page).not_to have_css('.members-panel')
