@@ -121,9 +121,9 @@ RSpec.describe NavigationHelper, type: :helper do
         members: 'memberships',
         roles: 'roles',
         archive: 'archives',
+        appearance: 'appearances',
         ai: 'ai_overviews',
         import: 'codebase_import_files',
-        appearance: 'appearances',
         billing: 'billing'
       }
     end
@@ -150,10 +150,29 @@ RSpec.describe NavigationHelper, type: :helper do
     # the entire new area while the user is standing in the middle of it. Pinned per
     # controller, not as a set comparison, so the failure names the page that went dark.
     it 'keeps the management section lit on every page BEHIND the KI tab' do
-      %w[ai_settings ai_sync_statuses prompt_personas].each do |controller|
+      %w[ai_settings ai_sync_statuses prompt_personas ai_usages ai_protocols ai_configurations].each do |controller|
         allow(helper).to receive(:controller_name).and_return(controller)
         expect(helper.management_section_active?).to be(true), "sidebar went dark on '#{controller}'"
+        expect(helper.management_section_key).to eq(:ai)
       end
+    end
+
+    # The sidebar lists the sections while the area is open (2026-11-11): a page below a
+    # section marks that section, so the access overview and the invitation form mark
+    # the members.
+    it 'names the section of a page below one' do
+      { 'access_matrix' => :members, 'invitations' => :members, 'memberships' => :members,
+        'organisation_settings' => :general, 'projects' => nil }.each do |controller, key|
+        allow(helper).to receive(:controller_name).and_return(controller)
+        expect(helper.management_section_key).to eq(key), controller
+      end
+    end
+
+    it 'gives every section a sign and a block, the account last and leading out' do
+      tabs = NavigationHelper::SETTINGS_TABS
+      expect(tabs.map { |tab| tab[:icon] }).to all(start_with('bi-'))
+      expect(tabs.map { |tab| tab[:group] }.chunk_while { |a, b| a == b }.map(&:first)).to eq(%i[organisation uses account])
+      expect(tabs.select { |tab| tab[:leaves] }.map { |tab| tab[:key] }).to eq([:billing])
     end
 
     it 'resolves each tab to its real settings route with a present label' do
@@ -167,9 +186,9 @@ RSpec.describe NavigationHelper, type: :helper do
         members: organisation_memberships_path(organisation),
         roles: organisation_roles_path(organisation),
         archive: organisation_archives_path(organisation),
+        appearance: organisation_appearance_path(organisation),
         ai: organisation_ai_overview_path(organisation),
         import: organisation_codebase_import_files_path(organisation),
-        appearance: organisation_appearance_path(organisation),
         billing: organisation_billing_path(organisation)
       )
     end

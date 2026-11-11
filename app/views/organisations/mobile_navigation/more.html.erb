@@ -9,7 +9,7 @@
   <% show_people = policy(Person).index? %>
   <% show_billings = policy(TimeSessionGroup).index? %>
   <% show_management = can_manage_organisation?(current_organisation) %>
-  <% if show_meetings || show_people || show_billings || show_management %>
+  <% if show_meetings || show_people || show_billings %>
   <h2 class="mobile-section-label"><%= t('mobile.organisation') %></h2>
   <ul class="mobile-menu-list">
     <% if show_meetings %>
@@ -21,10 +21,19 @@
     <% if show_billings %>
       <li><%= link_to safe_join([content_tag(:i, '', class: 'bi bi-coin', aria: { hidden: true }), content_tag(:span, t('mobile.billings'))]), organisation_time_session_groups_path(current_organisation) %></li>
     <% end %>
-    <% if show_management %>
-      <li><%= link_to safe_join([content_tag(:i, '', class: 'bi bi-gear', aria: { hidden: true }), content_tag(:span, t('navigation.management'))]), organisation_settings_path(current_organisation) %></li>
-    <% end %>
   </ul>
+  <% end %>
+  <%# The management area has no sidebar on a phone: its sections stand here, the
+      same list the desktop sidebar shows while the area is open
+      (NavigationHelper#organisation_settings_tabs). %>
+  <% if show_management %>
+    <h2 class="mobile-section-label"><%= t('navigation.management') %></h2>
+    <ul class="mobile-menu-list" data-management-nav>
+      <% organisation_settings_tabs(current_organisation).each do |section| %>
+        <li><%= link_to safe_join([content_tag(:i, '', class: "bi #{section[:icon]}", aria: { hidden: true }), content_tag(:span, section[:label])]), section[:path],
+                       data: { controller: 'management-return', action: 'turbo:before-fetch-request@document->management-return#refresh' } %></li>
+      <% end %>
+    </ul>
   <% end %>
   <h2 class="mobile-section-label"><%= t('mobile.me') %></h2>
   <ul class="mobile-menu-list">

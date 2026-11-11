@@ -35,7 +35,10 @@ RSpec.describe 'Global search navigation (Stage 1)', type: :request do
       end
     end
 
-    before { get organisation_appearance_path(organisation) }
+    # An app page: on a page of the management area the sidebar lists its sections
+    # instead of the app's entries since 2026-11-11 (common/_navigation_management),
+    # where the search would be missing for everybody.
+    before { get organisation_notifications_path(organisation, state_filters: %w[read unread]) }
 
     it 'renders the labelled "Suche" nav button wired to the overlay controller' do
       expect(response).to have_http_status(:ok)
@@ -87,7 +90,10 @@ RSpec.describe 'Global search navigation (Stage 1)', type: :request do
       end
     end
 
-    before { get organisation_appearance_path(organisation) }
+    # An app page: on a page of the management area the sidebar lists its sections
+    # instead of the app's entries since 2026-11-11 (common/_navigation_management),
+    # where the search would be missing for everybody.
+    before { get organisation_notifications_path(organisation, state_filters: %w[read unread]) }
 
     it 'does not render the search nav button' do
       expect(response).to have_http_status(:ok)

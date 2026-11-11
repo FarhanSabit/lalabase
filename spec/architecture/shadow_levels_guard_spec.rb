@@ -155,9 +155,6 @@ module ShadowLevels
 
   # Shrink only: file (relative to app/assets/stylesheets) => { selector => reason }.
   CSS_HARD = {
-    'application.tailwind.css' => {
-      '.members-invite' => 'a CSS main action, the invite button of the members page'
-    },
     'components/mobile_app.css' => {
       '.mobile-primary' => 'the main action of the mobile layout'
     },

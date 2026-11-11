@@ -1,4 +1,6 @@
-<div class="pt-6">
+<%# No padding of its own above the head: the title stands where every page puts it
+    (page_title_edge_spec); it stood 24 px lower until 2026-11-11. %>
+<div>
   <%= render NeoTitleBoxComponent.new(
     title: t('.title'),
     variant: :organisation

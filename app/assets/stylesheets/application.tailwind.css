@@ -19,10 +19,6 @@
 @layer components {
   .members-toolbar { max-width: var(--width-capped-wide); @apply flex flex-wrap items-center justify-between gap-4 mb-5; }
   .members-tools { @apply flex flex-wrap items-center gap-4; }
-  .members-text-action { color: rgb(var(--text-action)); @apply text-sm hover:underline; }
-  .members-invite { @apply inline-flex items-center rounded-lg border border-ink bg-btn-primary px-4 py-2 text-sm font-semibold text-heading; box-shadow: 2px 2px 0 rgb(var(--ink)); }
-  /* D3: the dark theme has no hard shadow. */
-  .dark .members-invite { box-shadow: none; }
   .members-layout { display: grid; grid-template-columns: minmax(0, 1fr); max-width: var(--width-capped-wide); gap: 24px; align-items: start; }
   .members-list { min-width: 0; }
   .members-table { width: 100%; table-layout: fixed; border-collapse: collapse; }

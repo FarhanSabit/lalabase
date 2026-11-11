@@ -364,7 +364,6 @@ en:
       access_matrix:
         index:
           title: Access overview
-          back_to_members: To members
           member_header: Member
           column_link_title: Edit the %{project} team
           wide_screen_hint: A wide screen is recommended for the full matrix — the filter narrows columns and rows.

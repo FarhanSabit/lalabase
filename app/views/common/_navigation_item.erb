@@ -40,6 +40,7 @@
 %>
 <%= content_tag :li, class: li_class, data: li_data do %>
   <%= link_to final_path,
+    "aria-current": local_assigns[:aria_current],
     class: link_classes,
     data: turbo_data do %>
     <%# The icon takes its colour from the row's state, not from a second copy
@@ -48,5 +49,10 @@
       <i class="<%= icon %> <%= sidebar_row_icon_classes %>"></i>
     <% end %>
     <span><%= name %></span>
+    <%# A row that leads out of where it stands (the management list's "Rechnung",
+        which leaves the organisation for its account) says so at its end. %>
+    <% if local_assigns[:trailing_icon].present? %>
+      <i class="<%= trailing_icon %> ms-auto text-xs <%= sidebar_row_icon_classes %>" aria-hidden="true"></i>
+    <% end %>
   <% end %>
 <% end %>

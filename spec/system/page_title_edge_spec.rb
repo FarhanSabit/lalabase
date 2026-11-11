@@ -62,6 +62,25 @@ RSpec.describe 'Page title edge', type: :system do
     end
   end
 
+  # The management area has its own list in the sidebar since 2026-11-11 (the
+  # user's condition: the headings stand top and left where they stand
+  # everywhere). The sidebar keeps its width, so the title keeps its place.
+  it 'puts the title of the management sections where "Alle Meetings" puts it, beside their own sidebar' do
+    reference = edges(organisation_meetings_path(organisation), 'main h1')
+
+    {
+      'Allgemein' => organisation_settings_path(organisation),
+      'Mitglieder' => organisation_memberships_path(organisation),
+      'Zugriffsübersicht' => organisation_access_matrix_index_path(organisation)
+    }.each do |name, path|
+      measured = edges(path, 'main h1')
+
+      expect(page).to have_css('#sidebar [data-management-nav]')
+      expect([measured['title_left'], measured['title_top']])
+        .to eq([reference['title_left'], reference['title_top']]), "title of #{name}: #{measured.inspect}"
+    end
+  end
+
   # The column heads (user, 2026-11-11): Personen wears the head of "Alle
   # Meetings" (.column-head, F43), in its type and at its distance from the
   # tab row and from the ink line below. Until then it had two plain words of

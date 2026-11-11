@@ -7,19 +7,10 @@
      data-controller="access-matrix-filter"
      data-access-matrix-filter-hidden-class="am-hidden">
 
-  <%= render NeoTitleBoxComponent.new(
-        title: t('views.organisations.access_matrix.index.title'),
-        variant: :organisation
-      ) do |component| %>
-    <% component.with_right_content do %>
-      <%= render Neo::Buttons::HeaderButtonComponent.new(
-            variant: :secondary,
-            icon: "arrow-left",
-            label: t('views.organisations.access_matrix.index.back_to_members'),
-            url: organisation_memberships_path(current_organisation)
-          ) %>
-    <% end %>
-  <% end %>
+  <%# The second tab of the members section (doc/verwaltung_seitennavigation_plan.md
+      §5): the head is the section's, the way back to the list is its first tab. %>
+  <%= render 'organisations/shared/settings_subnav', active: :members,
+                                                     tabs: members_section_tabs(current_organisation), tab_active: :access_matrix %>
 
   <% if @matrix.projects.empty? %>
     <div class="am-empty rounded-lg border-2 border-dashed border-cream-300 bg-cream-50 p-10 text-center">
