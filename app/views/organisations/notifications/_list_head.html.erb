@@ -38,41 +38,26 @@
     last of them. .filter-bar lends this row the ticket list's search
     (components/filter_bar.css, the data-fb-search markers): a magnifier that
     grows into the field, open while a term stands in it. %>
-<div class="people-tools inbox-tools filter-bar">
+<div class="people-tools list-tab-bar inbox-tools filter-bar">
   <%= render 'organisations/notifications/list_tools',
              presenter: presenter, projects: projects, unread_count: unread_count %>
 
-  <%# The search answers while typing: auto-submit debounces the field and
-      the form reloads only the list frame, so the field keeps its focus and
-      every letter typed meanwhile; an empty field is the whole view again.
-      "replace", so a word typed letter by letter is one entry of history.
-      What else depends on the search follows in the frame answer
-      (_list_tools). The open notification stays in the address. %>
-  <% search_label = t('views.organisations.notifications.filter.search_placeholder') %>
-  <div class="relative flex-shrink-0 self-center" data-inbox-tool="search"
-       data-controller="search-disclosure" data-fb-search<%= ' data-fb-search-open' if params[:search].present? %>>
-    <button type="button" data-fb-search-open-button data-action="click->search-disclosure#open"
-            aria-label="<%= search_label %>" title="<%= search_label %>"
-            class="grid place-items-center h-7 w-7 rounded-md text-muted hover:bg-cream-100 hover:text-heading transition-colors
-                   focus:outline-none focus-visible:ring-2 focus-visible:ring-ink">
-      <i class="bi bi-search text-xs" aria-hidden="true"></i>
-    </button>
-    <%= form_with url: organisation_notifications_path(current_organisation), method: :get,
-                  class: 'inbox-search w-full',
-                  data: { controller: 'auto-submit', turbo_frame: 'notifications_list_frame', turbo_action: 'replace' } do %>
-      <%= inbox_hidden_query_fields(except: %w[search]) %>
-      <%= hidden_field_tag :notification, params[:notification], id: nil if params[:notification].present? %>
-      <span class="absolute inset-y-0 left-0 flex items-center pl-2.5 pr-1 text-faint pointer-events-none" data-fb-depth>
-        <i class="bi bi-search text-xs" aria-hidden="true"></i>
-      </span>
-      <%= search_field_tag :search, params[:search], id: 'inbox-search', autocomplete: 'off',
-                           placeholder: search_label, 'aria-label': t('views.organisations.notifications.filter.search_label'),
-                           data: { search_disclosure_target: 'input',
-                                   action: 'keydown.esc->search-disclosure#close focusout->search-disclosure#blur' },
-                           class: 'w-full h-7 pl-7 pr-2 text-[13px] rounded-md border border-cream-300 bg-surface-raised text-body ' \
-                                  'placeholder:text-faint focus:outline-none focus:border-ink focus:ring-2 focus:ring-ink/10 transition-colors' %>
-    <% end %>
-  </div>
+  <%# The search answers while typing (NeoListSearchComponent, shared with
+      "Personen"): it reloads only the list frame; an empty field is the whole
+      view again. "replace", so a word typed letter by letter is one entry of
+      history: nothing else writes the inbox's address. What else depends on
+      the search follows in the frame answer (_list_tools). The open
+      notification stays in the address. %>
+  <% search_word = t('views.organisations.notifications.filter.search_placeholder') %>
+  <%= render NeoListSearchComponent.new(
+    url: organisation_notifications_path(current_organisation), name: :search, value: params[:search],
+    input_id: 'inbox-search', frame: 'notifications_list_frame', turbo_action: 'replace', form_class: 'inbox-search',
+    label: t('views.organisations.notifications.filter.search_label'), button_label: search_word, placeholder: search_word,
+    wrapper_data: { inbox_tool: 'search' }
+  ) do %>
+    <%= inbox_hidden_query_fields(except: %w[search]) %>
+    <%= hidden_field_tag :notification, params[:notification], id: nil if params[:notification].present? %>
+  <% end %>
 
   <%# Selection row: lies over the tools row while rows are selected, so the
       list below never moves. Built like the selection row of the ticket list

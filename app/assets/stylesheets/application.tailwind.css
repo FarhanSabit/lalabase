@@ -419,10 +419,12 @@
   .people-head > :not(.people-head__action) { @apply min-w-0 flex-1; }
   .people-head__action { margin-inline-start: auto; }
   .people-tools { @apply flex flex-wrap items-center gap-2 pb-3 pt-4; }
-  .people-search { width: 260px; max-width: 100%; }
-  .people-search__field { @apply flex items-center gap-2 rounded-lg border border-cream-400 bg-surface-raised px-2.5 py-1.5 text-[13px] text-muted; }
-  .people-search__field input { @apply min-w-0 flex-1 border-0 bg-transparent p-0 text-[13px] text-heading outline-none focus:ring-0; }
-  .people-search__field:focus-within { border-color: rgb(var(--ink)); }
+  /* The bar of the ticket list (NeoFilterBarComponent) on a list without the
+     filter bar, the inbox and Personen (user, 2026-11-10/11): the tabs stand
+     on the row's divider (their 2 px ink line lies on it, -mb-px on the
+     strip), tools and search centred at the right end. One row: the tab
+     strip scrolls rather than wrap. Here, after .people-tools, so it wins. */
+  .list-tab-bar { @apply relative min-h-[40px] flex-nowrap items-end gap-2 border-b border-divider pb-0; }
   .people-filters { @apply flex flex-wrap items-center gap-2; }
   .people-pill { @apply inline-flex items-baseline gap-1.5 rounded-full px-3 py-1 text-[13px] text-heading no-underline hover:bg-cream-100; }
   .people-pill--active { @apply font-semibold; background-color: rgb(var(--selected-row)); }
@@ -437,6 +439,8 @@
   /* S2a: the column heads (Name, Zuletzt) sort the list; the ink line moves
      from the list to the heads. Two plain words, the active one in ink. */
   .people-columns { @apply flex items-center gap-3 border-b border-ink pb-1.5; }
+  /* Under the bar the heads keep the air the tools row gave them. */
+  .list-tab-bar + turbo-frame .people-columns { @apply pt-3; }
   .people-columns + .people-list { border-top-width: 0; }
   .people-columns__head--name { @apply min-w-0 flex-1; padding-inline-start: 42px; }
   .people-columns__head--last { @apply w-[120px] flex-none text-end; }
@@ -538,11 +542,7 @@
    checkbox, and the actions of the lane head. Calm by design: the only hard
    edge is the ink line above the list. */
 @layer components {
-  /* The tools row is the ticket list's bar (NeoFilterBarComponent): the tabs
-     stand on the row's divider (their 2 px ink line lies on it, -mb-px on the
-     strip), tools and search centred at the right end. One row: the tab strip
-     scrolls rather than wrap. */
-  .inbox-tools { @apply relative min-h-[40px] flex-nowrap items-end gap-2 border-b border-divider pb-0; }
+  /* The tools row is the ticket list's bar: .list-tab-bar, with Personen. */
   /* The divider of the bar is the line above the rows; the list's own ink
      line would stand right under it as a second one. */
   .inbox-list-column .people-list { border-top-width: 0; }

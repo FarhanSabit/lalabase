@@ -838,8 +838,9 @@ export default class extends Controller {
   // column tool make way for it - and folds back when it is left empty. The
   // attribute has no effect at full width.
   // DELIBERATE DUPLICATION: search_disclosure_controller repeats openSearch,
-  // closeSearch and searchBlur for the inbox, which has this search without
-  // the rest of the bar. Change one, check the other.
+  // closeSearch and searchBlur for the lists that have this search without
+  // the rest of the bar (NeoListSearchComponent: the inbox, Personen). Change
+  // one, check the other.
   openSearch(event) {
     if (event) { event.preventDefault(); event.stopPropagation() }
     if (!this.hasSearchTarget) return
