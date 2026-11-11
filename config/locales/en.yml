@@ -1828,8 +1828,6 @@ en:
       title: Organisation Management
     invitations:
       new:
-        back: Back
-        cancel: Cancel
         email_label: Email address
         email_placeholder: member@example.com
         errors_prevent_save:
@@ -2391,7 +2389,7 @@ en:
     ai_sync_status: AI Sync Status
     archive: Archive
     custom_fields: Custom Fields
-    import_data: Import Data
+    import_data: Import
     members: Members
     organisation_settings: General
     organisations: Organisations

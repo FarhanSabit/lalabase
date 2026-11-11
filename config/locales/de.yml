@@ -1910,8 +1910,6 @@ de:
       title: Organisationsverwaltung
     invitations:
       new:
-        back: Zurück
-        cancel: Abbrechen
         email_label: E-Mail-Adresse
         email_placeholder: mitglied@example.com
         errors_prevent_save:
@@ -2493,7 +2491,7 @@ de:
     ai_sync_status: AI Sync Status
     archive: Archiv
     custom_fields: Custom Fields
-    import_data: Import Data
+    import_data: Import
     members: Mitglieder
     organisation_settings: Allgemein
     organisations: Organisationen
