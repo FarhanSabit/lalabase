@@ -40,6 +40,7 @@
 %>
 <%= content_tag :li, class: li_class, data: li_data do %>
   <%= link_to final_path,
+    "aria-current": local_assigns[:aria_current],
     class: link_classes,
     data: turbo_data do %>
     <%# The icon takes its colour from the row's state, not from a second copy

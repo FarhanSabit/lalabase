@@ -51,6 +51,8 @@ RSpec.describe 'Management sidebar', type: :request do
       expect(sidebar(doc).css('[data-management-nav] ul').size).to eq(3)
       active = sidebar(doc).css('[data-management-nav] a.sidebar-row--active').map { |link| link.text.squish }
       expect(active).to eq([I18n.t('settings.members')])
+      expect(sidebar(doc).css('[data-management-nav] a[aria-current="page"]').map { |link| link.text.squish })
+        .to eq(active)
       expect(sidebar(doc).text).not_to include(I18n.t('navigation.org_dashboard'), I18n.t('navigation.projects_label'))
       billing = sidebar(doc).css('[data-management-nav] a').find { |link| link.text.squish == I18n.t('settings.billing') }
       expect(billing.at_css('i.bi-arrow-up-right')).to be_present
