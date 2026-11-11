@@ -1,10 +1,11 @@
 import { Controller } from "@hotwired/stimulus"
 
-// The search of a list head without the filter bar (the inbox): a magnifier
-// that grows into the field on a click and folds back when the field is left
-// empty (F35). Markup markers and stylesheet are the filter bar's
-// (data-fb-search, data-fb-search-open, components/filter_bar.css under
-// .filter-bar); the form inside submits itself (auto-submit).
+// The search of a list head without the filter bar (NeoListSearchComponent:
+// the inbox, Personen): a magnifier that grows into the field on a click and
+// folds back when the field is left empty (F35). Markup markers and
+// stylesheet are the filter bar's (data-fb-search, data-fb-search-open,
+// components/filter_bar.css under .filter-bar); the form inside submits
+// itself (auto-submit).
 //
 // DELIBERATE DUPLICATION: filter_bar_controller#openSearch, #closeSearch and
 // #searchBlur do the same for the filter bar, whose search lives among its

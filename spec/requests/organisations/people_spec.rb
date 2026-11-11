@@ -1023,7 +1023,10 @@ RSpec.describe 'Organisations::People', :ci_guard, type: :request do
     expect(add['data-lane-link-url-value']).to eq(new_organisation_person_path(organisation))
   end
 
-  it 'counts all people, members and contacts at the filters only' do
+  # The counts stand at the tabs only (since 2026-11-11 the tabs of the
+  # ticket list's bar, before that pills); the line under the title names the
+  # organisation, as on "Alle Meetings" and the inbox, and counts nothing.
+  it 'counts all people, members and contacts at the tabs only' do
     sign_in admin
     admin
 
@@ -1031,9 +1034,9 @@ RSpec.describe 'Organisations::People', :ci_guard, type: :request do
 
     members = Membership.where(organisation: organisation, active: true).count
     page = Nokogiri::HTML(response.body)
-    counts = page.css('.people-filters .people-pill__count').map { |count| count.text.strip }
+    counts = page.css('#people_list_tabs .people-pill__count').map { |count| count.text.strip }
     expect(counts).to eq([(members + 1).to_s, members.to_s, '1'])
-    expect(page.css('.people-head p')).to be_empty
+    expect(page.css('.people-head p').map { |line| line.text.strip }).to eq([organisation.name])
   end
 
   describe 'the row of an active member' do

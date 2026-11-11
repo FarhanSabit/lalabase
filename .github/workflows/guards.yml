@@ -151,6 +151,7 @@ jobs:
           spec/components/subject_time_summary_component_spec.rb
           spec/components/time_session_billing_status_component_spec.rb
           spec/components/neo_view_switch_component_spec.rb
+          spec/components/neo_list_search_component_spec.rb
           spec/components/neo_sidebar_project_item_component_spec.rb
           spec/components/neo_filter_bar_component_spec.rb
           spec/config/active_storage_variable_content_types_spec.rb
@@ -341,6 +342,7 @@ jobs:
           spec/helpers/inbox_helper_spec.rb
           spec/system/inbox_spec.rb
           spec/system/page_title_edge_spec.rb
+          spec/system/people_tab_bar_spec.rb
           spec/requests/org_switcher_signal_spec.rb
           spec/requests/notifications_avatar_preload_spec.rb
           spec/requests/organisations/archives_spec.rb
@@ -402,6 +404,7 @@ jobs:
           spec/services/glossary/lookup_spec.rb
           spec/services/list_paging_spec.rb
           spec/requests/organisations/people_spec.rb
+          spec/requests/organisations/people_list_head_spec.rb
           spec/requests/organisations/shown_email_spec.rb
           spec/requests/user_preferences_email_visibility_spec.rb
           spec/services/people/directory_spec.rb
