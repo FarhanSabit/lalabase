@@ -115,6 +115,6 @@ class OrganisationsController < ApplicationController
   def management_section_path(organisation, key)
     return unless key.is_a?(String) && helpers.can_manage_organisation?(organisation)
 
-    helpers.organisation_settings_tabs(organisation).find { |tab| tab[:key].to_s == key }&.dig(:path)
+    helpers.management_sections(organisation).find { |section| section[:key].to_s == key }&.dig(:path)
   end
 end

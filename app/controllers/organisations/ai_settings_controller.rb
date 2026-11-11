@@ -238,9 +238,9 @@ module Organisations
     def confirm_package
       authorize @organisation, :update?, policy_class: AiSettingsPolicy
 
-      # The pane the customer came from, carried through the detour so "Abbrechen" puts
-      # them back where they were. nil drops the param and #show falls back to its own
-      # default, which is the right answer for a hand-built URL.
+      # The pane the customer came from, carried through the detour so the way back (the
+      # crumb "‹ Zugang" of the dialog) puts them back where they were. nil drops the param
+      # and #show falls back to its own default, which is the right answer for a hand-built URL.
       @package_mode = permitted_package_mode
 
       # Blank id = back to "Eigene Konfiguration", the Actor's own convention
