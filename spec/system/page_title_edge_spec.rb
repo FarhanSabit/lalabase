@@ -46,6 +46,16 @@ RSpec.describe 'Page title edge', type: :system do
     JS
   end
 
+  # A redirect must not keep a measurement green: the title stands at the same place
+  # on the page a redirect lands on. So the visit has to have landed on the page it
+  # names, by its address and by the name the page gives itself: the crumb's page
+  # below a section, the open tab on a tab page.
+  def expect_landed_on(path, crumb_page: nil, open_tab: nil)
+    expect(page).to have_current_path(path)
+    expect(page).to have_css('main [data-section-crumb] [aria-current="page"]', exact_text: crumb_page) if crumb_page
+    expect(page).to have_css('main nav:not([data-section-crumb]) [aria-current="page"]', exact_text: open_tab) if open_tab
+  end
+
   it 'puts the title of Personen, Inbox and Glossar where "Alle Meetings" puts it' do
     reference = edges(organisation_meetings_path(organisation), 'main h1')
 
@@ -114,7 +124,9 @@ RSpec.describe 'Page title edge', type: :system do
   # line shows: a padding inside the line moves the text, not the line's box.
   # Every page below a section: the two role forms, the invitation form and the
   # eight pages of the import, each with the file it needs
-  # (spec/requests/organisations/management_pages_below_spec.rb).
+  # (spec/requests/organisations/management_pages_below_spec.rb), and with the name
+  # its crumb gives it: an import preview of an unfit file lands on the file's page,
+  # which has a crumb at the same place.
   it 'puts the title of the pages below a section where "Alle Meetings" puts it, and their crumb on its left edge' do
     organisation.update!(data_import_enabled: true)
     team = ActsAsTenant.with_tenant(organisation) { create(:role, organisation: organisation, title: 'Team') }
@@ -128,27 +140,62 @@ RSpec.describe 'Page title edge', type: :system do
       create(:imported_object, organisation: organisation, metadata: { 'import_file_id' => processed.id })
     end
     reference = edges(organisation_meetings_path(organisation), 'main h1')
+    import_title = ->(key) { I18n.t("views.organisations.codebase_import_files.#{key}") }
 
     {
-      'Neue Rolle' => new_organisation_role_path(organisation),
-      'Rolle bearbeiten' => edit_organisation_role_path(organisation, team),
-      'Mitglied einladen' => new_organisation_invitation_path(organisation),
-      'CodebaseHQ Datei hochladen' => new_organisation_codebase_import_file_path(organisation),
-      'Importdatei' => organisation_codebase_import_file_path(organisation, tickets),
-      'User-Import Vorschau' => preview_import_organisation_codebase_import_file_path(organisation, users),
-      'Ticket-Import Preview' => preview_tickets_organisation_codebase_import_file_path(organisation, tickets),
-      'Projekt für Zeit-Einträge-Import auswählen' => select_project_organisation_codebase_import_file_path(organisation, times),
-      'Zeit-Einträge Import Preview' => preview_time_sessions_organisation_codebase_import_file_path(organisation, times, project_id: project.id),
-      'Uploads zuordnen' => assign_uploads_organisation_codebase_import_file_path(organisation, processed_in_project, project_id: project.id),
-      'Import Rollback bestätigen' => rollback_organisation_codebase_import_file_path(organisation, processed)
-    }.each do |name, path|
+      'Neue Rolle' => [new_organisation_role_path(organisation), I18n.t('organisations.roles.new.title')],
+      'Rolle bearbeiten' => [edit_organisation_role_path(organisation, team), 'Team'],
+      'Mitglied einladen' => [new_organisation_invitation_path(organisation), I18n.t('organisations.invitations.new.title')],
+      'CodebaseHQ Datei hochladen' => [new_organisation_codebase_import_file_path(organisation), import_title.call('new.title')],
+      'Importdatei' => [organisation_codebase_import_file_path(organisation, tickets), 'beispiel_tickets.xml'],
+      'User-Import Vorschau' => [preview_import_organisation_codebase_import_file_path(organisation, users), import_title.call('preview_import.title')],
+      'Ticket-Import Preview' => [preview_tickets_organisation_codebase_import_file_path(organisation, tickets), import_title.call('preview_tickets.title')],
+      'Projekt für Zeit-Einträge-Import auswählen' => [select_project_organisation_codebase_import_file_path(organisation, times),
+                                                       import_title.call('select_project.title_time')],
+      'Zeit-Einträge Import Preview' => [preview_time_sessions_organisation_codebase_import_file_path(organisation, times, project_id: project.id),
+                                         import_title.call('preview_time_sessions.title')],
+      'Uploads zuordnen' => [assign_uploads_organisation_codebase_import_file_path(organisation, processed_in_project, project_id: project.id),
+                             import_title.call('assign_uploads.title')],
+      'Import Rollback bestätigen' => [rollback_organisation_codebase_import_file_path(organisation, processed), import_title.call('rollback.title')]
+    }.each do |name, (path, crumb_page)|
       measured = edges(path, 'main [data-section-crumb] a')
 
+      expect_landed_on(path, crumb_page: crumb_page)
       expect(page).to have_css('#sidebar [data-management-nav]')
       expect([measured['title_left'], measured['title_top']])
         .to eq([reference['title_left'], reference['title_top']]), "title of #{name}: #{measured.inspect}"
       expect(measured['list_left']).to eq(measured['title_left']), "crumb of #{name}: #{measured.inspect}"
     end
+  end
+
+  # The KI section (S3) has a tab row of its own, and the pages below a tab keep
+  # it, the tab marked as their parent, with the crumb under it. The title stands
+  # where every section puts its own, on a tab page and on a page below a tab, and
+  # the crumb starts on the title's left edge.
+  it 'puts the title of KI where "Alle Meetings" puts it, on a tab and below one, and the crumb there on its left edge' do
+    reference = edges(organisation_meetings_path(organisation), 'main h1')
+    ai_t = ->(key) { I18n.t("views.organisations.ai_overview.#{key}") }
+
+    {
+      'KI Übersicht' => [organisation_ai_overview_path(organisation), ai_t.call('pages.overview')],
+      'Verbrauch' => [organisation_ai_usage_path(organisation), ai_t.call('usage.title')]
+    }.each do |name, (path, tab)|
+      measured = edges(path, 'main h1')
+
+      expect_landed_on(path, open_tab: tab)
+      expect(page).to have_css('#sidebar [data-management-nav]')
+      expect([measured['title_left'], measured['title_top']])
+        .to eq([reference['title_left'], reference['title_top']]), "title of #{name}: #{measured.inspect}"
+    end
+
+    path = new_organisation_prompt_persona_path(organisation)
+    measured = edges(path, 'main [data-section-crumb] a')
+
+    expect_landed_on(path, crumb_page: I18n.t('views.organisations.prompt_personas.new.title'))
+    expect(page).to have_css('#sidebar [data-management-nav]')
+    expect([measured['title_left'], measured['title_top']])
+      .to eq([reference['title_left'], reference['title_top']]), "title of Neue Persona: #{measured.inspect}"
+    expect(measured['list_left']).to eq(measured['title_left']), "crumb of Neue Persona: #{measured.inspect}"
   end
 
   # The distance from the crumb line down to the element under it, in whole pixels.
@@ -189,7 +236,9 @@ RSpec.describe 'Page title edge', type: :system do
   # page. Until 2026-11-11 the way back widened the page on a phone
   # (scrollWidth 508 at 500 px on the ticket preview). The screen is the root's
   # clientWidth, not window.innerWidth: in the phone emulation innerWidth grows
-  # with a page that is too wide (509 for 509).
+  # with a page that is too wide (509 for 509). The name ends at main's content
+  # edge, its right minus its padding: main's own edge would let a name reach
+  # into that padding and stay green.
   it 'breaks a long file name in the crumb on a phone instead of widening the page' do
     organisation.update!(data_import_enabled: true)
     file_name = 'codebase_export_beispielprojekt_tickets_vollstaendig_2026_11_11.xml'
@@ -206,15 +255,52 @@ RSpec.describe 'Page title edge', type: :system do
       measured = page.evaluate_script(<<~JS)
         (function () {
           var name = document.querySelector(#{name_selector.to_json}).getBoundingClientRect();
-          var main = document.querySelector('main').getBoundingClientRect();
+          var main = document.querySelector('main');
+          var content_right = main.getBoundingClientRect().right - parseFloat(getComputedStyle(main).paddingRight);
           return { page_width: document.documentElement.scrollWidth, screen_width: document.documentElement.clientWidth,
-                   name_right: Math.round(name.right), main_right: Math.round(main.right) };
+                   name_right: Math.round(name.right), content_right: Math.round(content_right) };
         })()
       JS
 
       expect(measured['page_width']).to be <= measured['screen_width'], "#{place}: the page is wider than the phone: #{measured.inspect}"
-      expect(measured['name_right']).to be <= measured['main_right'], "#{place}: the name ends right of main: #{measured.inspect}"
+      expect(measured['name_right']).to be <= measured['content_right'], "#{place}: the name reaches into main's padding: #{measured.inspect}"
     end
+  ensure
+    page.driver.browser.execute_cdp('Emulation.clearDeviceMetricsOverride')
+  end
+
+  # The way back wraps on a phone when it is a long file name (the pages below a
+  # file). "‹" before it and "/" after it stand on its first line: until
+  # 2026-11-11 both were centred on the whole name and stood between its lines.
+  # Measured on the glyphs: the text box of "‹" and of "/" against the box of the
+  # name's first line, top and bottom, which share one baseline and one font size.
+  it 'keeps "‹" and "/" on the first line of a way back that wraps on a phone' do
+    organisation.update!(data_import_enabled: true)
+    file = import_file(:with_valid_tickets_xml, original_filename: 'codebase_export_beispielprojekt_tickets_vollstaendig_2026_11_11.xml')
+    path = preview_tickets_organisation_codebase_import_file_path(organisation, file)
+    page.driver.browser.execute_cdp('Emulation.setDeviceMetricsOverride', width: 390, height: 844, deviceScaleFactor: 1, mobile: true)
+
+    visit path
+    expect_landed_on(path, crumb_page: I18n.t('views.organisations.codebase_import_files.preview_tickets.title'))
+    measured = page.evaluate_script(<<~JS)
+      (function () {
+        var crumb = document.querySelector('main [data-section-crumb]');
+        var link = crumb.querySelector('a');
+        var glyphs = function (node) { var range = document.createRange(); range.selectNodeContents(node); return range.getClientRects(); };
+        var name = Array.prototype.find.call(link.childNodes, function (node) { return node.nodeType === 3 && node.textContent.trim(); });
+        var lines = glyphs(name);
+        var offset = function (element) {
+          var box = glyphs(element)[0];
+          return [Math.round(box.top - lines[0].top), Math.round(box.bottom - lines[0].bottom)];
+        };
+        return { lines: lines.length, chevron: offset(link.querySelector('[aria-hidden="true"]')),
+                 slash: offset(crumb.querySelector('li > [aria-hidden="true"]')) };
+      })()
+    JS
+
+    expect(measured['lines']).to be > 1, "the way back does not wrap, so nothing is measured: #{measured.inspect}"
+    expect(measured['chevron']).to eq([0, 0]), "‹ against the first line of the name, [top, bottom] in px: #{measured.inspect}"
+    expect(measured['slash']).to eq([0, 0]), "/ against the first line of the name, [top, bottom] in px: #{measured.inspect}"
   ensure
     page.driver.browser.execute_cdp('Emulation.clearDeviceMetricsOverride')
   end

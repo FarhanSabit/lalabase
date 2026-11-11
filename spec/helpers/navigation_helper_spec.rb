@@ -219,4 +219,70 @@ RSpec.describe NavigationHelper, type: :helper do
       expect(keys).to eq(expected_key_to_controller.keys - [:import])
     end
   end
+
+  # The AI section's own tab row (doc/verwaltung_seitennavigation_plan.md S3): the hub
+  # first, then its pages. Pinned on literal routes and literal words per locale, DECOUPLED
+  # from AI_SECTION_TABS, so a reorder, a wrong route or a missing English key breaks a
+  # test (be_present cannot see the last one: fallbacks = [:de]).
+  describe '#ai_section_tabs' do
+    # The factory switches AI on for every organisation; the lock is the case here.
+    let(:organisation) { create(:organisation, :ai_disabled) }
+
+    def keys(tabs) = tabs.map { |tab| tab[:key] }
+
+    it 'lists the six pages of the section in this order, each on its route' do
+      tabs = helper.ai_section_tabs(organisation)
+
+      expect(tabs.map { |tab| [tab[:key], tab[:path]] }).to eq(
+        [
+          [:overview, organisation_ai_overview_path(organisation)],
+          [:access, organisation_ai_settings_path(organisation)],
+          [:usage, organisation_ai_usage_path(organisation)],
+          [:index, organisation_ai_sync_status_path(organisation)],
+          [:personas, organisation_prompt_personas_path(organisation)],
+          [:protocol, organisation_ai_protocol_path(organisation)]
+        ]
+      )
+    end
+
+    it 'names every tab in the viewer locale, not in the German fallback' do
+      de = I18n.with_locale(:de) { helper.ai_section_tabs(organisation) }
+      en = I18n.with_locale(:en) { helper.ai_section_tabs(organisation) }
+
+      expect(de.map { |tab| tab[:label] }).to eq(%w[Übersicht Zugang Verbrauch Indexierung Chat-Personas Protokoll])
+      expect(en.map { |tab| tab[:label] }).to eq(['Overview', 'Access', 'Usage', 'Indexing', 'Chat personas', 'Protocol'])
+    end
+
+    # As the hub's rows (§7a, 2): with AI off a prospect still sees what the section holds.
+    # Zugang and Protokoll stay open: the access is set up BEFORE switching on, and the
+    # protocol keeps the record of a switch-off.
+    it 'locks Verbrauch, Indexierung and Chat-Personas while AI is off, each with the reason' do
+      de = I18n.with_locale(:de) { helper.ai_section_tabs(organisation) }
+      en = I18n.with_locale(:en) { helper.ai_section_tabs(organisation) }
+
+      locked = de.select { |tab| tab[:locked] }
+      expect(keys(locked)).to eq(%i[usage index personas])
+      expect(locked.map { |tab| tab[:locked] }).to all(be(true))
+      expect(keys(de.reject { |tab| tab[:locked] })).to eq(%i[overview access protocol])
+
+      expect(de.filter_map { |tab| tab[:locked_title] }).to eq(['Öffnet sich, sobald die KI eingeschaltet ist'] * 3)
+      expect(en.filter_map { |tab| tab[:locked_title] }).to eq(['Opens once AI is switched on'] * 3)
+    end
+
+    it 'opens every tab once AI is on' do
+      tabs = helper.ai_section_tabs(create(:organisation, ai_enabled: true))
+
+      expect(keys(tabs)).to eq(%i[overview access usage index personas protocol])
+      expect(tabs.select { |tab| tab[:locked] }).to be_empty
+      expect(tabs.filter_map { |tab| tab[:locked_title] }).to be_empty
+    end
+
+    # Every page of the section renders this row, so it must stay free: the lock reads the
+    # column, and no policy per tab is asked (all six pages answer account_admin?).
+    it 'decides the lock on the column ai_enabled alone, without a query' do
+      org = organisation # created before the capture starts
+
+      expect(capture_sql { helper.ai_section_tabs(org) }).to be_empty
+    end
+  end
 end

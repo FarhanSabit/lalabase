@@ -1,5 +1,13 @@
 <div>
-  <%= render 'organisations/shared/ai_area_header', title: t('views.organisations.ai_overview.pages.personas') %>
+  <%# The Chat-Personas tab of the AI section (doc/verwaltung_seitennavigation_plan.md
+      §5, S3): the head names the section, as on every tab, and carries the page's help,
+      as every page head does. The "+" stays beside the list it adds to. %>
+  <% head_tools = capture do %>
+    <%= render 'common/contextual_help_menu', context: :settings_prompt_personas %>
+  <% end %>
+  <%= render 'organisations/shared/settings_subnav', active: :ai,
+                                                     tabs: ai_section_tabs(@current_organisation), tab_active: :personas,
+                                                     right_content: head_tools %>
 
   <div class="flex items-center justify-between mb-4">
     <div>
@@ -7,7 +15,6 @@
       <p class="text-sm text-slate-500"><%= t('views.organisations.prompt_personas.index.your_personas_hint') %></p>
     </div>
     <div class="flex items-center gap-2">
-      <%= render 'common/contextual_help_menu', context: :settings_prompt_personas %>
       <%= render Neo::Buttons::IconButtonComponent.new(
         variant: :primary,
         icon: "plus-lg",

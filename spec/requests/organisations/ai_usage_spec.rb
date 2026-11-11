@@ -39,15 +39,23 @@ RSpec.describe 'Organisations::AiUsages', type: :request do
                     credits_used: credits, tokens_used: tokens, used_at: Time.current)
   end
 
-  # The way back from every page of the area is named after where it leads ("‹ KI"),
-  # doc/ki_uebersicht_zeilenliste_plan.md item 9: whoever rarely switches between these
-  # pages needs the sure way, not the short one. Pinned here for all seven pages, since
-  # they render the same header partial (organisations/shared/_ai_area_header).
-  it 'names the way back after the hub and leads there' do
+  # The section's tab row (doc/verwaltung_seitennavigation_plan.md S3): the title names
+  # the section on every tab, "Verbrauch" is the open tab, and the way to the hub is its
+  # tab "Übersicht". Until then a crumb "‹ KI" stood over every page of the area.
+  def section_tabs(body)
+    tabs = Nokogiri::HTML(body).at_css("main nav[aria-label='#{I18n.t('settings.ai')}']")
+    expect(tabs).not_to be_nil, 'no tab row in main named after the section'
+    tabs
+  end
+
+  it 'heads the page with the section, its own tab open and the hub one tab away' do
     get organisation_ai_usage_path(organisation)
 
-    expect(response.body).to include(%(href="#{organisation_ai_overview_path(organisation)}"))
-    expect(response.body).to match(%r{>‹</span>#{I18n.t('settings.ai')}\s*</a>})
+    expect(Nokogiri::HTML(response.body).at_css('main h1').text.squish).to eq(I18n.t('settings.ai'))
+    tabs = section_tabs(response.body)
+    expect(tabs.at_css('[aria-current="page"]').text.squish).to eq(I18n.t('views.organisations.ai_overview.usage.title'))
+    overview = tabs.css('a').find { |link| link.text.squish == I18n.t('views.organisations.ai_overview.pages.overview') }
+    expect(overview&.attr('href')).to eq(organisation_ai_overview_path(organisation))
   end
 
   describe 'the credit figures (moved from the settings page, S3 test 25)' do
@@ -139,8 +147,23 @@ RSpec.describe 'Organisations::AiUsages', type: :request do
       expect(response).to have_http_status(:ok)
       expect(response.body).to include(I18n.t('views.organisations.ai_overview.disabled_notice.title'))
       # To the OVERVIEW since doc/ki_zugang_umbau_plan.md D4: the box points at whichever
-      # page carries the switch, and that is no longer "Zugang".
-      expect(response.body).to include(organisation_ai_overview_path(organisation))
+      # page carries the switch, and that is no longer "Zugang". Read off the box's own
+      # link: the tab row and the sidebar lead to the overview as well.
+      notice_link = Nokogiri::HTML(response.body).css('main a').find do |link|
+        link.text.squish == I18n.t('views.organisations.ai_overview.disabled_notice.action')
+      end
+      expect(notice_link&.attr('href')).to eq(organisation_ai_overview_path(organisation))
+    end
+
+    # Opened by its URL while AI is off: the tab is locked as on every other page of the
+    # section, and still marked as the open one, so the reader sees where they are.
+    it 'marks its own tab as the open one, locked and without a link' do
+      get organisation_ai_usage_path(organisation)
+      open_tab = section_tabs(response.body).at_css('[aria-current="page"]')
+
+      expect(open_tab.name).to eq('span')
+      expect(open_tab.text.squish).to start_with(I18n.t('views.organisations.ai_overview.usage.title'))
+      expect(open_tab.at_css('i.bi-lock')).to be_present
     end
 
     # Calls that already happened are not unmade by flipping the switch, and hiding them
@@ -172,10 +195,14 @@ RSpec.describe 'Organisations::AiUsages', type: :request do
   # The card is why this slice exists: it linked to the settings page, so the hub offered
   # two cards to one URL and the user noticed.
   describe 'the hub card that points here' do
+    # The row's own link: the tab row above the rows leads to the usage page as well.
     it 'sends "Verbrauch" to the usage page, not to the settings page' do
       get organisation_ai_overview_path(organisation)
+      row = Nokogiri::HTML(response.body).css('#ai_overview_rows a').find do |link|
+        link.text.squish.start_with?(I18n.t('views.organisations.ai_overview.rows.usage.title'))
+      end
 
-      expect(response.body).to include(organisation_ai_usage_path(organisation))
+      expect(row&.attr('href')).to eq(organisation_ai_usage_path(organisation))
     end
   end
 

@@ -77,14 +77,11 @@ en:
           title: "New persona"
         edit:
           title: "Edit persona “%{key}”"
-        shared:
-          back: "Back"
         form:
           errors_title: "Cannot save – %{count} error(s)"
           label_key: "Key"
           key_hint: "Technical identifier. The same key as a global template = override."
           label_position: "Position"
-          cancel: "Cancel"
           submit_create: "Create persona"
           submit_save: "Save changes"
     prompt_personas:

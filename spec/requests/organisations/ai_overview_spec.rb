@@ -12,7 +12,8 @@
 #   defeat the design.
 # Contract: account_admin only; five rows; a dot only for attention (amber) or alert
 #   (red), none while AI is off; one main action or none; with AI off the locked rows
-#   render no link (§3.2, "zwei Gesichter"); every value ends on the same right edge.
+#   render no link (§3.2, "zwei Gesichter"); every value ends on the same right edge; the
+#   hub is the first tab of the section's tab row, inside the page root under the head.
 
 require 'rails_helper'
 
@@ -61,6 +62,13 @@ RSpec.describe 'Organisations::AiOverviews', type: :request do
     hub_body.scan(/data-row-state="(\w+)"/).flatten
   end
 
+  # The links of the rows alone. Since the section has a tab row
+  # (doc/verwaltung_seitennavigation_plan.md S3) the tabs above the rows lead to the same
+  # pages, so a path found anywhere on the page says nothing about a row any more.
+  def row_links(body)
+    Nokogiri::HTML(body).css('#ai_overview_rows a').map { |link| link['href'] }
+  end
+
   let(:chevron) { '<path d="M9 6l6 6-6 6" />' }
   let(:value_cell) { 'class="min-w-[148px] shrink-0 text-right"' }
 
@@ -74,15 +82,18 @@ RSpec.describe 'Organisations::AiOverviews', type: :request do
   describe 'as account_admin' do
     before { sign_in admin }
 
-    it 'keeps the management tabs inside the page root' do
+    # Head and tab row are one block. The layout's content column puts gap-4/lg:gap-6
+    # between its direct children, so a tab row outside the page's root element would
+    # stand a gap away from its head. The hub is the section's first tab, "Übersicht".
+    it 'keeps the tab row of the section inside the page root, right under the head' do
       document = Nokogiri::HTML(hub_body)
-      navigation = document.css('nav').find do |nav|
-        nav['aria-label'] == I18n.t('navigation.management')
-      end
+      navigation = document.at_css("main nav[aria-label='#{I18n.t('settings.ai')}']")
 
       expect(navigation).to be_present
       page_layout_gaps = navigation.parent['class'].to_s.split & %w[gap-4 lg:gap-6]
       expect(page_layout_gaps).to be_empty
+      expect(navigation.previous_element.at_css('h1').text.squish).to eq(I18n.t('settings.ai'))
+      expect(navigation.at_css('[aria-current="page"]').text.squish).to eq(hub_t('pages.overview'))
     end
 
     it 'renders the hub with a link to every page of the area' do
@@ -91,11 +102,11 @@ RSpec.describe 'Organisations::AiOverviews', type: :request do
       body = hub_body
 
       expect(response).to have_http_status(:ok)
-      expect(body).to include(organisation_ai_settings_path(organisation))
-      expect(body).to include(organisation_ai_usage_path(organisation))
-      expect(body).to include(organisation_ai_sync_status_path(organisation))
-      expect(body).to include(organisation_prompt_personas_path(organisation))
-      expect(body).to include(organisation_ai_protocol_path(organisation))
+      expect(row_links(body)).to contain_exactly(
+        organisation_ai_settings_path(organisation), organisation_ai_usage_path(organisation),
+        organisation_ai_sync_status_path(organisation), organisation_prompt_personas_path(organisation),
+        organisation_ai_protocol_path(organisation)
+      )
     end
 
     # Five values on one right edge is the point of the form: five cells of the fixed
@@ -118,8 +129,10 @@ RSpec.describe 'Organisations::AiOverviews', type: :request do
       it 'locks three rows into place rather than only greying them' do
         body = hub_body
 
-        expect(body).to include(organisation_ai_settings_path(organisation))
-        expect(body).to include(organisation_ai_protocol_path(organisation))
+        expect(row_links(body)).to contain_exactly(organisation_ai_settings_path(organisation),
+                                                   organisation_ai_protocol_path(organisation))
+        # Page-wide on purpose: neither a row nor the tab row above them leads into a
+        # locked page (the tabs lock the same three, NavigationHelper#ai_section_tabs).
         expect(body).not_to include(organisation_ai_usage_path(organisation))
         expect(body).not_to include(organisation_ai_sync_status_path(organisation))
         expect(body).not_to include(organisation_prompt_personas_path(organisation))

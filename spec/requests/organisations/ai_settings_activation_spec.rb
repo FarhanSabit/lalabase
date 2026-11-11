@@ -373,8 +373,13 @@ RSpec.describe 'Organisations::AiSettings activation (GDPR AI opt-in)', type: :r
           expect(response.body).not_to include(activate_organisation_ai_settings_path(organisation))
           expect(response.body).not_to include(deactivate_organisation_ai_settings_path(organisation))
           expect(response.body).to include(status_line_lead('inactive'))
-          # The way onwards is named, not implied.
-          expect(response.body).to include(organisation_ai_overview_path(organisation))
+          # The way onwards is named, not implied. Read off the line's own link: the
+          # section's tab row (whose first tab has the same word) and the sidebar lead to
+          # the overview as well.
+          line = Nokogiri::HTML(response.body).css('main p').find do |paragraph|
+            paragraph.text.squish.include?(status_line_lead('inactive').squish)
+          end
+          expect(line&.at_css('a')&.attr('href')).to eq(organisation_ai_overview_path(organisation))
         end
 
         it 'carries the active status line and still no switch action while AI is on' do
@@ -398,6 +403,25 @@ RSpec.describe 'Organisations::AiSettings activation (GDPR AI opt-in)', type: :r
           organisation.update!(ai_enabled: true)
           get organisation_ai_settings_path(organisation)
           expect(response.body).to include(test_connection_organisation_ai_settings_path(organisation))
+        end
+
+        # The section's head (doc/verwaltung_seitennavigation_plan.md S3): the help and the
+        # connection test stand right of the title, as every page's tools do. Once each on
+        # the page and that once in the head, so no row of tools is left under the tab row.
+        it 'puts the help and the connection test into the head' do
+          get organisation_ai_settings_path(organisation)
+          doc = Nokogiri::HTML(response.body)
+          tabs = doc.at_css("main nav[aria-label='#{I18n.t('settings.ai')}']")
+          expect(tabs).not_to be_nil, 'no tab row in main named after the section'
+          head = tabs.previous_element
+          help = "[data-controller='dropdown'] > [title='#{I18n.t('components.contextual_help.label')}']"
+          test = "form[action='#{test_connection_organisation_ai_settings_path(organisation)}']"
+
+          expect(head.at_css('h1').text.squish).to eq(I18n.t('settings.ai'))
+          expect(head.css(help).size).to eq(1)
+          expect(doc.css("main #{help}").size).to eq(1)
+          expect(head.css(test).size).to eq(1)
+          expect(doc.css("main #{test}").size).to eq(1)
         end
       end
     end

@@ -24,7 +24,14 @@
   A bar with one tab is no bar: there is nothing to switch to. The title box
   then takes the wider gap, because it is the last thing before the content.
 
-  @param tabs [Array<Hash>] {key:, label:, path:} from NavigationHelper
+  @param tabs [Array<Hash>] {key:, label:, path:} from NavigationHelper, plus
+    locked: true and locked_title: (the reason) on a tab that does not open
+    yet: the AI tabs while AI is off (NavigationHelper#ai_section_tabs). A
+    locked tab stays in the row, as the AI hub keeps its locked rows, and is
+    no link: muted like those rows (text-faint), a lock sign, the reason as
+    its tooltip and once more for screen readers. Opened by its URL anyway,
+    it is the active tab like any other (the marker, aria-current), still no
+    link and still with the lock. A locked tab without a reason raises.
   @param active [Symbol] the tab that is current (with below_tab: the tab the
     page belongs to)
   @param aria_label [String] names the nav for screen readers
@@ -59,14 +66,28 @@
 
 <% if has_bar %>
   <nav class="border-b border-cream-300 mb-3.5" aria-label="<%= aria_label %>">
+    <%# One box and one active marker for every tab, link or locked, so a locked
+        tab stands and marks exactly where an open one would. %>
+    <% tab_box = 'inline-block border-b-2 pb-3 pt-1 text-sm whitespace-nowrap' %>
+    <% active_marker = 'border-ink text-cream-900 font-bold' %>
     <ul class="flex flex-wrap gap-x-6 gap-y-1 md:gap-x-8 -mb-px">
       <% tabs.each do |tab| %>
         <% is_active = (active.to_sym == tab[:key]) %>
         <li>
+          <% if tab[:locked] %>
+          <% reason = tab.fetch(:locked_title) %>
+          <%= tag.span aria: { current: (is_active ? active_tab_current : nil), disabled: true }, title: reason,
+                       class: "#{tab_box} #{is_active ? active_marker : 'border-transparent text-faint font-medium'}" do %>
+            <%= tab[:label] %>
+            <i class="bi bi-lock text-xs" aria-hidden="true"></i>
+            <span class="sr-only"><%= reason %></span>
+          <% end %>
+          <% else %>
           <%= link_to tab[:path],
                 "aria-current": (is_active ? active_tab_current : nil),
-                class: "inline-block border-b-2 pb-3 pt-1 text-sm whitespace-nowrap transition-colors #{is_active ? 'border-ink text-cream-900 font-bold' : 'border-transparent text-cream-600 font-medium hover:text-cream-900 hover:border-cream-400'}" do %>
+                class: "#{tab_box} transition-colors #{is_active ? active_marker : 'border-transparent text-cream-600 font-medium hover:text-cream-900 hover:border-cream-400'}" do %>
             <%= tab[:label] %>
+          <% end %>
           <% end %>
         </li>
       <% end %>
