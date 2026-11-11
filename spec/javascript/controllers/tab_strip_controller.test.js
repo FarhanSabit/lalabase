@@ -19,9 +19,10 @@ const GAP = 24
 const ORIGIN = 16
 
 function fixture({ widths = KI_TABS, open, clientWidth = 358, scrollLeft = 0 } = {}) {
-  const layout = { widths: [...widths] }
+  const layout = { widths: [...widths], clientWidth }
   const page = [] // every call that would move the page
   const writes = [] // every scrollLeft the controller set
+  const listeners = new Map() // event type -> the functions listening on the row
   let observer = null
   let offset = scrollLeft
 
@@ -30,6 +31,7 @@ function fixture({ widths = KI_TABS, open, clientWidth = 358, scrollLeft = 0 } =
     return starts
   }, [])
   const scrollWidth = () => Math.round(lefts().at(-1) + layout.widths.at(-1))
+  const clamp = value => Math.max(0, Math.min(value, scrollWidth() - layout.clientWidth))
   const tabBox = index => {
     const left = ORIGIN + lefts()[index] - offset
     return { left, right: left + layout.widths[index] }
@@ -40,18 +42,25 @@ function fixture({ widths = KI_TABS, open, clientWidth = 358, scrollLeft = 0 } =
   }))
   const row = {
     clientLeft: 0,
-    clientWidth,
     children: items,
+    get clientWidth() { return layout.clientWidth },
     get scrollWidth() { return scrollWidth() },
     get scrollLeft() { return offset },
     set scrollLeft(value) {
       writes.push(value)
-      offset = Math.max(0, Math.min(value, scrollWidth() - clientWidth))
+      offset = clamp(value)
     },
-    getBoundingClientRect: () => ({ left: ORIGIN, right: ORIGIN + clientWidth }),
+    getBoundingClientRect: () => ({ left: ORIGIN, right: ORIGIN + layout.clientWidth }),
     querySelector: selector => (selector === "[aria-current]" && open !== undefined ? items[open].tab : null),
-    scrollIntoView: () => page.push("scrollIntoView")
+    scrollIntoView: () => page.push("scrollIntoView"),
+    // As the browser keeps them: the same function twice for one type is one.
+    addEventListener(type, listener) {
+      if (!listeners.has(type)) listeners.set(type, new Set())
+      listeners.get(type).add(listener)
+    },
+    removeEventListener(type, listener) { listeners.get(type)?.delete(listener) }
   }
+  const fire = type => { for (const listener of [...(listeners.get(type) ?? [])]) listener({ type }) }
 
   class FakeResizeObserver {
     constructor(callback) {
@@ -74,10 +83,19 @@ function fixture({ widths = KI_TABS, open, clientWidth = 358, scrollLeft = 0 } =
   controller.element = row
 
   return {
-    controller, row, page, writes, layout,
+    controller, row, page, writes, layout, listeners,
     get observer() { return observer },
     // A notification of the observer: the row was laid out or something changed size.
     resized() { observer.callback([]) },
+    // The browser reports a scroll of the row, whoever moved it (a frame after the move).
+    scrolled() { fire("scroll") },
+    // The reader's hand on the row, before it has moved anything.
+    touched(type) { fire(type) },
+    // The reader swipes the row to `to`, and the browser reports the scroll.
+    readerScrolls(to) {
+      offset = clamp(to)
+      fire("scroll")
+    },
     // The open tab against the row's visible box, both from the row's left edge.
     openTab() {
       const box = items[open].tab.getBoundingClientRect()
@@ -158,4 +176,83 @@ test("a row without an open tab is left alone", () => {
   f.controller.connect()
   f.resized()
   assert.deepEqual(f.writes, [])
+})
+
+// The reader's hand wins (review of S4A). Measured in the browser at 390 px on
+// Protokoll: the row at 188, the reader swiped it to 0 to see Übersicht and
+// Zugang, a tab grew (letter spacing, as a late web font makes it), and the row
+// was pulled back to 193.
+test("a row the reader scrolled stays where the reader left it when a tab changes size", () => {
+  const f = fixture({ open: 5 })
+  f.controller.connect()
+  f.resized()
+  f.scrolled() // the browser reports the row's own move to its end
+  f.readerScrolls(0)
+  f.writes.length = 0
+
+  f.layout.widths[0] += 3
+  f.resized()
+  assert.deepEqual(f.writes, [])
+  assert.equal(f.row.scrollLeft, 0)
+})
+
+test("a finger, a pen, a mouse or a wheel on the row holds it before any scroll is reported", () => {
+  for (const type of ["pointerdown", "touchstart", "wheel"]) {
+    const f = fixture({ open: 5 })
+    f.controller.connect()
+    f.resized()
+    f.writes.length = 0
+
+    f.touched(type)
+    f.layout.widths[0] += 10 // the open tab now ends past the row
+    f.resized()
+    assert.deepEqual(f.writes, [], `${type} did not hold the row`)
+  }
+})
+
+test("the row's own move, reported back by the browser, is not the reader's", () => {
+  const f = fixture({ widths: KI_TABS.map(width => width * 0.9), open: 5 })
+  f.controller.connect()
+  f.resized()
+  f.scrolled()
+
+  f.layout.widths = [...KI_TABS]
+  f.resized()
+  assertInView(f, "with the web font, after the row's own move was reported")
+})
+
+test("a change of the row's own width, as when the phone turns, brings the open tab back while the reader has not moved the row", () => {
+  const f = fixture({ open: 5 })
+  f.controller.connect()
+  f.resized()
+  f.scrolled()
+
+  f.layout.clientWidth = 300
+  f.resized()
+  assertInView(f, "after the turn")
+})
+
+// The browser keeps the reader's offset through a turn, so the place stays the
+// reader's: a pull back then is the jump of the review with another cause.
+test("once the reader has moved the row, not even a turned phone pulls it back", () => {
+  const f = fixture({ open: 5 })
+  f.controller.connect()
+  f.resized()
+  f.scrolled()
+  f.readerScrolls(0)
+  f.writes.length = 0
+
+  f.layout.clientWidth = 300
+  f.resized()
+  assert.deepEqual(f.writes, [])
+  assert.equal(f.row.scrollLeft, 0)
+})
+
+test("it listens on the row once per kind of input and takes every listener away on disconnect", () => {
+  const types = ["pointerdown", "touchstart", "wheel", "scroll"]
+  const f = fixture({ open: 5 })
+  f.controller.connect()
+  assert.deepEqual(types.map(type => f.listeners.get(type)?.size ?? 0), [1, 1, 1, 1])
+  f.controller.disconnect()
+  assert.deepEqual(types.map(type => f.listeners.get(type)?.size ?? 0), [0, 0, 0, 0])
 })

@@ -9,7 +9,9 @@ require 'rails_helper'
 #       - the tab row of organisations/shared/_subnav stays ONE row and scrolls
 #         sideways, and the open tab lies inside the row's visible box: on
 #         "Protokoll", the sixth KI tab, opened by its address, and on every KI tab
-#         tapped from there. Only the row moves, never the page;
+#         tapped from there. Only the row moves, never the page. Once the reader
+#         has swiped the row, it stays there when a tab changes size later;
+#       - on a desk (md and wider) the row wraps as before and does not scroll;
 #       - the mobile header names each management page by its own title
 #         (MobileNavigationHelper::PAGE_TITLE_KEYS), never by the fallback "Mehr".
 # Why:  until 2026-11-11 the row wrapped (flex-wrap): on a phone the six KI tabs
@@ -22,13 +24,16 @@ RSpec.describe 'Management area on a phone', type: :system do
   let(:admin) { create(:user, first_name: 'Anna', last_name: 'Beispiel') }
   let(:section) { I18n.t('settings.ai') }
 
-  before do
+  before do |example|
     Prosopite.pause
     ActsAsTenant.with_tenant(organisation) do
       create(:membership, user: admin, organisation: organisation,
                           role: create(:admin_role, organisation: organisation), active: true)
     end
     sign_in admin
+    # A phone for every example but the desk's.
+    next if example.metadata[:desk]
+
     page.driver.browser.execute_cdp('Emulation.setDeviceMetricsOverride', width: 390, height: 844,
                                                                           deviceScaleFactor: 1, mobile: true)
   end
@@ -36,6 +41,7 @@ RSpec.describe 'Management area on a phone', type: :system do
   # The browser outlives the example: without this every later spec runs on a phone.
   after do
     page.driver.browser.execute_cdp('Emulation.clearDeviceMetricsOverride')
+    page.driver.browser.execute_cdp('Emulation.setTouchEmulationEnabled', enabled: false)
     Prosopite.resume
   end
 
@@ -68,22 +74,24 @@ RSpec.describe 'Management area on a phone', type: :system do
     end
 
     # The row as the reader sees it once the web font has loaded and the page has
-    # painted: the top of each tab in the row, how far the row scrolls, the open tab
-    # against the row's visible box (both from the row's left edge), the row against
-    # main's content edge, and whether anything moved the page. Overflow is measured
-    # against documentElement.clientWidth: under the phone emulation
-    # window.innerWidth grows with a page that overflows and hides what it measures.
+    # painted: the top of each tab in the row, whether the row wraps or scrolls and
+    # how far, the open tab against the row's visible box (both from the row's left
+    # edge), the row against main's content edge, and whether anything moved the
+    # page. Overflow is measured against documentElement.clientWidth: under the
+    # phone emulation window.innerWidth grows with a page that overflows and hides
+    # what it measures.
     def row_geometry
       page.evaluate_async_script(<<~JS, section)
         const label = arguments[0], done = arguments[1]
         document.fonts.ready.then(() => requestAnimationFrame(() => requestAnimationFrame(() => {
           const row = document.querySelector(`main nav[aria-label="${CSS.escape(label)}"] ul`)
-          const box = row.getBoundingClientRect()
+          const box = row.getBoundingClientRect(), computed = getComputedStyle(row)
           const open = row.querySelector('[aria-current]').getBoundingClientRect()
           const main = document.querySelector('main'), edge = main.getBoundingClientRect(), style = getComputedStyle(main)
           const round = value => Math.round(value * 10) / 10
           done({
             tops: Array.from(row.children, item => round(item.firstElementChild.getBoundingClientRect().top - box.top)),
+            flex_wrap: computed.flexWrap, overflow_x: computed.overflowX,
             scroll_width: row.scrollWidth, client_width: row.clientWidth, scroll_left: round(row.scrollLeft),
             open_tab: [round(open.left - box.left), round(open.right - box.left)],
             row: [round(box.left), round(box.right)],
@@ -145,6 +153,73 @@ RSpec.describe 'Management area on a phone', type: :system do
         expect_one_row_with_the_open_tab_in_view(label, row)
         # The first tab keeps the row at its start: nothing moves a row whose open tab is in view.
         expect(row['scroll_left']).to eq(0), "#{label}: the row left its start: #{row.inspect}" if label == tab_labels.first
+      end
+    end
+
+    # A finger on the row swipes it back to its start (touch emulation as in
+    # mobile_shell_regressions_spec, switched off again in `after`).
+    def swipe_row_to_its_start
+      middle = page.evaluate_script(<<~JS, section)
+        (function (label) {
+          const box = document.querySelector(`main nav[aria-label="${CSS.escape(label)}"] ul`).getBoundingClientRect()
+          return { x: Math.round(box.left + box.width / 2), y: Math.round(box.top + box.height / 2) }
+        })(arguments[0])
+      JS
+      page.driver.browser.execute_cdp('Emulation.setTouchEmulationEnabled', enabled: true)
+      page.driver.browser.execute_cdp('Input.synthesizeScrollGesture', x: middle['x'], y: middle['y'], xDistance: 400,
+                                                                       yDistance: 0, speed: 800, gestureSourceType: 'touch')
+    end
+
+    # The phone turned to `width`, laid out and reported to the row's observer.
+    def turn_phone_to(width)
+      page.driver.browser.execute_cdp('Emulation.setDeviceMetricsOverride', width: width, height: 844,
+                                                                            deviceScaleFactor: 1, mobile: true)
+      page.evaluate_async_script('requestAnimationFrame(() => requestAnimationFrame(arguments[0]))')
+    end
+
+    # The reader's hand wins (review of S4A): a tab that changed size later, as with
+    # a late web font (here: letter spacing on the first tab), pulled the swiped row
+    # back to the open tab (the review measured 0 to 193, this example 0 to 187). A
+    # turned phone does not pull it back either: the browser keeps the reader's
+    # offset through the turn.
+    it 'leaves the row where the reader swiped it when a tab changes size or the phone turns' do
+      visit organisation_ai_protocol_path(organisation)
+      expect(page).to have_css('main nav [aria-current="page"]', exact_text: tab_labels.last)
+      expect(settled_row['scroll_left']).to be_positive
+
+      swipe_row_to_its_start
+      expect(row_geometry['scroll_left']).to eq(0)
+
+      page.execute_script(<<~JS, section)
+        document.querySelector(`main nav[aria-label="${CSS.escape(arguments[0])}"] li > :first-child`).style.letterSpacing = '1px'
+      JS
+      row = row_geometry
+      expect(row['scroll_left']).to eq(0), "a tab changed size, and the row went back to the open tab: #{row.inspect}"
+
+      turn_phone_to(844)
+      turn_phone_to(390)
+      row = row_geometry
+      expect(row['scroll_left']).to eq(0), "the phone turned and back, and the row went back to the open tab: #{row.inspect}"
+    end
+
+    # The phone rule holds below md only: from md on the row wraps as it did before
+    # and does not scroll. Measured at 1024 px, where the layout has its sidebar
+    # again, without the phone's emulation (the `before` above reads :desk).
+    context 'on a desk', :desk do
+      let(:window) { page.driver.browser.manage.window }
+      let!(:window_size) { window.size }
+
+      before { window.resize_to(1024, 800) }
+      after { window.resize_to(window_size.width, window_size.height) }
+
+      it 'wraps as before and does not scroll, one line where the tabs fit' do
+        visit organisation_ai_overview_path(organisation)
+        expect(page).to have_css('main nav [aria-current="page"]', exact_text: tab_labels.first)
+
+        row = row_geometry
+        expect(row['flex_wrap']).to eq('wrap'), "the row does not wrap from md on: #{row.inspect}"
+        expect(row['overflow_x']).to eq('visible'), "the row scrolls from md on: #{row.inspect}"
+        expect(row['tops'].uniq.size).to eq(1), "the tabs do not share one top at 1024 px: #{row.inspect}"
       end
     end
   end
