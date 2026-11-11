@@ -1,11 +1,16 @@
 <!-- AI Sync Status Page -->
 <div>
-  <%= render 'organisations/shared/ai_area_header', title: t('views.organisations.ai_overview.pages.index') %>
-  <div class="flex justify-end mb-4">
+  <%# The head of the section with its tab row, "Indexierung" open, the help right of the
+      title (doc/verwaltung_seitennavigation_plan.md §4, S3); the row that held it is gone. %>
+  <% head_tools = capture do %>
     <%= render 'common/contextual_help_menu', context: :settings_ai_sync %>
-  </div>
+  <% end %>
+  <%= render 'organisations/shared/settings_subnav', active: :ai, tabs: ai_section_tabs(@current_organisation), tab_active: :index,
+                                                     right_content: head_tools %>
 
-  <div class="space-y-6 mt-6">
+  <%# No top margin: the tab bar holds the distance to the content (its mb-3.5), the
+      same on every tab of the section. %>
+  <div class="space-y-6">
 
   <%# The answer first, the raw numbers after (§3.5 of doc/ki_bereich_navigation_plan.md).
       Everything below this partial is DETAIL and stays as it was. %>

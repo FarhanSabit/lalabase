@@ -363,10 +363,16 @@ RSpec.describe 'Organisations::AiProtocols', type: :request do
   describe 'the card on the hub' do
     before { sign_in admin }
 
+    # The rows' own links: the section's tab row above them leads to the protocol as well
+    # (doc/verwaltung_seitennavigation_plan.md S3), so the page as a whole proves nothing.
+    def hub_row_links
+      Nokogiri::HTML(response.body).css('#ai_overview_rows a').map { |link| link['href'] }
+    end
+
     it 'links to the protocol' do
       get organisation_ai_overview_path(organisation)
 
-      expect(response.body).to include(organisation_ai_protocol_path(organisation))
+      expect(hub_row_links).to include(organisation_ai_protocol_path(organisation))
     end
 
     # Every other card is locked while AI is off. This one is not: it leads to the record
@@ -377,7 +383,7 @@ RSpec.describe 'Organisations::AiProtocols', type: :request do
 
       get organisation_ai_overview_path(organisation)
 
-      expect(response.body).to include(organisation_ai_protocol_path(organisation))
+      expect(hub_row_links).to include(organisation_ai_protocol_path(organisation))
     end
   end
 end

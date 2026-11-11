@@ -55,6 +55,22 @@ RSpec.describe 'Organisations::AiSyncStatuses', type: :request do
   describe 'as account_admin' do
     before { sign_in admin }
 
+    # The section's head (doc/verwaltung_seitennavigation_plan.md S3): the help stands
+    # right of the title. Once on the page and that once in the head, so no row of its
+    # own is left under the tab row.
+    it 'puts its help into the head of the section' do
+      get organisation_ai_sync_status_path(organisation)
+      doc = Nokogiri::HTML(response.body)
+      tabs = doc.at_css("main nav[aria-label='#{I18n.t('settings.ai')}']")
+      expect(tabs).not_to be_nil, 'no tab row in main named after the section'
+      head = tabs.previous_element
+      help = "[data-controller='dropdown'] > [title='#{I18n.t('components.contextual_help.label')}']"
+
+      expect(head.at_css('h1').text.squish).to eq(I18n.t('settings.ai'))
+      expect(head.css(help).size).to eq(1)
+      expect(doc.css("main #{help}").size).to eq(1)
+    end
+
     # The table below the summary used to know four of nine types; the help text even
     # documented the gap. Derived from the registry so a tenth type is on the page the
     # day it is registered, and a helper without a row for it is a red test, not a blank.
