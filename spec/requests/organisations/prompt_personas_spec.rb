@@ -222,4 +222,66 @@ RSpec.describe 'Organisations::PromptPersonas', type: :request do
         .to change { organisation.prompt_personas.count }.by(-1)
     end
   end
+
+  # The list is the Chat-Personas tab of the AI section, the two forms are pages below
+  # it (doc/verwaltung_seitennavigation_plan.md §5, S3): the head names the section on
+  # all three. The list's help stands in the head; the forms mark the tab as their
+  # parent and name themselves in the crumb, which leads back to the list.
+  describe 'the head of the AI section' do
+    let(:personas) { I18n.t('views.organisations.ai_overview.pages.personas') }
+    let(:help_label) { I18n.t('components.contextual_help.label') }
+
+    before { sign_in admin }
+
+    def page_doc(path)
+      get path
+      expect(response).to have_http_status(:ok)
+      Nokogiri::HTML(response.body)
+    end
+
+    def section_title(doc) = doc.css('main h1').map { |h1| h1.text.squish }
+
+    def marked_tabs(doc)
+      doc.css('main nav:not([data-section-crumb]) [aria-current]').map { |tab| [tab.text.squish, tab['aria-current']] }
+    end
+
+    def expect_below_the_list(doc, page)
+      expect(section_title(doc)).to eq([I18n.t('settings.ai')])
+      expect(marked_tabs(doc)).to eq([[personas, 'true']])
+      back = doc.at_css('main [data-section-crumb] a')
+      expect(back['href']).to eq(organisation_prompt_personas_path(organisation))
+      expect(back.text.delete('‹').squish).to eq(personas)
+      expect(doc.css('main [aria-current="page"]').map { |item| item.text.squish }).to eq([page])
+      expect(doc.css('main i.bi-arrow-left')).to be_empty
+    end
+
+    it 'names the section on the list, marks its tab as the page and puts the help into the head' do
+      doc = page_doc(organisation_prompt_personas_path(organisation))
+
+      expect(section_title(doc)).to eq([I18n.t('settings.ai')])
+      expect(marked_tabs(doc)).to eq([[personas, 'page']])
+      head_row = doc.at_css('main h1').ancestors('.flex.flex-wrap').first
+      expect(head_row.at_css("[title='#{help_label}']")).to be_present
+      expect(doc.css("main [title='#{help_label}']").size).to eq(1)
+    end
+
+    it 'puts the new form below the tab' do
+      expect_below_the_list(page_doc(new_organisation_prompt_persona_path(organisation)),
+                            I18n.t('views.organisations.prompt_personas.new.title'))
+    end
+
+    # The stored key, not the one just typed: after a refused save the form shows the
+    # attempt, the crumb still names the persona being edited.
+    it 'puts the edit form below the tab and names the stored persona, also after a refused save' do
+      persona = create(:prompt_persona, organisation: organisation, key: 'house_style')
+      title = I18n.t('views.organisations.prompt_personas.edit.title', key: 'house_style')
+
+      expect_below_the_list(page_doc(edit_organisation_prompt_persona_path(organisation, persona)), title)
+
+      patch organisation_prompt_persona_path(organisation, persona), params: { prompt_persona: { key: '' } }
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect_below_the_list(Nokogiri::HTML(response.body), title)
+    end
+  end
 end

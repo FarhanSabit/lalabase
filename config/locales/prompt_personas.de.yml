@@ -77,8 +77,6 @@ de:
           title: "Neue Persona"
         edit:
           title: "Persona „%{key}“ bearbeiten"
-        shared:
-          back: "Zurück"
         form:
           errors_title: "Speichern nicht möglich – %{count} Fehler"
           label_key: "Schlüssel"

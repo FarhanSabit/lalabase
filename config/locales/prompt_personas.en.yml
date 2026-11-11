@@ -77,8 +77,6 @@ en:
           title: "New persona"
         edit:
           title: "Edit persona “%{key}”"
-        shared:
-          back: "Back"
         form:
           errors_title: "Cannot save – %{count} error(s)"
           label_key: "Key"

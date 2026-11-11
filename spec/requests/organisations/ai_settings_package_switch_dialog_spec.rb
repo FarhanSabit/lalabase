@@ -672,6 +672,45 @@ RSpec.describe 'Organisations::AiSettings package switch dialog (P4b)', type: :r
     end
   end
 
+  # A page below the Zugang tab (doc/verwaltung_seitennavigation_plan.md §5, S3): the
+  # head of the AI section with Zugang marked as its parent, and the crumb as the one
+  # way back. It leads where "Abbrechen" led until 2026-11-11: onto the pane the card
+  # was rendered in, which the card hands over as package_mode. The only button left
+  # on the page is the write.
+  describe 'the way back' do
+    let!(:target) { publish_package(name: 'Groß', dims: 3072, model: 'text-embedding-3-large') }
+    let(:access) { I18n.t('views.organisations.ai_overview.pages.access') }
+
+    def dialog(**params)
+      get confirm_package_organisation_ai_settings_path(organisation, ai_package_id: target.id, **params)
+      expect(response).to have_http_status(:ok)
+      Nokogiri::HTML(response.body)
+    end
+
+    it 'is the crumb to Zugang, onto the pane the dialog was opened from' do
+      doc = dialog(package_mode: 'custom')
+
+      marked = doc.css('main nav:not([data-section-crumb]) [aria-current]')
+      expect(marked.map { |tab| [tab.text.squish, tab['aria-current']] }).to eq([[access, 'true']])
+      back = doc.at_css('main [data-section-crumb] a')
+      expect(back['href']).to eq(organisation_ai_settings_path(organisation, package_mode: 'custom'))
+      expect(back.text.delete('‹').squish).to eq(access)
+      expect(doc.css('main [aria-current="page"]').map { |item| item.text.squish })
+        .to eq([I18n.t('views.organisations.ai_overview.pages.switch')])
+
+      # Nothing else on the page leads back to Zugang: no "Abbrechen" beside the write.
+      settings = organisation_ai_settings_path(organisation)
+      other_ways_back = doc.css('main a[href]').select { |link| link['href'].start_with?(settings) }
+                           .reject { |link| link.ancestors('nav').any? }
+      expect(other_ways_back).to be_empty
+    end
+
+    # A hand-built URL carries no pane; the settings page then opens its own default.
+    it 'leads to Zugang without a pane when the dialog was opened without one' do
+      expect(dialog.at_css('main [data-section-crumb] a')['href']).to eq(organisation_ai_settings_path(organisation))
+    end
+  end
+
   # The dialog is the first half of a write, so it carries the write's
   # authorisation — a member who may not switch the package has no business
   # reading its price either.

@@ -115,6 +115,28 @@ RSpec.describe 'Organisations::AiConfigurations', type: :request do
       end
     end
 
+    # A page below the Zugang tab (doc/verwaltung_seitennavigation_plan.md §5, S3): the
+    # head names the AI section and marks Zugang as the parent of the page, and the
+    # crumb leads back to Zugang and names the page. Zugang is the parent because the
+    # door to this screen is on it; the hub only lists it.
+    describe 'GET #show: its place in the AI section' do
+      it 'keeps the head of the AI section, Zugang marked as its parent, and leads back to Zugang' do
+        access = I18n.t('views.organisations.ai_overview.pages.access')
+
+        get organisation_ai_configuration_path(organisation)
+
+        doc = Nokogiri::HTML(response.body)
+        expect(doc.css('main h1').map { |h1| h1.text.squish }).to eq([I18n.t('settings.ai')])
+        marked = doc.css('main nav:not([data-section-crumb]) [aria-current]')
+        expect(marked.map { |tab| [tab.text.squish, tab['aria-current']] }).to eq([[access, 'true']])
+        back = doc.at_css('main [data-section-crumb] a')
+        expect(back['href']).to eq(organisation_ai_settings_path(organisation))
+        expect(back.text.delete('‹').squish).to eq(access)
+        expect(doc.css('main [aria-current="page"]').map { |item| item.text.squish })
+          .to eq([I18n.t('views.organisations.ai_overview.configuration.title')])
+      end
+    end
+
     describe 'PATCH #update' do
       it 'stores an own access through the Actor' do
         patch organisation_ai_configuration_path(organisation),
