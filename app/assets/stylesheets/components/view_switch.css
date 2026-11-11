@@ -1,4 +1,4 @@
-/* The view switch's icon pair (NeoViewSwitchComponent, variant :icon_pair).
+/* The view switch's tiles (NeoViewSwitchComponent, the one form since 2026-11-11).
    The caption is the title (mouse) and the aria-label (screen reader); on
    KEYBOARD focus this shows the same word under the tile, because a native
    title never opens on focus, and a function the keyboard cannot name is

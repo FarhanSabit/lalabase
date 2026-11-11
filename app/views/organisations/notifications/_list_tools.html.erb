@@ -1,6 +1,6 @@
 <%# locals: (presenter:, projects:, unread_count:) %>
 <%# The tools of the list head that carry the search in their addresses: the
-    status views, the project, the type chip, the view mode. The search form
+    status views, the project, the period, the type chip. The search form
     reloads only the list frame, so these are drawn again from inside its
     answer (index.html.erb, a <turbo-stream> in the frame: after
     </turbo-frame> Turbo would drop it). display: contents keeps each one a
@@ -67,16 +67,5 @@
       <% end %>
     <% end %>
 
-    <div class="inbox-view-mode" data-inbox-tool="view-mode" role="group" aria-label="<%= t('views.organisations.notifications.filter.view_label') %>">
-      <% [%w[chronological list-ul], %w[grouped collection]].each do |mode, icon| %>
-        <% label = t("views.organisations.notifications.filter.view_#{mode}") %>
-        <%= link_to inbox_view_mode_url(mode), class: "inbox-view-mode__cell #{'inbox-view-mode__cell--active' if presenter.view_mode == mode}",
-                                               title: label, 'aria-label': label,
-                                               'aria-current': (presenter.view_mode == mode ? 'true' : nil),
-                                               data: { turbo_frame: '_top' } do %>
-          <i class="bi bi-<%= icon %>" aria-hidden="true"></i>
-        <% end %>
-      <% end %>
-    </div>
     </div>
 </div>

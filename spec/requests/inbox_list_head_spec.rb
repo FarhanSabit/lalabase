@@ -112,6 +112,68 @@ RSpec.describe 'Inbox list head', type: :request do
     end
   end
 
+  # One view switch on every page (user, 2026-11-11): the tickets' icon pair
+  # (NeoViewSwitchComponent), in the page head, before "···" and "?". It used
+  # to stand in the tools row as a frame of its own, active in the selected
+  # tone.
+  describe 'the view switch' do
+    def switch_label = I18n.t('views.organisations.notifications.filter.view_label')
+
+    def view_title(mode) = I18n.t("views.organisations.notifications.filter.view_#{mode}")
+
+    it 'stands in the page head before "···", and no longer in the tools row' do
+      doc = doc_for(state_filters: %w[read unread])
+      head = doc.at_css('.people-head')
+      switch = head.at_css("nav[aria-label='#{switch_label}']")
+
+      expect(switch).to be_present
+      expect(doc.at_css(".inbox-tools nav[aria-label='#{switch_label}'], .inbox-tools [data-inbox-tool='view-mode']")).to be_nil
+      expect(doc.at_css('.inbox-view-mode')).to be_nil
+      following = head.xpath('.//*').drop_while { |node| node != switch }
+      expect(following).to include(head.at_css('details.more-menu'))
+    end
+
+    it 'is the one view switch: the list first, the bundles second, the active one marked' do
+      tiles = doc_for(state_filters: %w[read unread], view_mode: 'chronological')
+              .css("nav[aria-label='#{switch_label}'] a")
+
+      expect(tiles.map { |tile| tile['title'] }).to eq([view_title(:chronological), view_title(:grouped)])
+      expect(tiles.map { |tile| tile['aria-current'] }).to eq(['page', nil])
+      expect(tiles.map { |tile| tile['class'] }).to all(include(*NeoViewSwitchComponent::TILE_CLASSES.split))
+      expect(tiles.first['class']).to include(*NeoViewSwitchComponent::ACTIVE_CLASSES.split)
+      expect(tiles.map { |tile| tile.at_css('svg') }).to all(be_present)
+    end
+
+    it 'marks the bundles by default' do
+      tiles = doc_for(state_filters: %w[read unread]).css("nav[aria-label='#{switch_label}'] a")
+
+      expect(tiles.map { |tile| tile['aria-current'] }).to eq([nil, 'page'])
+    end
+
+    it 'keeps the search in its links, and the frame answer draws it again with the search' do
+      get organisation_notifications_path(organisation, state_filters: %w[read unread], search: 'Export'),
+          headers: { 'Turbo-Frame' => 'notifications_list_frame' }
+
+      frame = Nokogiri::HTML(response.body).at_css('turbo-frame#notifications_list_frame')
+      stream = frame.at_css('turbo-stream[action="replace"][target="inbox_view_switch"]')
+      expect(stream).to be_present, 'the switch rides inside the frame, or Turbo drops it'
+      drawn = Nokogiri::HTML(stream.at_css('template').inner_html)
+      expect(drawn.at_css('#inbox_view_switch')).to be_present
+      links = drawn.css("nav[aria-label='#{switch_label}'] a").map { |a| CGI.unescapeHTML(a['href']) }
+      expect(links.size).to eq(2)
+      expect(links).to all(include('search=Export'))
+      expect(links.map { |href| Rack::Utils.parse_nested_query(URI(href).query)['view_mode'] })
+        .to eq(%w[chronological grouped])
+    end
+
+    it 'sends no switch stream on a full page' do
+      doc = doc_for(state_filters: %w[read unread])
+
+      expect(doc.at_css('turbo-stream[target="inbox_view_switch"]')).to be_nil
+      expect(doc.css('#inbox_view_switch').size).to eq(1)
+    end
+  end
+
   it 'shows only the read ones under "Gelesen", and marks it' do
     doc = doc_for(state_filters: %w[read])
 
