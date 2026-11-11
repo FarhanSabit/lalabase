@@ -644,7 +644,6 @@ de:
             recipient_custom: die Anbieter-Konfiguration dieser Organisation
             ai_disabled_note: Die KI-Features dieser Organisation sind nicht aktiviert. Es werden deshalb keine Inhalte an einen Anbieter übertragen, kein Suchindex neu aufgebaut und keine Credits verbraucht. Der Wechsel legt nur fest, welches Paket gilt, sobald Sie die KI-Features aktivieren.
             confirm_button: Wechsel starten
-            cancel_button: Abbrechen
       ai_sync_statuses:
         show:
           overview: Gesamtübersicht

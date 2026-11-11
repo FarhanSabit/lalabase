@@ -637,7 +637,6 @@ en:
             recipient_custom: this organisation's own provider configuration
             ai_disabled_note: This organisation's AI features are not activated. No content is therefore transmitted to any provider, no search index is rebuilt and no credits are spent. The switch merely records which package applies once you activate the AI features.
             confirm_button: Start switch
-            cancel_button: Cancel
       ai_sync_statuses:
         show:
           overview: Overview
