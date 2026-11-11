@@ -1565,6 +1565,7 @@ de:
     settings_api_tokens: API-Tokens
     management: Verwaltung
     management_back: Zurück
+    section_crumb: Navigationspfad
     preferences: Präferenzen
     show_all_projects: Alle Projekte anzeigen
     org_dashboard: Dashboard
