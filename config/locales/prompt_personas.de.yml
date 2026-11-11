@@ -82,7 +82,6 @@ de:
           label_key: "Schlüssel"
           key_hint: "Technischer Bezeichner. Gleicher Schlüssel wie eine globale Vorlage = Override."
           label_position: "Position"
-          cancel: "Abbrechen"
           submit_create: "Persona anlegen"
           submit_save: "Änderungen speichern"
     prompt_personas:

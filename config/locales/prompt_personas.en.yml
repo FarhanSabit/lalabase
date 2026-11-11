@@ -82,7 +82,6 @@ en:
           label_key: "Key"
           key_hint: "Technical identifier. The same key as a global template = override."
           label_position: "Position"
-          cancel: "Cancel"
           submit_create: "Create persona"
           submit_save: "Save changes"
     prompt_personas:
