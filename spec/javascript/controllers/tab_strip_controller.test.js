@@ -52,6 +52,7 @@ function fixture({ widths = KI_TABS, open, clientWidth = 358, scrollLeft = 0 } =
     },
     getBoundingClientRect: () => ({ left: ORIGIN, right: ORIGIN + layout.clientWidth }),
     querySelector: selector => (selector === "[aria-current]" && open !== undefined ? items[open].tab : null),
+    contains: node => inRow(node),
     scrollIntoView: () => page.push("scrollIntoView"),
     // As the browser keeps them: the same function twice for one type is one.
     addEventListener(type, listener) {
@@ -63,7 +64,28 @@ function fixture({ widths = KI_TABS, open, clientWidth = 358, scrollLeft = 0 } =
   const fire = (type, detail = {}) => {
     for (const listener of [...(listeners.get(type) ?? [])]) listener({ type, ...detail })
   }
-  let panned = false // the browser took the finger's pointer over for a pan
+
+  // The fingers on the screen as the browser lists them in event.touches, each with
+  // the element it began on (Touch.target): a tab of the row, or somewhere on the page.
+  const fingers = []
+  const elsewhere = {}
+  let pointerIds = 0
+  const inRow = node => node === row || items.some(item => item === node || item.tab === node)
+  // As the browser sends them: a finger's events reach the row only when the finger
+  // began in it, and targetTouches lists the fingers on the same element (the tab).
+  const fingerEvent = (type, finger, detail) => {
+    if (!inRow(finger.target)) return
+    if (detail.pointerType) {
+      fire(type, { ...detail, pointerId: finger.pointerId })
+      return
+    }
+    fire(type, {
+      target: finger.target,
+      touches: [...fingers],
+      targetTouches: fingers.filter(other => other.target === finger.target),
+      changedTouches: [finger]
+    })
+  }
 
   class FakeResizeObserver {
     constructor(callback) {
@@ -97,28 +119,38 @@ function fixture({ widths = KI_TABS, open, clientWidth = 358, scrollLeft = 0 } =
       offset = clamp(to)
       fire("scroll")
     },
-    // The events of a hand on the row in the browser's order, before anything moves.
-    fingerDown() {
-      panned = false
-      fire("pointerdown", { pointerType: "touch" })
-      fire("touchstart", { targetTouches: [{}] })
+    // A finger goes down on tab `on` (the open tab unless named, `"elsewhere"` for
+    // the page outside the row), in the browser's order: pointerdown, touchstart.
+    fingerDown(on = open ?? 0) {
+      const finger = { target: on === "elsewhere" ? elsewhere : items[on].tab, pointerId: ++pointerIds, cancelled: false }
+      fingers.push(finger)
+      fingerEvent("pointerdown", finger, { pointerType: "touch" })
+      fingerEvent("touchstart", finger, {})
+      return finger
     },
-    // The browser takes the finger over for a pan (pointercancel, the finger stays
-    // down) and moves the row to `to`.
-    pan(to) {
-      panned = true
-      fire("pointercancel", { pointerType: "touch" })
+    // An upright swipe from the finger: the browser takes it over for the page at
+    // once (pointercancel), the finger stays down, and the row does not move.
+    swipeUpright(finger = fingers.at(-1)) {
+      finger.cancelled = true
+      fingerEvent("pointercancel", finger, { pointerType: "touch" })
+    },
+    // A sideways pan: pointercancel, the finger stays down, and the row moves to `to`.
+    pan(to, finger = fingers.at(-1)) {
+      this.swipeUpright(finger)
       this.readerScrolls(to)
     },
-    fingerUp() {
-      if (!panned) fire("pointerup", { pointerType: "touch" })
-      fire("touchend", { targetTouches: [] })
+    // The finger lifts (touchend), or the browser cancels its touch (touchcancel).
+    fingerUp(finger = fingers.at(-1), { cancel = false } = {}) {
+      fingers.splice(fingers.indexOf(finger), 1)
+      if (!finger.cancelled) fingerEvent(cancel ? "pointercancel" : "pointerup", finger, { pointerType: "touch" })
+      fingerEvent(cancel ? "touchcancel" : "touchend", finger, {})
     },
-    penDown() { fire("pointerdown", { pointerType: "pen" }) },
-    penUp() { fire("pointerup", { pointerType: "pen" }) },
+    penDown(pointerId = 1) { fire("pointerdown", { pointerType: "pen", pointerId }) },
+    penUp(pointerId = 1) { fire("pointerup", { pointerType: "pen", pointerId }) },
+    penCancel(pointerId = 1) { fire("pointercancel", { pointerType: "pen", pointerId }) },
     mousePress() {
-      fire("pointerdown", { pointerType: "mouse" })
-      fire("pointerup", { pointerType: "mouse" })
+      fire("pointerdown", { pointerType: "mouse", pointerId: 99 })
+      fire("pointerup", { pointerType: "mouse", pointerId: 99 })
     },
     // A vertical wheel over the row: the row cannot scroll that way, nothing moves.
     wheel() { fire("wheel", { deltaX: 0, deltaY: 120 }) },
@@ -355,4 +387,122 @@ test("the row pulled back to a nearer end by the browser, before this controller
   f.layout.widths[0] += 20 // the open tab now ends past the row
   f.resized()
   assertInView(f, "after the clamp")
+})
+
+// The row with the open tab at its end, its own move reported, and no write since.
+function settledAtTheEnd() {
+  const f = fixture({ open: 5 })
+  f.controller.connect()
+  f.resized()
+  f.scrolled()
+  f.writes.length = 0
+  return f
+}
+
+// Review of S4F (B1): two fingers on two tabs, one lifts. targetTouches lists only
+// the fingers on the same tab as the event's, and one flag cannot count pointers:
+// the pause ended under the finger that still rested, and a size change moved the
+// row beneath it (Chrome: 188 to 416).
+test("a finger lifted from one tab keeps the pause while another finger rests on another tab", () => {
+  const f = settledAtTheEnd()
+  const first = f.fingerDown(4)
+  const second = f.fingerDown(5)
+  f.fingerUp(first)
+  f.layout.widths[0] += 10 // the open tab now ends past the row
+  f.resized()
+  assert.deepEqual(f.writes, [], "a reveal under the finger that still rests")
+
+  f.fingerUp(second)
+  assertInView(f, "after the last finger lifted")
+})
+
+test("a pen lifted keeps the pause while another pen rests on the row", () => {
+  const f = settledAtTheEnd()
+  f.penDown(1)
+  f.penDown(2)
+  f.penUp(1)
+  f.layout.widths[0] += 10
+  f.resized()
+  assert.deepEqual(f.writes, [], "a reveal under the pen that still rests")
+
+  f.penUp(2)
+  assertInView(f, "after the last pen lifted")
+})
+
+test("a finger elsewhere on the page does not keep the row's pause", () => {
+  const f = settledAtTheEnd()
+  const onTheRow = f.fingerDown()
+  f.fingerDown("elsewhere")
+  f.fingerUp(onTheRow)
+  f.layout.widths[0] += 10
+  f.resized()
+  assertInView(f, "with a finger down outside the row")
+})
+
+// Review of S4F (B3): in Chrome an upright swipe that begins on the row sends
+// pointerdown (touch), touchstart and at once pointercancel. The row does not move,
+// the finger stays down, and only its touch events keep the pause.
+test("an upright swipe begun on the row pauses reveals until the finger leaves, then the held-back reveal comes and the row is free", () => {
+  for (const cancel of [false, true]) {
+    const end = cancel ? "touchcancel" : "touchend"
+    const f = settledAtTheEnd()
+    f.fingerDown()
+    f.swipeUpright()
+    f.layout.widths[0] += 10
+    f.resized()
+    assert.deepEqual(f.writes, [], `${end}: a reveal while the finger is down`)
+
+    f.fingerUp(undefined, { cancel })
+    assertInView(f, `${end}: the reveal held back`)
+
+    // Not held: its own move reported, the next size change brings the open tab back.
+    f.scrolled()
+    f.writes.length = 0
+    f.layout.widths[0] += 10
+    f.resized()
+    assert.notDeepEqual(f.writes, [], `${end}: the row stayed held`)
+    assertInView(f, `${end}: the next size change`)
+  }
+})
+
+test("a pen pauses reveals until its pointercancel, then the held-back reveal comes", () => {
+  const f = settledAtTheEnd()
+  f.penDown()
+  f.layout.widths[0] += 10
+  f.resized()
+  assert.deepEqual(f.writes, [], "a reveal while the pen is down")
+
+  f.penCancel()
+  assertInView(f, "after pointercancel")
+})
+
+// Review of S4F (B4): the clamp rule's first condition. Without "the position left
+// here lies beyond the end", a reader who swipes the row exactly to its end counts as
+// a clamp, the row is not held, and a later size change pulls it back.
+test("a reader who swipes the row to its very end holds it: a later size change does not pull it back", () => {
+  const f = fixture({ open: 2 }) // Verbrauch, in view at the row's start
+  f.controller.connect()
+  f.resized()
+  f.readerScrolls(1000)
+  assert.equal(f.row.scrollLeft, 188)
+  f.writes.length = 0
+
+  f.layout.widths[0] += 10 // the open tab now begins left of the row
+  f.resized()
+  assert.deepEqual(f.writes, [])
+  assert.equal(f.row.scrollLeft, 188)
+})
+
+// And its second condition: the row must stand at the new end. A reader's move away
+// from it, reported after the tabs shrank below the position left here, is the reader's.
+test("a reader's move reported after the tabs shrank below the row's position still holds the row", () => {
+  const f = settledAtTheEnd()
+  f.layout.widths[0] -= 10
+  f.clampToEnd()
+  f.readerScrolls(0)
+
+  f.layout.widths[0] += 20
+  f.resized()
+  assert.deepEqual(f.writes, [])
+  assert.equal(f.row.scrollLeft, 0)
 })

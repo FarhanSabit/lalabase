@@ -28,26 +28,33 @@ import { Controller } from "@hotwired/stimulus"
 //
 // A hand that rests on the row moves nothing and holds nothing. A finger or a pen
 // on it pauses reveals while it is down, so a reveal never fights a hand, and the
-// reveal it held back comes when it lifts. A touch lasts from touchstart to
-// touchend or touchcancel (the pointercancel a pan sends while the finger stays
-// down does not end it), a pen from pointerdown to pointerup or pointercancel. A
+// reveal held back comes when the last of them lifts. Fingers count by their touch
+// events alone, from touchstart to touchend or touchcancel, as long as one that
+// began in the row is down; their pointer events do not count, because a swipe,
+// upright or sideways, sends pointercancel at once while the finger stays down. A
+// pen counts from pointerdown to pointerup or pointercancel, by its pointerId. A
 // mouse press does not pause: it cannot move the row, and its pointerup may come
 // over another element. No wheel listener either: a sideways wheel moves the row
 // and counts as a move, an upright one moves nothing and must not hold the row.
 export default class extends Controller {
   connect() {
     this.held = false // the reader has moved the row
-    this.touching = false // a finger is on the row, by its touch events
-    this.pressing = false // a finger or a pen is on the row, by its pointer events
+    this.touching = false // a finger that began in the row is down
+    this.pens = new Set() // the pointerIds of the pens down on the row
     this.waiting = false // a reveal waits for the hand to lift
     this.position = this.element.scrollLeft // where this controller last left the row
+    // The pause would stick if the touched tab were replaced while the finger
+    // rests: its touchend would go to the detached tab and never reach the row.
+    // Not reachable today, _subnav renders the tabs once and no morph or stream
+    // replaces them. A row whose tabs are replaced live has to end the pause
+    // elsewhere, from touchend and touchcancel on the document.
     this.listeners = {
-      touchstart: () => { this.touching = true },
-      touchend: event => this.touchLifted(event),
-      touchcancel: event => this.touchLifted(event),
-      pointerdown: event => { if (event.pointerType !== "mouse") this.pressing = true },
-      pointerup: event => this.pointerLifted(event),
-      pointercancel: event => this.pointerLifted(event),
+      touchstart: event => this.touched(event),
+      touchend: event => this.touched(event),
+      touchcancel: event => this.touched(event),
+      pointerdown: event => { if (event.pointerType === "pen") this.pens.add(event.pointerId) },
+      pointerup: event => this.penLifted(event),
+      pointercancel: event => this.penLifted(event),
       scroll: () => this.scrolled()
     }
     for (const [type, listener] of Object.entries(this.listeners)) {
@@ -67,27 +74,32 @@ export default class extends Controller {
     for (const [type, listener] of Object.entries(this.listeners)) this.element.removeEventListener(type, listener)
   }
 
+  get paused() {
+    return this.touching || this.pens.size > 0
+  }
+
   resized() {
-    if (this.touching || this.pressing) this.waiting = true
+    if (this.paused) this.waiting = true
     else if (!this.held) this.reveal()
     this.position = this.element.scrollLeft
   }
 
-  touchLifted(event) {
-    // Another finger that began on the row may still be down.
-    this.touching = (event.targetTouches?.length ?? 0) > 0
+  // event.touches lists every finger on the screen with the element it began on.
+  // Not targetTouches: that lists only the fingers on the same tab as this
+  // event's, so a finger lifted from one tab ended the pause of a finger resting
+  // on another, and the row moved under it (review of S4F, Chrome: 188 to 416).
+  touched(event) {
+    this.touching = Array.from(event.touches).some(touch => this.element.contains(touch.target))
     this.lifted()
   }
 
-  pointerLifted(event) {
-    if (event.pointerType === "mouse") return
-    this.pressing = false
-    this.lifted()
+  penLifted(event) {
+    if (this.pens.delete(event.pointerId)) this.lifted()
   }
 
-  // The hand is off the row: the reveal held back while it was down comes now.
+  // The hands are off the row: the reveal held back while one was down comes now.
   lifted() {
-    if (this.touching || this.pressing || !this.waiting) return
+    if (this.paused || !this.waiting) return
     this.waiting = false
     this.resized()
   }
