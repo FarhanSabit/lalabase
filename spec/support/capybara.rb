@@ -62,6 +62,22 @@ module LocalChrome
     options.binary = browser_binary if browser_binary
     options
   end
+
+  # A desktop test browser has a mouse, on every machine. Headless Chrome
+  # answers the media queries hover and pointer from the input devices it
+  # finds: on a Mac a mouse ((hover: hover), (pointer: fine)), on a CI runner
+  # none at all ((hover: none), (pointer: none)). The inbox lays its rows out
+  # for a touch screen under (hover: none) (the "···" always shown, no
+  # checkbox on hover), so the same spec saw the desktop page on a Mac and
+  # the touch page in CI, and four examples of spec/system/inbox_spec.rb were
+  # red in CI only (2026-11-09 to 2026-11-11). Blink's own numbers: hover 2
+  # is "hover", pointer 4 is "fine". Guard: spec/system/test_browser_pointer_spec.rb.
+  MOUSE = '--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4'
+
+  def self.with_mouse(options)
+    options.add_argument(MOUSE)
+    options
+  end
 end
 
 # On macOS nothing is found here and nothing is set: the universal binary works,
@@ -78,6 +94,7 @@ Capybara.register_driver :selenium_chrome_headless do |app|
   options.add_argument('--disable-dev-shm-usage')
   options.add_argument('--disable-gpu')
   options.add_argument('--window-size=1920,1080')
+  LocalChrome.with_mouse(options)
 
   # Disable images and CSS for faster tests
   options.add_preference('profile.default_content_setting_values.images', 2)
@@ -116,6 +133,7 @@ Capybara.register_driver :selenium_chrome_headless_full do |app|
   options.add_argument('--disable-dev-shm-usage')
   options.add_argument('--disable-gpu')
   options.add_argument('--window-size=1440,900')
+  LocalChrome.with_mouse(options)
   Capybara::Selenium::Driver.new(app, browser: :chrome, options: LocalChrome.apply_binary(options))
 end
 
