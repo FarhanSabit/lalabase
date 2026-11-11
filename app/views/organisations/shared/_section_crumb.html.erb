@@ -22,6 +22,16 @@
     crumb repeats that gap under itself, and `[nav+&]` picks the bar's when the bar
     stands right above it. That follows what was rendered, not what was asked for:
     a section with a single tab gets no bar, and the crumb then follows the title box.
+    Measured in spec/system/page_title_edge_spec.rb.
+
+    A long file name breaks inside the line instead of widening the page. Below a
+    file it is the way back, on the file's own page it is the page, and it may have
+    no break point at all. The way back is a flex box, which never gets narrower
+    than the longest unbroken piece of its text: overflow-wrap:anywhere lets the
+    name break between any two characters where it would not fit otherwise, and so
+    makes that piece a single character (break-words would not). The page item is
+    plain text in a box that may shrink (min-w-0), so break-words is enough there.
+    A short label looks as before. Measured on a phone in page_title_edge_spec.
 
     No horizontal margin or padding: the page edge belongs to the layout
     (spec/views/one_page_edge_guard_spec.rb). The page is the one
@@ -30,7 +40,7 @@
 <nav aria-label="<%= t('navigation.section_crumb') %>" class="mb-6 [nav+&]:mb-3.5" data-section-crumb>
   <ol class="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
     <li class="flex items-center gap-x-3">
-      <%= link_to back_path, class: 'inline-flex items-center gap-1.5 font-medium text-cream-600 transition-colors hover:text-cream-900' do %>
+      <%= link_to back_path, class: 'inline-flex items-center gap-1.5 font-medium text-cream-600 transition-colors [overflow-wrap:anywhere] hover:text-cream-900' do %>
         <span aria-hidden="true">‹</span><%= back_label %>
       <% end %>
       <span class="text-cream-400" aria-hidden="true">/</span>

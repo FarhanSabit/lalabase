@@ -101,16 +101,31 @@ RSpec.describe 'Page title edge', type: :system do
     end
   end
 
+  # A file uploaded to the organisation's import by the user.
+  def import_file(*traits, **attributes)
+    ActsAsTenant.with_tenant(organisation) do
+      create(:codebase_import_file, *traits, organisation: organisation, user: user, **attributes)
+    end
+  end
+
   # A page below a section keeps the section's head and adds the crumb line
   # under it: its title stands where the section's stands, and the crumb starts
   # on the title's left edge. Measured at the crumb's link, the first thing the
   # line shows: a padding inside the line moves the text, not the line's box.
+  # Every page below a section: the two role forms, the invitation form and the
+  # eight pages of the import, each with the file it needs
+  # (spec/requests/organisations/management_pages_below_spec.rb).
   it 'puts the title of the pages below a section where "Alle Meetings" puts it, and their crumb on its left edge' do
     organisation.update!(data_import_enabled: true)
-    team, file = ActsAsTenant.with_tenant(organisation) do
-      [create(:role, organisation: organisation, title: 'Team'),
-       create(:codebase_import_file, :with_valid_tickets_xml, organisation: organisation, user: user,
-                                                              original_filename: 'beispiel_tickets.xml')]
+    team = ActsAsTenant.with_tenant(organisation) { create(:role, organisation: organisation, title: 'Team') }
+    tickets = import_file(:with_valid_tickets_xml, original_filename: 'beispiel_tickets.xml')
+    users = import_file(:with_valid_users_xml, original_filename: 'beispiel_users.xml')
+    times = import_file(:with_valid_time_tracking_xml, original_filename: 'beispiel_zeiten.xml')
+    processed_in_project = import_file(:with_valid_tickets_xml, :processed, original_filename: 'beispiel_tickets.xml', project: project)
+    processed = import_file(:with_valid_tickets_xml, :processed, original_filename: 'beispiel_tickets.xml')
+    ActsAsTenant.with_tenant(organisation) do
+      create(:ticket, project: project, organisation: organisation)
+      create(:imported_object, organisation: organisation, metadata: { 'import_file_id' => processed.id })
     end
     reference = edges(organisation_meetings_path(organisation), 'main h1')
 
@@ -118,7 +133,14 @@ RSpec.describe 'Page title edge', type: :system do
       'Neue Rolle' => new_organisation_role_path(organisation),
       'Rolle bearbeiten' => edit_organisation_role_path(organisation, team),
       'Mitglied einladen' => new_organisation_invitation_path(organisation),
-      'Importdatei' => organisation_codebase_import_file_path(organisation, file)
+      'CodebaseHQ Datei hochladen' => new_organisation_codebase_import_file_path(organisation),
+      'Importdatei' => organisation_codebase_import_file_path(organisation, tickets),
+      'User-Import Vorschau' => preview_import_organisation_codebase_import_file_path(organisation, users),
+      'Ticket-Import Preview' => preview_tickets_organisation_codebase_import_file_path(organisation, tickets),
+      'Projekt für Zeit-Einträge-Import auswählen' => select_project_organisation_codebase_import_file_path(organisation, times),
+      'Zeit-Einträge Import Preview' => preview_time_sessions_organisation_codebase_import_file_path(organisation, times, project_id: project.id),
+      'Uploads zuordnen' => assign_uploads_organisation_codebase_import_file_path(organisation, processed_in_project, project_id: project.id),
+      'Import Rollback bestätigen' => rollback_organisation_codebase_import_file_path(organisation, processed)
     }.each do |name, path|
       measured = edges(path, 'main [data-section-crumb] a')
 
@@ -127,6 +149,74 @@ RSpec.describe 'Page title edge', type: :system do
         .to eq([reference['title_left'], reference['title_top']]), "title of #{name}: #{measured.inspect}"
       expect(measured['list_left']).to eq(measured['title_left']), "crumb of #{name}: #{measured.inspect}"
     end
+  end
+
+  # The distance from the crumb line down to the element under it, in whole pixels.
+  def distance_under_crumb
+    page.evaluate_script(<<~JS)
+      (function () {
+        var crumb = document.querySelector('main [data-section-crumb]');
+        var next = crumb.nextElementSibling;
+        while (next && !next.getClientRects().length) { next = next.nextElementSibling; }
+        return next && Math.round(next.getBoundingClientRect().top - crumb.getBoundingClientRect().bottom);
+      })()
+    JS
+  end
+
+  # The content keeps the distance under the crumb that it has under a head
+  # without one (organisations/shared/_section_crumb): 24 px under the title
+  # box, 14 px under a tab bar. On the upload form and the invitation form the
+  # crumb alone holds it; on the role form the form's own mt-6 would hold the
+  # 24 px even without the crumb's margin.
+  it 'keeps the content 24 px under the crumb, and 14 px where a tab bar stands above the crumb' do
+    organisation.update!(data_import_enabled: true)
+
+    {
+      'Neue Rolle' => [new_organisation_role_path(organisation), 24],
+      'CodebaseHQ Datei hochladen' => [new_organisation_codebase_import_file_path(organisation), 24],
+      'Mitglied einladen' => [new_organisation_invitation_path(organisation), 14]
+    }.each do |name, (path, distance)|
+      visit path
+      expect(page).to have_css('main [data-section-crumb]')
+      measured = distance_under_crumb
+
+      expect(measured).to eq(distance), "distance under the crumb of #{name}: #{measured.inspect} px, not #{distance}"
+    end
+  end
+
+  # A file name may have no break point at all, and the crumb shows it twice:
+  # as the way back on the pages below a file, as the page on the file's own
+  # page. Until 2026-11-11 the way back widened the page on a phone
+  # (scrollWidth 508 at 500 px on the ticket preview). The screen is the root's
+  # clientWidth, not window.innerWidth: in the phone emulation innerWidth grows
+  # with a page that is too wide (509 for 509).
+  it 'breaks a long file name in the crumb on a phone instead of widening the page' do
+    organisation.update!(data_import_enabled: true)
+    file_name = 'codebase_export_beispielprojekt_tickets_vollstaendig_2026_11_11.xml'
+    file = import_file(:with_valid_tickets_xml, original_filename: file_name)
+    page.driver.browser.execute_cdp('Emulation.setDeviceMetricsOverride', width: 390, height: 844, deviceScaleFactor: 1, mobile: true)
+
+    {
+      'the way back on the ticket preview' => [preview_tickets_organisation_codebase_import_file_path(organisation, file), 'a'],
+      'the page on the file page' => [organisation_codebase_import_file_path(organisation, file), '[aria-current="page"]']
+    }.each do |place, (path, selector)|
+      name_selector = "main [data-section-crumb] #{selector}"
+      visit path
+      expect(page).to have_css(name_selector, text: file_name)
+      measured = page.evaluate_script(<<~JS)
+        (function () {
+          var name = document.querySelector(#{name_selector.to_json}).getBoundingClientRect();
+          var main = document.querySelector('main').getBoundingClientRect();
+          return { page_width: document.documentElement.scrollWidth, screen_width: document.documentElement.clientWidth,
+                   name_right: Math.round(name.right), main_right: Math.round(main.right) };
+        })()
+      JS
+
+      expect(measured['page_width']).to be <= measured['screen_width'], "#{place}: the page is wider than the phone: #{measured.inspect}"
+      expect(measured['name_right']).to be <= measured['main_right'], "#{place}: the name ends right of main: #{measured.inspect}"
+    end
+  ensure
+    page.driver.browser.execute_cdp('Emulation.clearDeviceMetricsOverride')
   end
 
   # The column heads (user, 2026-11-11): Personen wears the head of "Alle
