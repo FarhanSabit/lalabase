@@ -7,7 +7,7 @@
     own id: the search's frame answer draws it again, because the links carry
     the search (_results). %>
 <div id="people_list_tabs" role="tablist" aria-label="<%= t('views.organisations.people.index.filter_label') %>"
-     class="flex items-end gap-0.5 min-w-0 overflow-x-auto scrollbar-hide -mb-px">
+     class="list-tab-bar__tabs">
   <% People::Directory::KINDS.each do |kind| %>
     <% active = (list_state['kind'] || 'all') == kind %>
     <%= link_to organisation_people_path(@current_organisation, list_state.merge('kind' => (kind == 'all' ? nil : kind)).compact),

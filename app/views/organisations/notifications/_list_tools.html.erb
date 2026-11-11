@@ -10,7 +10,7 @@
         classes: NeoFilterBarComponent.tab_classes). Each is a link to the
         view's address; the strip scrolls when the row is narrow. %>
     <div role="tablist" aria-label="<%= t('views.organisations.notifications.filter.status_label') %>"
-         class="inbox-tabs flex items-end gap-0.5 min-w-0 overflow-x-auto scrollbar-hide -mb-px">
+         class="list-tab-bar__tabs">
       <% Inbox::MasterListPresenter::STATUS_VIEWS.each_key do |view| %>
         <% active = presenter.status_view == view %>
         <%= link_to inbox_status_view_url(view), role: 'tab', 'aria-selected': active.to_s,
@@ -24,7 +24,7 @@
 
     <%# The tools at the right end of the row, before the search (in
         _list_head, the last of them), as on the ticket list. %>
-    <div class="ms-auto self-center flex items-center gap-1">
+    <div class="list-tab-bar__tools">
 
     <%= form_with url: organisation_notifications_path(current_organisation), method: :get,
                   data: { turbo_frame: '_top', controller: 'auto-submit', inbox_tool: 'project' } do %>
@@ -34,7 +34,7 @@
         <%= select_tag :project_id,
                        options_for_select([[t('views.organisations.notifications.filter.all_projects'), '']] +
                                           projects.map { |project| [project.name, project.id] }, params[:project_id]),
-                       class: "inbox-project__select #{'inbox-project__select--active' if params[:project_id].present?}" %>
+                       class: "list-tab-bar__select #{'list-tab-bar__select--active' if params[:project_id].present?}" %>
       </label>
     <% end %>
 
@@ -50,7 +50,7 @@
         <span class="sr-only"><%= t('views.organisations.notifications.filter.period_label') %></span>
         <%= select_tag :period,
                        options_for_select(TimeSessions::ListPeriod.options.map { |key, label| [label.upcase_first, key] }, period),
-                       class: "inbox-project__select #{'inbox-project__select--active' if narrowing}" %>
+                       class: "list-tab-bar__select #{'list-tab-bar__select--active' if narrowing}" %>
       </label>
     <% end %>
 

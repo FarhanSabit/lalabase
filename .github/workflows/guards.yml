@@ -344,6 +344,7 @@ jobs:
           spec/system/test_browser_pointer_spec.rb
           spec/system/page_title_edge_spec.rb
           spec/system/people_tab_bar_spec.rb
+          spec/system/list_tab_bar_wrap_spec.rb
           spec/requests/org_switcher_signal_spec.rb
           spec/requests/notifications_avatar_preload_spec.rb
           spec/requests/organisations/archives_spec.rb
@@ -395,6 +396,7 @@ jobs:
           spec/services/glossary/extraction_spec.rb
           spec/services/actors/start_glossary_extraction_spec.rb
           spec/requests/organisations/glossary_proposals_spec.rb
+          spec/requests/organisations/glossary_list_head_spec.rb
           spec/requests/organisations/glossary_runs_spec.rb
           spec/requests/organisations/documents_glossary_source_spec.rb
           spec/services/actors/correct_meeting_term_spec.rb

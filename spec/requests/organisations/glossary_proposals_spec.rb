@@ -162,16 +162,16 @@ RSpec.describe 'Organisations::Glossary proposals', :ci_guard, type: :request do
 
       expect(response).to have_http_status(:ok)
       expect(listed).to eq(%w[Zorbel-Hub Wub])
-      open_pill = page.at_css('[data-glossary-proposal-status="open"]')
-      expect(open_pill['aria-current']).to eq('true')
-      expect(open_pill['href']).to eq(organisation_glossary_terms_path(organisation, view: 'proposals'))
+      open_tab = page.at_css('[data-glossary-proposal-status="open"]')
+      expect(open_tab['aria-selected']).to eq('true')
+      expect(open_tab['href']).to eq(organisation_glossary_terms_path(organisation, view: 'proposals'))
     end
 
-    it 'names the counts of the three statuses in their pills' do
+    it 'names the counts of the three statuses in their tabs' do
       review_list
 
-      counts = page.css('[data-glossary-proposal-status]').to_h do |pill|
-        [pill['data-glossary-proposal-status'], pill.at_css('.people-pill__count').text]
+      counts = page.css('[data-glossary-proposal-status]').to_h do |tab|
+        [tab['data-glossary-proposal-status'], tab.at_css('.people-pill__count').text]
       end
       expect(counts).to eq('open' => '2', 'accepted' => '1', 'dismissed' => '1')
     end
@@ -181,7 +181,7 @@ RSpec.describe 'Organisations::Glossary proposals', :ci_guard, type: :request do
         review_list(status: status)
 
         expect(listed).to eq(terms)
-        expect(page.at_css(%([data-glossary-proposal-status="#{status}"]))['aria-current']).to eq('true')
+        expect(page.at_css(%([data-glossary-proposal-status="#{status}"]))['aria-selected']).to eq('true')
       end
     end
 

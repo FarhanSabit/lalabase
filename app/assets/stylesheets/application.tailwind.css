@@ -420,11 +420,25 @@
   .people-head__action { margin-inline-start: auto; }
   .people-tools { @apply flex flex-wrap items-center gap-2 pb-3 pt-4; }
   /* The bar of the ticket list (NeoFilterBarComponent) on a list without the
-     filter bar, the inbox and Personen (user, 2026-11-10/11): the tabs stand
-     on the row's divider (their 2 px ink line lies on it, -mb-px on the
-     strip), tools and search centred at the right end. One row: the tab
-     strip scrolls rather than wrap. Here, after .people-tools, so it wins. */
-  .list-tab-bar { @apply relative min-h-[40px] flex-nowrap items-end gap-2 border-b border-divider pb-0; }
+     filter bar, the inbox, Personen and Glossar (user, 2026-11-10/11): the
+     tabs stand on the row's divider (their 2 px ink line lies on it, -mb-px
+     on the strip), tools and search centred at the right end. Here, after
+     .people-tools, so it wins.
+     One row while the tools fit beside the tabs; where they do not (a phone,
+     a list beside an open lane), the tools move to a line ABOVE the tabs
+     (wrap-reverse), so the tabs stay on the divider and nothing is squeezed
+     (rule 7: moved, not shrunk). Until 2026-11-11 the row never wrapped, and
+     on a phone the inbox's selects pushed its tabs down to "Alle Ung".
+     wrap-reverse swaps the cross axis: flex-start is the bottom of a line. */
+  .list-tab-bar { @apply relative min-h-[40px] flex-wrap-reverse items-start gap-2 border-b border-divider pb-0; }
+  /* The tab strip; it scrolls sideways when the tabs alone are wider than the row. */
+  .list-tab-bar__tabs { @apply scrollbar-hide flex min-w-0 items-end gap-0.5 overflow-x-auto -mb-px; }
+  /* The tools at the right end, before the search where there is one. */
+  .list-tab-bar__tools { @apply ms-auto flex items-center gap-1 self-center; }
+  /* A select among the tools: a word with a chevron, no box, the size of a
+     pill (.people-pill) beside it; tinted while it narrows the list. */
+  .list-tab-bar__select { @apply w-auto max-w-[11rem] cursor-pointer truncate rounded-full border-0 bg-transparent py-1 pl-3 pr-7 text-[13px] text-heading hover:bg-cream-100 focus:ring-0; background-position: right 0.4rem center; }
+  .list-tab-bar__select--active { @apply font-semibold; background-color: rgb(var(--selected-row)); }
   .people-filters { @apply flex flex-wrap items-center gap-2; }
   .people-pill { @apply inline-flex items-baseline gap-1.5 rounded-full px-3 py-1 text-[13px] text-heading no-underline hover:bg-cream-100; }
   .people-pill--active { @apply font-semibold; background-color: rgb(var(--selected-row)); }
@@ -441,6 +455,9 @@
   .people-columns { @apply flex items-center gap-3 border-b border-ink pb-1.5; }
   /* Under the bar the heads keep the air the tools row gave them. */
   .list-tab-bar + turbo-frame .people-columns { @apply pt-3; }
+  /* The bar's divider is the line above the rows: a list right under it drops
+     its own ink line (the glossary; the inbox does the same in its block). */
+  .list-tab-bar + turbo-frame > .people-list:first-child { border-top-width: 0; }
   .people-columns + .people-list { border-top-width: 0; }
   .people-columns__head--name { @apply min-w-0 flex-1; padding-inline-start: 42px; }
   .people-columns__head--last { @apply w-[120px] flex-none text-end; }
@@ -546,8 +563,6 @@
   /* The divider of the bar is the line above the rows; the list's own ink
      line would stand right under it as a second one. */
   .inbox-list-column .people-list { border-top-width: 0; }
-  .inbox-project__select { @apply w-auto max-w-[11rem] cursor-pointer truncate rounded-full border-0 bg-transparent py-1 pl-3 pr-7 text-[13px] text-heading hover:bg-cream-100 focus:ring-0; background-position: right 0.4rem center; }
-  .inbox-project__select--active { @apply font-semibold; background-color: rgb(var(--selected-row)); }
 
   /* The selection row lies over the tools row (same box, the page's own
      surface), so the list never moves. Its text sits on the tools' last line,
@@ -662,9 +677,7 @@
    (people-* above, the wrapper carries people-page too), plus what only a
    glossary has: the status of a term, its heard forms and the merge form. */
 @layer components {
-  .glossary-tools { @apply gap-3; }
-  .glossary-filters { @apply flex flex-wrap items-center gap-2; }
-  .glossary-filters__select { @apply w-auto py-1.5 pr-8 text-[13px]; }
+  .glossary-filters { @apply flex items-center gap-1; }
   .glossary-row { @apply items-start; }
   .glossary-row--rejected .people-row__name { @apply text-muted line-through; }
   .glossary-row__head { @apply flex min-w-0 flex-wrap items-center gap-1.5; }

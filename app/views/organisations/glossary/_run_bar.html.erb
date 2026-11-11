@@ -16,7 +16,7 @@
 <% status_id = 'glossary-run-status' %>
 <% reason_id = 'glossary-run-reason' %>
 <% described_by = if active then status_id elsif ai_reason then reason_id end %>
-<%= tag.div class: 'mx-6 mb-3 flex flex-col gap-1.5 rounded-lg border border-cream-300 bg-cream-50 px-3 py-2.5',
+<%= tag.div class: 'my-3 flex flex-col gap-1.5 rounded-lg border border-cream-300 bg-cream-50 px-3 py-2.5',
             data: { glossary_run_bar: true, controller: 'glossary-run-poll', glossary_run_poll_active_value: active.to_s,
                     glossary_run_poll_url_value: organisation_glossary_terms_path(@current_organisation, list_state),
                     glossary_run_poll_frame_value: Organisations::GlossaryController::LIST_FRAME_ID } do %>
