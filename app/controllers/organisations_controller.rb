@@ -115,6 +115,28 @@ class OrganisationsController < ApplicationController
   def management_section_path(organisation, key)
     return unless key.is_a?(String) && helpers.can_manage_organisation?(organisation)
 
-    helpers.organisation_settings_tabs(organisation).find { |tab| tab[:key].to_s == key }&.dig(:path)
+    section = helpers.organisation_settings_tabs(organisation).find { |tab| tab[:key].to_s == key }
+    return unless section && management_section_permitted?(organisation, section[:key])
+
+    section[:path]
+  end
+
+  # Ask the destination's policy against the destination tenant. Permission to
+  # enter management does not grant every section, and a denial would send the
+  # reader back to the organisation they just left.
+  def management_section_permitted?(organisation, key)
+    ActsAsTenant.with_tenant(organisation) do
+      case key
+      when :general then OrganisationPolicy.new(current_user, organisation).update?
+      when :members then MembershipPolicy.new(current_user, Membership).index?
+      when :roles then RolePolicy.new(current_user, Role).index?
+      when :archive then OrganisationPolicy.new(current_user, organisation).admin?
+      when :appearance then OrganisationPolicy.new(current_user, organisation).show?
+      when :ai then AiOverviewPolicy.new(current_user, organisation).show?
+      when :import then CodebaseImportFilePolicy.new(current_user, CodebaseImportFile).index?
+      when :billing then organisation.account.present? && AccountPolicy.new(current_user, organisation.account).show_overview?
+      else false
+      end
+    end
   end
 end
