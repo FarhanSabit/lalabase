@@ -26,7 +26,8 @@
   .members-layout { display: grid; grid-template-columns: minmax(0, 1fr); max-width: var(--width-capped-wide); gap: 24px; align-items: start; }
   .members-list { min-width: 0; }
   .members-table { width: 100%; table-layout: fixed; border-collapse: collapse; }
-  .members-table th { @apply column-head border-b border-ink pb-3 text-left; }
+  /* The type is the column head's, on each cell (.column-head, F43). */
+  .members-table th { @apply border-b border-ink pb-3 text-left; }
   .members-table td { padding: 12px 0; @apply border-b border-cream-200; }
   .members-table td:first-child { padding-right: 16px; }
   .members-col-role { width: 164px; padding-right: 16px !important; }

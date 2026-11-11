@@ -28,19 +28,19 @@
     <table class="min-w-full divide-y divide-black border border-stroke">
       <thead class="bg-gray-200">
         <tr>
-          <th scope="col" class="px-6 py-4 text-start text-xs font-medium text-cream-900 uppercase tracking-wider">
+          <th scope="col" class="column-head px-6 py-4 text-start">
             <%= sortable "smart_folders.name", t('activerecord.attributes.smart_folder.name') %>
           </th>
-          <th scope="col" class="px-6 py-4 text-start text-xs font-medium text-cream-900 uppercase tracking-wider">
+          <th scope="col" class="column-head px-6 py-4 text-start">
             <%= t('activerecord.attributes.smart_folder.description') %>
           </th>
-          <th scope="col" class="px-6 py-4 text-start text-xs font-medium text-cream-900 uppercase tracking-wider">
+          <th scope="col" class="column-head px-6 py-4 text-start">
             <%= t('activerecord.attributes.smart_folder.project') %>
           </th>
-          <th scope="col" class="px-6 py-4 text-start text-xs font-medium text-cream-900 uppercase tracking-wider">
+          <th scope="col" class="column-head px-6 py-4 text-start">
             <%= sortable "smart_folders.updated_at", t('activerecord.attributes.smart_folder.updated_at') %>
           </th>
-          <th scope="col" class="w-24 px-6 py-4 text-start text-xs font-medium text-cream-900 uppercase tracking-wider">
+          <th scope="col" class="column-head w-24 px-6 py-4 text-start">
             <%= t('generic.actions', default: 'Aktionen') %>
           </th>
         </tr>

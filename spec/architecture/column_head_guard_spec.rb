@@ -14,8 +14,9 @@ require 'rails_helper'
 #
 # What this holds:
 #   A. Every head cell of a table (a <th> inside <thead>) in a template or a
-#      component carries column-head. The cells without it per file on
-#      2026-11-11 stand in HEAD_LEGACY, which may only shrink.
+#      component carries column-head. The cells without it per file stand in
+#      HEAD_LEGACY, which may only shrink (90 cells in 18 files when the
+#      class came, 42 in 7 by the end of the same day).
 #   B. The recipe of the column head (font-mono, text-[11px], uppercase and
 #      tracking-wider in one class list) is written nowhere but in
 #      .column-head: not in a template, a component, a helper or a
@@ -42,38 +43,24 @@ module ColumnHeads
 
   # Head cells without column-head, per file, on 2026-11-11. Only shrinks:
   # a file that moves to the class lowers its entry, a count too high is red
-  # as well.
+  # as well. What is left are working views of their own: the import pages,
+  # the two matrices (heads in two directions), the AI quota history, and the
+  # tag pages, which no navigation links to and which raise as soon as an
+  # organisation has a tag (url_for with a hash in shared/_sortable_header).
   HEAD_LEGACY = {
-    'app/components/objekt_navigation_component.html.erb' => 1,
-    'app/components/overview/projects_table_component.html.erb' => 5,
     'app/views/organisations/access_matrix/index.html.erb' => 2,
-    'app/views/organisations/archives/index.html.erb' => 4,
-    'app/views/organisations/codebase_import_files/_import_files_table.html.erb' => 7,
     'app/views/organisations/codebase_import_files/preview_import.html.erb' => 4,
-    'app/views/organisations/codebase_import_files/preview_time_sessions.html.erb' => 8,
     'app/views/organisations/codebase_import_files/show.html.erb' => 25,
     'app/views/organisations/glossary/_import_preview.html.erb' => 4,
-    'app/views/organisations/memberships/index.html.erb' => 2,
-    'app/views/organisations/project_permissions/index.html.erb' => 4,
-    'app/views/organisations/project_repositories/index_runs.html.erb' => 1,
-    'app/views/organisations/prompt_personas/index.html.erb' => 4,
-    'app/views/organisations/roles/index.html.erb' => 6,
-    'app/views/organisations/smart_folders/index.html.erb' => 5,
+    'app/views/organisations/roles/index.html.erb' => 2,
     'app/views/organisations/tags/index.html.erb' => 2,
-    'app/views/organisations/time_sessions/_billing_overview_panel.html.erb' => 3,
     'app/views/shared/ai/_quota_history.html.erb' => 3
   }.freeze
 
   # The recipe written out, per file, on 2026-11-11. Only shrinks.
   RECIPE_LEGACY = {
-    'app/components/overview/projects_table_component.html.erb' => 5,
-    'app/views/organisations/archives/index.html.erb' => 4,
-    'app/views/organisations/codebase_import_files/_import_files_table.html.erb' => 7,
-    'app/views/organisations/roles/index.html.erb' => 5,
-    'app/views/organisations/time_session_groups/_groups_list.html.erb' => 1,
-    'app/views/organisations/time_session_groups/aggregated.html.erb' => 1,
-    'app/views/organisations/time_session_groups/chronological.html.erb' => 1,
-    'app/views/organisations/time_session_groups/customer_export.html.erb' => 1,
+    # The corner of the roles matrix, with the matrix's heads above.
+    'app/views/organisations/roles/index.html.erb' => 1,
     # Labels of the same look, no column heads: the group words of the bulk
     # edit menu and the figure labels of a billing.
     'app/views/organisations/tickets/bulk_edit.html.erb' => 1,
