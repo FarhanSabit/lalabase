@@ -81,6 +81,54 @@ RSpec.describe 'Page title edge', type: :system do
     end
   end
 
+  # The other sections. Import shows only where it is switched on for the organisation.
+  it 'puts the title of Rollen und Rechte, its matrix, Archiv, Darstellung and Import where "Alle Meetings" puts it' do
+    organisation.update!(data_import_enabled: true)
+    reference = edges(organisation_meetings_path(organisation), 'main h1')
+
+    {
+      'Rollen und Rechte' => organisation_roles_path(organisation),
+      'Rechte-Matrix' => organisation_roles_path(organisation, view: 'matrix'),
+      'Archiv' => organisation_archives_path(organisation),
+      'Darstellung' => organisation_appearance_path(organisation),
+      'Import' => organisation_codebase_import_files_path(organisation)
+    }.each do |name, path|
+      measured = edges(path, 'main h1')
+
+      expect(page).to have_css('#sidebar [data-management-nav]')
+      expect([measured['title_left'], measured['title_top']])
+        .to eq([reference['title_left'], reference['title_top']]), "title of #{name}: #{measured.inspect}"
+    end
+  end
+
+  # A page below a section keeps the section's head and adds the crumb line
+  # under it: its title stands where the section's stands, and the crumb starts
+  # on the title's left edge. Measured at the crumb's link, the first thing the
+  # line shows: a padding inside the line moves the text, not the line's box.
+  it 'puts the title of the pages below a section where "Alle Meetings" puts it, and their crumb on its left edge' do
+    organisation.update!(data_import_enabled: true)
+    team, file = ActsAsTenant.with_tenant(organisation) do
+      [create(:role, organisation: organisation, title: 'Team'),
+       create(:codebase_import_file, :with_valid_tickets_xml, organisation: organisation, user: user,
+                                                              original_filename: 'beispiel_tickets.xml')]
+    end
+    reference = edges(organisation_meetings_path(organisation), 'main h1')
+
+    {
+      'Neue Rolle' => new_organisation_role_path(organisation),
+      'Rolle bearbeiten' => edit_organisation_role_path(organisation, team),
+      'Mitglied einladen' => new_organisation_invitation_path(organisation),
+      'Importdatei' => organisation_codebase_import_file_path(organisation, file)
+    }.each do |name, path|
+      measured = edges(path, 'main [data-section-crumb] a')
+
+      expect(page).to have_css('#sidebar [data-management-nav]')
+      expect([measured['title_left'], measured['title_top']])
+        .to eq([reference['title_left'], reference['title_top']]), "title of #{name}: #{measured.inspect}"
+      expect(measured['list_left']).to eq(measured['title_left']), "crumb of #{name}: #{measured.inspect}"
+    end
+  end
+
   # The column heads (user, 2026-11-11): Personen wears the head of "Alle
   # Meetings" (.column-head, F43), in its type and at its distance from the
   # tab row and from the ink line below. Until then it had two plain words of
