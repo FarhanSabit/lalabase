@@ -46,6 +46,47 @@ RSpec.describe NeoTitleBoxComponent, type: :component do
     expect(page).to have_css('#action-btn', text: 'Neu')
   end
 
+  # One order in every head (user, 2026-11-11): the page's tools first, the
+  # main action outermost, as on the tickets and the time list. Until then a
+  # title action stood before the tools on "Alle Meetings", Meetings, Wissen,
+  # Personen and Glossar.
+  describe 'the main action' do
+    it 'stands after the tools, in its own box: 12 px from them, 3 px from the edge for its shadow' do
+      render_inline(described_class.new(title: 'Meetings')) do |c|
+        c.with_title_action { '<a id="main-action" href="/new">+</a>'.html_safe }
+        c.with_right_content { '<button id="help">?</button>'.html_safe }
+      end
+
+      expect(page.all('#help, #main-action').map { |node| node[:id] }).to eq(%w[help main-action])
+      box = page.find('#main-action').find(:xpath, '..')
+      expect(box[:class]).to eq(described_class::TITLE_ACTION_CLASSES)
+      expect(box[:class].split).to include('ms-1', 'me-[3px]')
+    end
+
+    it 'stands outermost in both groups of the three-column head' do
+      render_inline(described_class.new(title: 'Meetings')) do |c|
+        c.with_title_action { '<a class="main-action" href="/new">+</a>'.html_safe }
+        c.with_right_content { '<button class="help">?</button>'.html_safe }
+        c.with_center_content { '<span>Mitte</span>'.html_safe }
+      end
+
+      groups = page.all('div.gap-2', visible: :all).select { |group| group.has_css?('.main-action', visible: :all) }
+      expect(groups.size).to eq(2)
+      groups.each do |group|
+        expect(group.all('.help, .main-action', visible: :all).map { |node| node[:class] }).to eq(%w[help main-action])
+      end
+    end
+
+    it 'renders the tools alone without a main action, and the main action alone without tools' do
+      render_inline(described_class.new(title: 'Meetings')) { |c| c.with_right_content { '<button id="help">?</button>'.html_safe } }
+      expect(page).to have_css('#help')
+      expect(page).to have_no_css(".#{described_class::TITLE_ACTION_CLASSES.split.first}")
+
+      render_inline(described_class.new(title: 'Meetings')) { |c| c.with_title_action { '<a id="main-action" href="/new">+</a>'.html_safe } }
+      expect(page).to have_css('#main-action')
+    end
+  end
+
   describe 'wrapper spacing' do
     it 'defaults to mb-6 with no top offset' do
       render_inline(described_class.new(title: 'Tickets'))

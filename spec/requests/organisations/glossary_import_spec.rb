@@ -124,7 +124,9 @@ RSpec.describe 'Organisations::Glossary import', :ci_guard, type: :request do
       end
     end
 
-    it 'leaves the head with the title, the "+" and the "···" and nothing else to click' do
+    # The "+" outermost, after the "···", as on a phone and on every other
+    # head (NeoTitleBoxComponent, 2026-11-11).
+    it 'leaves the head with the title, the "···" and the "+" and nothing else to click' do
       sign_in manager
       create(:glossary_term, organisation: organisation, term: 'Zorbel')
 
@@ -133,7 +135,7 @@ RSpec.describe 'Organisations::Glossary import', :ci_guard, type: :request do
       head = page.at_css('.people-head')
       expect(head.at_css('h1').text.squish).to eq(I18n.t('views.organisations.glossary.index.title'))
       expect(head.css('a').map { |a| a['title'] || a.text.squish })
-        .to eq([I18n.t('views.organisations.glossary.index.new_term'), I18n.t("#{gi}.open")])
+        .to eq([I18n.t("#{gi}.open"), I18n.t('views.organisations.glossary.index.new_term')])
     end
 
     it 'keeps the "+" beside the "···" on a phone, both 40 px' do
