@@ -91,6 +91,26 @@ module NavigationHelper
     ai_overviews ai_settings ai_sync_statuses prompt_personas ai_usages ai_protocols ai_configurations
   ].freeze
 
+  # The tab row of the AI section (doc/verwaltung_seitennavigation_plan.md §2.3, S3): a
+  # section with pages of its own gets a tab row, as the times area has one. The hub comes
+  # first as "Übersicht", then its pages in the order of its rows. This supersedes N1 of
+  # doc/ki_bereich_navigation_plan.md §3.2 (the hub and no second tab row), decided for the
+  # AI area alone on 2026-08-01 and replaced by the user on 2026-11-11; the hub stays the
+  # first tab.
+  #
+  # `needs_ai:` marks the pages that only mean something while AI runs. With AI off their
+  # tabs stay in the row but locked, as the hub's rows are (§7a, 2): a prospect sees what
+  # they would get. Zugang and Protokoll stay open, as on the hub: the access is prepared
+  # before switching on, and the protocol keeps the record of a switch-off.
+  AI_SECTION_TABS = [
+    { key: :overview, label_key: 'views.organisations.ai_overview.pages.overview', path_helper: :organisation_ai_overview_path },
+    { key: :access,   label_key: 'views.organisations.ai_overview.pages.access',   path_helper: :organisation_ai_settings_path },
+    { key: :usage,    label_key: 'views.organisations.ai_overview.usage.title',    path_helper: :organisation_ai_usage_path, needs_ai: true },
+    { key: :index,    label_key: 'views.organisations.ai_overview.pages.index',    path_helper: :organisation_ai_sync_status_path, needs_ai: true },
+    { key: :personas, label_key: 'views.organisations.ai_overview.pages.personas', path_helper: :organisation_prompt_personas_path, needs_ai: true },
+    { key: :protocol, label_key: 'views.organisations.ai_overview.protocol.title', path_helper: :organisation_ai_protocol_path }
+  ].each(&:freeze).freeze
+
   # Pages below a section that are no section of their own: the section they belong to
   # stays marked in the sidebar while they are open. The access overview and the
   # invitation form belong to the members; every page of the AI area to "KI".
@@ -158,6 +178,21 @@ module NavigationHelper
                 path: organisation_access_matrix_index_path(org) }
     end
     tabs
+  end
+
+  # The tabs of the AI section (AI_SECTION_TABS), a locked tab with the reason it is
+  # locked. No policy per tab, unlike the members and the times area: every page of the
+  # section answers account_admin? (app/policies/ai_*_policy.rb, PromptPersonaPolicy#index?),
+  # the gate of each page that shows the row. And no query: the lock reads the column
+  # ai_enabled and nothing else.
+  def ai_section_tabs(org)
+    ai_off = !org.ai_enabled?
+    AI_SECTION_TABS.map do |tab|
+      entry = { key: tab[:key], label: t(tab[:label_key]), path: public_send(tab[:path_helper], org) }
+      next entry unless ai_off && tab[:needs_ai]
+
+      entry.merge(locked: true, locked_title: t('views.organisations.ai_overview.tabs.locked'))
+    end
   end
 
   # Where "‹ Zurück" of the management list leads: the app page the reader came from

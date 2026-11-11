@@ -13,10 +13,18 @@ de:
         # „AI Sync Status" ist Implementierungssprache — der Nutzer will wissen,
         # ob seine Inhalte durchsuchbar sind, nicht ob ein Sync gelaufen ist.
         pages:
+          # The hub as the first tab of the section (NavigationHelper#ai_section_tabs).
+          # access, index and personas name three more tabs, usage.title and
+          # protocol.title the other two.
+          overview: "Übersicht"
           access: "Zugang"
           index: "Indexierung"
           personas: "Chat-Personas"
           switch: "Wechsel bestätigen"
+        # The tab row of the section (NavigationHelper#ai_section_tabs): why a tab is
+        # locked while AI is off, as its tooltip and once more for screen readers.
+        tabs:
+          locked: "Öffnet sich, sobald die KI eingeschaltet ist"
         # EIN Stringsatz für den Kasten „KI ist aus", nicht einer je Seite. Er stand
         # zweimal wortgleich (Übersicht, Verbrauch), und der Einrichtungs-Screen aus S7
         # wäre das dritte Vorkommen gewesen. Die früheren seitenspezifischen Sätze

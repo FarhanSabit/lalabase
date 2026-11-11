@@ -12,10 +12,18 @@ en:
         # "AI Sync Status" is implementation language — what the admin wants to
         # know is whether their content is searchable, not whether a sync ran.
         pages:
+          # The hub as the first tab of the section (NavigationHelper#ai_section_tabs).
+          # access, index and personas name three more tabs, usage.title and
+          # protocol.title the other two.
+          overview: "Overview"
           access: "Access"
           index: "Indexing"
           personas: "Chat personas"
           switch: "Confirm switch"
+        # The tab row of the section (NavigationHelper#ai_section_tabs): why a tab is
+        # locked while AI is off, as its tooltip and once more for screen readers.
+        tabs:
+          locked: "Opens once AI is switched on"
         # ONE string set for the "AI is off" box, not one per page. It stood twice
         # word-for-word (overview, usage), and S7's setup screen would have been the
         # third occurrence. The former page-specific sentences ("the cards below stay
