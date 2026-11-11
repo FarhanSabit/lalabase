@@ -16,7 +16,12 @@ require 'rails_helper'
 #   A. Every head cell of a table (a <th> inside <thead>) in a template or a
 #      component carries column-head. The cells without it per file stand in
 #      HEAD_LEGACY, which may only shrink (90 cells in 18 files when the
-#      class came, 42 in 7 by the end of the same day).
+#      class came, 2 by the end of the same day).
+#      One exception, by decision (user, 2026-11-11): the head of a matrix
+#      that names a thing (a project of the access matrix, a role of the
+#      roles matrix) is a name, not the label of a column, and keeps its own
+#      look. It says so with data-matrix-head, and only the files of
+#      MATRIX_FILES may say it, so the attribute is no way around the class.
 #   B. The recipe of the column head (font-mono, text-[11px], uppercase and
 #      tracking-wider in one class list) is written nowhere but in
 #      .column-head: not in a template, a component, a helper or a
@@ -43,29 +48,26 @@ module ColumnHeads
 
   # Head cells without column-head, per file, on 2026-11-11. Only shrinks:
   # a file that moves to the class lowers its entry, a count too high is red
-  # as well. What is left are working views of their own: the import pages,
-  # the two matrices (heads in two directions), the AI quota history, and the
-  # tag pages, which no navigation links to and which raise as soon as an
-  # organisation has a tag (url_for with a hash in shared/_sortable_header).
+  # as well. Left are the tag pages, which no navigation links to and which
+  # raise as soon as an organisation has a tag (url_for with a hash in
+  # shared/_sortable_header): repair or removal is a decision of its own.
   HEAD_LEGACY = {
-    'app/views/organisations/access_matrix/index.html.erb' => 2,
-    'app/views/organisations/codebase_import_files/preview_import.html.erb' => 4,
-    'app/views/organisations/codebase_import_files/show.html.erb' => 25,
-    'app/views/organisations/glossary/_import_preview.html.erb' => 4,
-    'app/views/organisations/roles/index.html.erb' => 2,
-    'app/views/organisations/tags/index.html.erb' => 2,
-    'app/views/shared/ai/_quota_history.html.erb' => 3
+    'app/views/organisations/tags/index.html.erb' => 2
   }.freeze
 
   # The recipe written out, per file, on 2026-11-11. Only shrinks.
   RECIPE_LEGACY = {
-    # The corner of the roles matrix, with the matrix's heads above.
-    'app/views/organisations/roles/index.html.erb' => 1,
     # Labels of the same look, no column heads: the group words of the bulk
     # edit menu and the figure labels of a billing.
     'app/views/organisations/tickets/bulk_edit.html.erb' => 1,
     'app/views/organisations/time_session_groups/_header.html.erb' => 1
   }.freeze
+
+  # The matrices, whose heads name a thing (data-matrix-head). Closed.
+  MATRIX_FILES = %w[
+    app/views/organisations/access_matrix/index.html.erb
+    app/views/organisations/roles/index.html.erb
+  ].freeze
 
   module_function
 
@@ -111,8 +113,10 @@ module ColumnHeads
   end
 
   def heads_without_class(text)
-    head_cells(text).count { |tag| !class_words(tag).include?('column-head') }
+    head_cells(text).count { |tag| !class_words(tag).include?('column-head') && !matrix_head?(tag) }
   end
+
+  def matrix_head?(tag) = tag.match?(/\sdata-matrix-head[\s>=]/)
 
   # Every quoted string (one line) whose words hold the whole recipe.
   def recipe_copies(text)
@@ -172,6 +176,16 @@ RSpec.describe 'column head guard' do
       MSG
     end
 
+    it 'name a thing as a matrix head only in the matrices' do
+      marked = ColumnHeads.files.select { |path| ColumnHeads.read(path).include?('data-matrix-head') }
+
+      expect(marked).to match_array(ColumnHeads::MATRIX_FILES)
+      ColumnHeads::MATRIX_FILES.each do |path|
+        cells = ColumnHeads.head_cells(ColumnHeads.read(path))
+        expect(cells.count { |tag| ColumnHeads.matrix_head?(tag) }).to be >= 2, path
+      end
+    end
+
     it 'are read at all: the heads of the tickets, the meetings and Wissen, with the class' do
       %w[app/views/organisations/tickets/_tickets_results.html.erb
          app/views/organisations/meetings/_meetings_table.html.erb
@@ -224,6 +238,12 @@ RSpec.describe 'column head guard' do
       ERB
 
       expect(ColumnHeads.head_cells(text).size).to eq(2)
+      expect(ColumnHeads.heads_without_class(text)).to eq(1)
+    end
+
+    it 'take a head marked as a matrix head for one with the class' do
+      text = '<table><thead><tr><th class="am-colhead" data-matrix-head>P</th><th class="x">Q</th></tr></thead></table>'
+
       expect(ColumnHeads.heads_without_class(text)).to eq(1)
     end
 
