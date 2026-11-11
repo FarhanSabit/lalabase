@@ -48,16 +48,16 @@
   <table class="min-w-full border-collapse">
     <thead>
       <tr>
-        <th scope="col" class="px-4 py-4 first:ps-0 last:pe-0 text-start text-[11px] font-mono font-medium uppercase tracking-wider text-cream-600 border-b border-ink">
+        <th scope="col" class="column-head px-4 py-4 first:ps-0 last:pe-0 text-start border-b border-ink">
           <%= t('.table_headers.title') %>
         </th>
-        <th scope="col" class="px-4 py-4 first:ps-0 last:pe-0 text-start text-[11px] font-mono font-medium uppercase tracking-wider text-cream-600 border-b border-ink">
+        <th scope="col" class="column-head px-4 py-4 first:ps-0 last:pe-0 text-start border-b border-ink">
           <%= t('.table_headers.description') %>
         </th>
-        <th scope="col" class="px-4 py-4 first:ps-0 last:pe-0 text-start text-[11px] font-mono font-medium uppercase tracking-wider text-cream-600 border-b border-ink">
+        <th scope="col" class="column-head px-4 py-4 first:ps-0 last:pe-0 text-start border-b border-ink">
           <%= t('.table_headers.default') %>
         </th>
-        <th scope="col" class="w-24 px-4 py-4 first:ps-0 last:pe-0 text-start text-[11px] font-mono font-medium uppercase tracking-wider text-cream-600 border-b border-ink">
+        <th scope="col" class="column-head w-24 px-4 py-4 first:ps-0 last:pe-0 text-start border-b border-ink">
           <%= t('.table_headers.actions') %>
         </th>
       </tr>
@@ -154,13 +154,13 @@
         <thead class="bg-cream-100">
           <tr>
             <!-- First cell is empty (corner between permissions and roles) -->
-            <th class="px-4 py-3 text-left bg-cream-100 border-b border-r border-ink sticky left-0 z-sticky" style="min-width: 320px;">
-              <div class="text-[11px] font-mono font-medium uppercase tracking-wider text-cream-600"><%= t('.matrix.permissions_roles_header') %></div>
+            <th class="px-4 py-3 text-left bg-cream-100 border-b border-r border-ink sticky left-0 z-sticky" style="min-width: 320px;" data-matrix-head>
+              <div class="column-head"><%= t('.matrix.permissions_roles_header') %></div>
             </th>
 
             <!-- Column headers for each role -->
             <% sorted_roles.each do |role| %>
-              <th class="px-4 py-3 text-center border-b border-ink border-r border-cream-200 min-w-[120px]">
+              <th class="px-4 py-3 text-center border-b border-ink border-r border-cream-200 min-w-[120px]" data-matrix-head>
                 <div class="font-semibold
                           <%= role.account_admin? ? 'text-purple-800' : (role.is_default ? 'text-green-800' : 'text-cream-800') %>">
                   <%= role.title %>

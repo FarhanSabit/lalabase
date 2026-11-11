@@ -1111,16 +1111,13 @@
     text-overflow: ellipsis;
   }
   
-  /* Table head — Mono + medium weight. cream-600, not a slate: slate is a COOL
+  /* Table head: the air only. The type is the column head's (.column-head in
+     application.tailwind.css, F43), which every head cell of these tables
+     carries; it used to be set here a second time, in 0.7rem against the
+     cells' 11px (2026-11-11). cream-600 there, not a slate: slate is a COOL
      grey, and it was the one cool thing left on a warm surface (designer,
-     07.09.2026). The token also keeps the head readable in the dark theme,
-     where a fixed #334155 would be a dark grey on a dark ground. */
+     07.09.2026). */
   .list table th {
-    font-weight: 500;
-    color: rgb(var(--cream-600));
-    text-transform: uppercase;
-    font-size: 0.7rem;
-    letter-spacing: 0.05em;
     padding-top: 0.4rem !important;
     padding-bottom: 0.4rem !important;
   }

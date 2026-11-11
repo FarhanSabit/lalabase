@@ -3,6 +3,18 @@
 @tailwind utilities;
 @tailwind style;
 
+/* Shared pieces of every list page. */
+@layer components {
+  /* The head of a column (user, 2026-11-11): small mono capitals in the muted
+     tone, the one look of every table head and list head ("Alle Meetings",
+     the tickets, Wissen, Personen). Only the type lives here; the padding
+     stays with its table, because a head stands flush with its cells. Written
+     out by hand in each template it had drifted into five looks, and the
+     people list had a sixth of its own. F43 in doc/belegungstabelle_oberflaeche.md;
+     guard: spec/architecture/column_head_guard_spec.rb. */
+  .column-head { @apply font-mono text-[11px] font-medium uppercase tracking-wider text-muted; }
+}
+
 /* Verwaltung / Mitglieder: compact rows and a contextual membership lane. */
 @layer components {
   .members-toolbar { max-width: var(--width-capped-wide); @apply flex flex-wrap items-center justify-between gap-4 mb-5; }
@@ -14,7 +26,8 @@
   .members-layout { display: grid; grid-template-columns: minmax(0, 1fr); max-width: var(--width-capped-wide); gap: 24px; align-items: start; }
   .members-list { min-width: 0; }
   .members-table { width: 100%; table-layout: fixed; border-collapse: collapse; }
-  .members-table th { @apply border-b border-ink pb-3 text-left text-[11px] font-mono font-medium uppercase tracking-wider text-muted; }
+  /* The type is the column head's, on each cell (.column-head, F43). */
+  .members-table th { @apply border-b border-ink pb-3 text-left; }
   .members-table td { padding: 12px 0; @apply border-b border-cream-200; }
   .members-table td:first-child { padding-right: 16px; }
   .members-col-role { width: 164px; padding-right: 16px !important; }
@@ -451,17 +464,21 @@
   .people-row__name { @apply truncate text-sm font-medium text-heading; }
   .people-row__sub { @apply truncate text-xs text-muted; }
   /* S2a: the column heads (Name, Zuletzt) sort the list; the ink line moves
-     from the list to the heads. Two plain words, the active one in ink. */
-  .people-columns { @apply flex items-center gap-3 border-b border-ink pb-1.5; }
+     from the list to the heads. Since 2026-11-11 they wear the column head
+     (.column-head, the type of "Alle Meetings") and its air: the words stand
+     as far below the tab row and above the ink line as the meetings' heads.
+     The active one in ink with its arrow. */
+  /* Measured against "Alle Meetings" (2026-11-11): the word 36 px below the tab
+     row and 21 px above the ink line; the arrow makes the line box taller. */
+  .people-columns { @apply flex items-center gap-3 border-b border-ink pb-[15px] pt-[31px]; }
   /* Under the bar the heads keep the air the tools row gave them. */
-  .list-tab-bar + turbo-frame .people-columns { @apply pt-3; }
   /* The bar's divider is the line above the rows: a list right under it drops
      its own ink line (the glossary; the inbox does the same in its block). */
   .list-tab-bar + turbo-frame > .people-list:first-child { border-top-width: 0; }
   .people-columns + .people-list { border-top-width: 0; }
   .people-columns__head--name { @apply min-w-0 flex-1; padding-inline-start: 42px; }
   .people-columns__head--last { @apply w-[120px] flex-none text-end; }
-  .people-columns__link { @apply inline-flex items-center gap-1 text-xs text-muted no-underline hover:text-heading; }
+  .people-columns__link { @apply inline-flex items-center gap-0.5 text-muted no-underline hover:text-heading; }
   .people-columns__link--active { @apply text-heading; }
   .people-row__last { @apply w-[120px] flex-none whitespace-nowrap text-end text-xs tabular-nums text-muted; }
   /* The meetings: one line each, date and title. Without one the title and

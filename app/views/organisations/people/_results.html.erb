@@ -17,12 +17,12 @@
       <%# Class names written out: Tailwind keeps only component classes it finds whole in a template. %>
       <% { 'name' => 'people-columns__head--name', 'last' => 'people-columns__head--last' }.each do |key, head_class| %>
         <% active = sort == key %>
-        <%= tag.span class: "people-columns__head #{head_class}" do %>
+        <%= tag.span class: "column-head people-columns__head #{head_class}" do %>
           <%= link_to organisation_people_path(@current_organisation, list_state.except('sort').merge(key == 'last' ? { 'sort' => 'last' } : {}).merge(open_lane)),
                       class: "people-columns__link #{'people-columns__link--active' if active}", 'aria-current': (active ? 'true' : nil),
                       data: { turbo_frame: '_top', lane_keep: true } do %>
             <%= t("views.organisations.people.index.columns.#{key}") %>
-            <% if active %><i class="bi bi-arrow-down" aria-hidden="true"></i><span class="sr-only"><%= t('views.organisations.people.index.columns.sorted') %></span><% end %>
+            <% if active %><i class="bi bi-arrow-down-short" aria-hidden="true"></i><span class="sr-only"><%= t('views.organisations.people.index.columns.sorted') %></span><% end %>
           <% end %>
         <% end %>
       <% end %>

@@ -100,11 +100,11 @@
       <table class="am-table border-collapse text-sm">
         <thead>
           <tr>
-            <th scope="col" class="am-corner">
+            <th scope="col" class="am-corner" data-matrix-head>
               <%= t('views.organisations.access_matrix.index.member_header') %>
             </th>
             <% @matrix.projects.each do |project| %>
-              <th scope="col" class="am-colhead"
+              <th scope="col" class="am-colhead" data-matrix-head
                   data-access-matrix-filter-target="colhead"
                   data-project-id="<%= project.id %>">
                 <%= link_to organisation_project_project_permissions_path(current_organisation, project),
