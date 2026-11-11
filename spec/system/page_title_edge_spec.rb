@@ -61,4 +61,39 @@ RSpec.describe 'Page title edge', type: :system do
       expect(measured['list_left']).to eq(measured['title_left']), "#{list_selector} of #{name}: #{measured.inspect}"
     end
   end
+
+  # The column heads (user, 2026-11-11): Personen wears the head of "Alle
+  # Meetings" (.column-head, F43), in its type and at its distance from the
+  # tab row and from the ink line below. Until then it had two plain words of
+  # its own, 18 px under the tab row and 2 px above the line.
+  def column_head(path, head_row, label)
+    visit path
+    expect(page).to have_css(label)
+    page.evaluate_script(<<~JS)
+      (function () {
+        var tabs = document.querySelector('[role="tablist"]').getBoundingClientRect();
+        var row = document.querySelector(#{head_row.to_json}).getBoundingClientRect();
+        var element = document.querySelector(#{label.to_json});
+        var walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT,
+          { acceptNode: function (n) { return n.textContent.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP; } });
+        var word = walker.nextNode();
+        var range = document.createRange(); range.selectNodeContents(word);
+        var text = range.getBoundingClientRect();
+        var style = getComputedStyle(word.parentElement);
+        return { above: Math.round(text.top - tabs.bottom), below: Math.round(row.bottom - text.bottom),
+                 type: [style.fontFamily, style.fontSize, style.textTransform, style.letterSpacing] };
+      })()
+    JS
+  end
+
+  it 'puts the column heads of Personen where "Alle Meetings" puts its own, in the same type' do
+    ActsAsTenant.with_tenant(organisation) { create(:meeting, organisation: organisation, project: project) }
+    reference = column_head(organisation_meetings_path(organisation), 'table.meeting-table thead tr',
+                            'table.meeting-table thead th:first-child')
+    measured = column_head(organisation_people_path(organisation), '.people-columns', '.people-columns__link')
+
+    expect(measured['type']).to eq(reference['type'])
+    expect(measured['above']).to be_within(1).of(reference['above']), "#{measured.inspect} against #{reference.inspect}"
+    expect(measured['below']).to be_within(1).of(reference['below']), "#{measured.inspect} against #{reference.inspect}"
+  end
 end
