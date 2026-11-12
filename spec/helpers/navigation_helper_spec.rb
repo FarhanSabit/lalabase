@@ -2,15 +2,16 @@
 
 require 'rails_helper'
 
-# What: NavigationHelper — the org-nav permission gates + the single source for the settings tabs.
+# What: NavigationHelper: the org-nav permission gates + the single source for the management sections.
 # Type: Helper (unit) spec.
 # Why:  The request spec can only reach realizable permission states; this pins the LOGIC the plan
 #       cares about but that a stored Permission cannot express, at the DECISION POINTS:
 #         - can_invite_to_organisation? is a STRICT SUBSET of can_manage_organisation?, and each
 #           whitelisted action lands in the right gate (positive iteration — catches a shrunk list);
-#         - the settings-tab set is a fixed contract (keys, order, controller, path), asserted
+#         - the section list is a fixed contract (keys, order, controller, path), asserted
 #           DECOUPLED from SETTINGS_TABS so a reorder/rename/removal breaks a test rather than
-#           silently drifting the subnav + the sidebar active-state that both derive from it.
+#           silently drifting the sidebar's management list and the section a page marks, which
+#           both derive from it.
 RSpec.describe NavigationHelper, type: :helper do
   # Actions that grant management but NOT invite (the strict-subset boundary), and the two that
   # grant BOTH. Locals (not constants) so they drive example generation without leaking a constant;
@@ -72,7 +73,7 @@ RSpec.describe NavigationHelper, type: :helper do
   end
 
   # The times area (the one time list and the billings): same contract as the
-  # settings tabs, same reason. The subnav renders TIMES_TABS and the sidebar
+  # management sections, same reason. The subnav renders TIMES_TABS and the sidebar
   # entry "Zeiten" derives its highlight from the same list.
   describe 'times tabs are a fixed contract' do
     let(:expected_key_to_controller) do
@@ -111,10 +112,11 @@ RSpec.describe NavigationHelper, type: :helper do
     end
   end
 
-  describe 'settings tabs are a fixed contract' do
-    # Explicit, DECOUPLED expectation (key => controller_name), in tab-bar order. The subnav renders
-    # these and management_section_active? derives its controller list from the SAME source; pinning
-    # them here means a reorder, rename, removal, or wrong controller mapping breaks a test.
+  describe 'management sections are a fixed contract' do
+    # Explicit, DECOUPLED expectation (key => controller_name), in the sidebar's order. The sidebar's
+    # management list renders these and management_section_key finds a page's section in the SAME
+    # source; pinning them here means a reorder, rename, removal, or wrong controller mapping breaks
+    # a test.
     let(:expected_key_to_controller) do
       {
         general: 'organisation_settings',
@@ -133,7 +135,7 @@ RSpec.describe NavigationHelper, type: :helper do
       expect(actual).to eq(expected_key_to_controller.to_a)
     end
 
-    it 'lights the management section on each tab controller and nowhere else' do
+    it 'counts each section controller as the management area, and no other' do
       expected_key_to_controller.each_value do |controller|
         allow(helper).to receive(:controller_name).and_return(controller)
         expect(helper.management_section_active?).to be(true), "expected active on '#{controller}'"
@@ -144,15 +146,16 @@ RSpec.describe NavigationHelper, type: :helper do
     end
 
     # THE trap of the S2 move (doc/ki_bereich_navigation_plan.md §7): the three AI pages
-    # used to be tabs, so management_section_active? saw them through SETTINGS_TABS.
-    # Collapsing them behind one "KI" tab drops them out of that list — and without
-    # AI_AREA_CONTROLLERS the sidebar's "Verwaltung" highlight would switch off across
-    # the entire new area while the user is standing in the middle of it. Pinned per
-    # controller, not as a set comparison, so the failure names the page that went dark.
-    it 'keeps the management section lit on every page BEHIND the KI tab' do
+    # used to be entries of the old tab row, so management_section_active? saw them through
+    # SETTINGS_TABS. The sidebar lists the AI section once ("KI", the hub), so the other
+    # pages are not in that list, and without AI_AREA_CONTROLLERS each of them would leave
+    # the area: the sidebar would show the app's entries while the reader stands in the
+    # middle of the section. Pinned per controller, not as a set comparison, so the failure
+    # names the page that fell out.
+    it 'keeps every page of the KI section in the management area' do
       %w[ai_settings ai_sync_statuses prompt_personas ai_usages ai_protocols ai_configurations].each do |controller|
         allow(helper).to receive(:controller_name).and_return(controller)
-        expect(helper.management_section_active?).to be(true), "sidebar went dark on '#{controller}'"
+        expect(helper.management_section_active?).to be(true), "'#{controller}' left the management area"
         expect(helper.management_section_key).to eq(:ai)
       end
     end
@@ -175,13 +178,13 @@ RSpec.describe NavigationHelper, type: :helper do
       expect(tabs.select { |tab| tab[:leaves] }.map { |tab| tab[:key] }).to eq([:billing])
     end
 
-    it 'resolves each tab to its real settings route with a present label' do
+    it 'resolves each section to its real route with a present label' do
       organisation = create(:organisation, data_import_enabled: true)
-      tabs = helper.organisation_settings_tabs(organisation)
+      sections = helper.management_sections(organisation)
 
-      expect(tabs.map { |tab| tab[:key] }).to eq(expected_key_to_controller.keys)
-      expect(tabs.map { |tab| tab[:label] }).to all(be_present)
-      expect(tabs.to_h { |tab| [tab[:key], tab[:path]] }).to eq(
+      expect(sections.map { |section| section[:key] }).to eq(expected_key_to_controller.keys)
+      expect(sections.map { |section| section[:label] }).to all(be_present)
+      expect(sections.to_h { |section| [section[:key], section[:path]] }).to eq(
         general: organisation_settings_path(organisation),
         members: organisation_memberships_path(organisation),
         roles: organisation_roles_path(organisation),
@@ -195,26 +198,27 @@ RSpec.describe NavigationHelper, type: :helper do
 
     # `all(be_present)` above cannot see a MISSING English key: config/initializers/i18n.rb
     # sets fallbacks = [:de], so an absent en translation silently renders the German one
-    # and be_present is satisfied. The new tab is therefore pinned on the literal word per
-    # locale. (Doing the same for the other seven is a change of its own.)
-    it 'spells the archive tab in the viewer locale, not in the German fallback' do
+    # and be_present is satisfied. The archive section, the newest when this was written, is
+    # therefore pinned on the literal word per locale. (Doing the same for the other seven is
+    # a change of its own.)
+    it 'spells the archive section in the viewer locale, not in the German fallback' do
       organisation = create(:organisation)
 
-      de = I18n.with_locale(:de) { helper.organisation_settings_tabs(organisation) }
-      en = I18n.with_locale(:en) { helper.organisation_settings_tabs(organisation) }
+      de = I18n.with_locale(:de) { helper.management_sections(organisation) }
+      en = I18n.with_locale(:en) { helper.management_sections(organisation) }
 
-      expect(de.find { |tab| tab[:key] == :archive }[:label]).to eq('Archiv')
-      expect(en.find { |tab| tab[:key] == :archive }[:label]).to eq('Archive')
+      expect(de.find { |section| section[:key] == :archive }[:label]).to eq('Archiv')
+      expect(en.find { |section| section[:key] == :archive }[:label]).to eq('Archive')
     end
 
-    # The import tab is `gate:`d on an operator flag that is OFF for every new
+    # The import section is `gate:`d on an operator flag that is OFF for every new
     # organisation. Asserted on the KEY LIST rather than on the absence of one entry,
-    # so a gate that accidentally swallowed a neighbouring tab would fail here too.
-    it 'drops the gated import tab for an organisation whose flag is off, keeping the rest' do
+    # so a gate that accidentally swallowed a neighbouring section would fail here too.
+    it 'drops the gated import section for an organisation whose flag is off, keeping the rest' do
       organisation = create(:organisation)
       expect(organisation.data_import_enabled?).to be(false), 'expected the flag to default to off'
 
-      keys = helper.organisation_settings_tabs(organisation).map { |tab| tab[:key] }
+      keys = helper.management_sections(organisation).map { |section| section[:key] }
 
       expect(keys).to eq(expected_key_to_controller.keys - [:import])
     end

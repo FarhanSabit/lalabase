@@ -28,10 +28,13 @@
     locked: true and locked_title: (the reason) on a tab that does not open
     yet: the AI tabs while AI is off (NavigationHelper#ai_section_tabs). A
     locked tab stays in the row, as the AI hub keeps its locked rows, and is
-    no link: muted like those rows (text-faint), a lock sign, the reason as
-    its tooltip and once more for screen readers. Opened by its URL anyway,
-    it is the active tab like any other (the marker, aria-current), still no
-    link and still with the lock. A locked tab without a reason raises.
+    no link but a span marked aria-disabled, as those rows are. It carries a
+    lock sign, which the rows do not, and its label is faint (text-faint), the
+    tone a locked row gives only its description (the row's name is
+    text-muted). The reason is its tooltip and is read once more to screen
+    readers. Opened by its URL anyway, it is the active tab like any other (the
+    marker in place of the faint label, aria-current), still no link and still
+    with the lock. A locked tab without a reason raises.
   @param active [Symbol] the tab that is current (with below_tab: the tab the
     page belongs to)
   @param aria_label [String] names the nav for screen readers
@@ -43,6 +46,14 @@
   underline then ended on the top edge of a foreign element, with two lines of
   different owners (2px ink, short; 1px hairline, long) meeting in one row of
   pixels.
+
+  On a phone the bar is ONE row (since 2026-11-11): below md the tabs keep
+  their line and the row scrolls sideways, without a scrollbar (scrollbar-hide,
+  as the ticket list's strip), and tab_strip_controller keeps the open tab in
+  view by moving the row, never the page. Wrapped, the six KI tabs took two
+  rows there, and an open tab of the first row had its underline in the middle
+  of the bar instead of on its rule. From md on the row wraps as before.
+  Measured in spec/system/management_phone_spec.rb.
 
   @param title_action / right_content [String] captured blocks from the caller
   @param below_tab [Boolean] the page is not the active tab itself but a page
@@ -70,7 +81,8 @@
         tab stands and marks exactly where an open one would. %>
     <% tab_box = 'inline-block border-b-2 pb-3 pt-1 text-sm whitespace-nowrap' %>
     <% active_marker = 'border-ink text-cream-900 font-bold' %>
-    <ul class="flex flex-wrap gap-x-6 gap-y-1 md:gap-x-8 -mb-px">
+    <ul class="flex overflow-x-auto scrollbar-hide gap-x-6 gap-y-1 md:flex-wrap md:overflow-visible md:gap-x-8 -mb-px"
+        data-controller="tab-strip">
       <% tabs.each do |tab| %>
         <% is_active = (active.to_sym == tab[:key]) %>
         <li>

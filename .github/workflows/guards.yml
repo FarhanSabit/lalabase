@@ -343,6 +343,7 @@ jobs:
           spec/system/inbox_spec.rb
           spec/system/test_browser_pointer_spec.rb
           spec/system/page_title_edge_spec.rb
+          spec/system/management_phone_spec.rb
           spec/system/people_tab_bar_spec.rb
           spec/system/list_tab_bar_wrap_spec.rb
           spec/requests/org_switcher_signal_spec.rb

@@ -27,8 +27,12 @@ RSpec.describe MobileNavigationHelper, type: :helper do
     end
   end
 
+  # Every page the sidebar counts as management (NavigationHelper.section_key_for): the
+  # sections, and the pages below them, the access overview, the invitation form and
+  # every AI page among them. A phone has no such sidebar; without an entry its header
+  # says "Mehr" (spec/system/management_phone_spec.rb).
   it 'covers all management pages offered by the shared navigation' do
     expect(described_class::PAGE_TITLE_KEYS.keys).to include(*NavigationHelper::SETTINGS_TAB_CONTROLLERS,
-                                                             *NavigationHelper::AI_AREA_CONTROLLERS)
+                                                             *NavigationHelper::MANAGEMENT_PAGE_SECTIONS.keys)
   end
 end

@@ -1,6 +1,7 @@
-# AI area: hub and area header (doc/ki_bereich_navigation_plan.md S2).
-# Own file rather than scattering into views.en.yml — the area still grows by
-# "Verbrauch" (S6) and "Protokoll" (S5), and those belong here too.
+# AI area: the hub and the pages of the section (doc/ki_bereich_navigation_plan.md S2),
+# reached through the section's tab row since doc/verwaltung_seitennavigation_plan.md S3.
+# Own file rather than scattering into views.en.yml: the pages of the area keep their
+# texts here, "Verbrauch" (S6) and "Protokoll" (S5) included.
 # Lives under config/locales/views/, where CLAUDE.md puts per-area files
 # (tickets, meetings, organisation and the rest sit next to it).
 ---
@@ -8,9 +9,12 @@ en:
   views:
     organisations:
       ai_overview:
-        # Page names in the area header. Deliberately not the old tab labels:
-        # "AI Sync Status" is implementation language — what the admin wants to
-        # know is whether their content is searchable, not whether a sync ran.
+        # The names of the section's pages: in its tab row (below), in the crumb of a
+        # page below a tab (shared/_section_crumb: access and personas as the way back,
+        # switch as the page) and in the phone header (MobileNavigationHelper::PAGE_TITLE_KEYS).
+        # Deliberately not the labels of the old management tab row: "AI Sync Status" is
+        # implementation language. The admin wants to know whether their content is
+        # searchable, not whether a sync ran.
         pages:
           # The hub as the first tab of the section (NavigationHelper#ai_section_tabs).
           # access, index and personas name three more tabs, usage.title and
@@ -90,7 +94,8 @@ en:
           remove_button: "Remove access"
         # Own block rather than another entry in `pages:` above: S4 and S5 are writing
         # their page names into those very lines at the time, which is what the anchors
-        # are for. `usage.title` is the name shown in the area header.
+        # are for. `usage.title` names the tab (NavigationHelper::AI_SECTION_TABS) and the
+        # phone header.
         usage:
           title: "Usage"
           # L8 in one sentence: credits are what the customer is measured against —

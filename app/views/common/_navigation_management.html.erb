@@ -17,7 +17,7 @@
   </ul>
   <p class="px-3 pb-1.5 pt-5 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted"><%= t('navigation.management') %></p>
   <nav aria-label="<%= t('navigation.management') %>" data-management-nav>
-    <% organisation_settings_tabs(current_organisation).chunk_while { |a, b| a[:group] == b[:group] }.each_with_index do |group, index| %>
+    <% management_sections(current_organisation).chunk_while { |a, b| a[:group] == b[:group] }.each_with_index do |group, index| %>
       <% if index.positive? %>
         <hr class="mx-3 my-2 border-cream-300">
       <% end %>

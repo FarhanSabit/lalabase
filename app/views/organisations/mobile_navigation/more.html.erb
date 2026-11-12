@@ -25,11 +25,11 @@
   <% end %>
   <%# The management area has no sidebar on a phone: its sections stand here, the
       same list the desktop sidebar shows while the area is open
-      (NavigationHelper#organisation_settings_tabs). %>
+      (NavigationHelper#management_sections). %>
   <% if show_management %>
     <h2 class="mobile-section-label"><%= t('navigation.management') %></h2>
     <ul class="mobile-menu-list" data-management-nav>
-      <% organisation_settings_tabs(current_organisation).each do |section| %>
+      <% management_sections(current_organisation).each do |section| %>
         <li><%= link_to safe_join([content_tag(:i, '', class: "bi #{section[:icon]}", aria: { hidden: true }), content_tag(:span, section[:label])]), section[:path],
                        data: { controller: 'management-return', action: 'turbo:before-fetch-request@document->management-return#refresh' } %></li>
       <% end %>

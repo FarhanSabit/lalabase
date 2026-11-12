@@ -408,6 +408,10 @@ RSpec.describe 'Organisations::AiSettings activation (GDPR AI opt-in)', type: :r
         # The section's head (doc/verwaltung_seitennavigation_plan.md S3): the help and the
         # connection test stand right of the title, as every page's tools do. Once each on
         # the page and that once in the head, so no row of tools is left under the tab row.
+        # The test is the page's main action, and the main action stands outermost (#143):
+        # in the title box's own place for it (NeoTitleBoxComponent#title_action), after
+        # the help, the last control of the head row. Passed among the tools after the help
+        # it would still be last, so the place is asked as well.
         it 'puts the help and the connection test into the head' do
           get organisation_ai_settings_path(organisation)
           doc = Nokogiri::HTML(response.body)
@@ -422,6 +426,15 @@ RSpec.describe 'Organisations::AiSettings activation (GDPR AI opt-in)', type: :r
           expect(doc.css("main #{help}").size).to eq(1)
           expect(head.css(test).size).to eq(1)
           expect(doc.css("main #{test}").size).to eq(1)
+
+          row = head.at_css('h1').ancestors('.flex.flex-wrap').first
+          main_action = row.css('div').select { |box| box['class'] == NeoTitleBoxComponent::TITLE_ACTION_CLASSES }
+          expect(main_action.size).to eq(1), 'the head has no main action of its own'
+          expect(main_action.first.css(test).size).to eq(1), 'the connection test is not the main action'
+          controls = row.css('a, button')
+          test_button = row.at_css("#{test} button")
+          expect(controls.last).to eq(test_button), 'the connection test is not the last control of the head row'
+          expect(controls.index(row.at_css(help))).to be < controls.index(test_button)
         end
       end
     end

@@ -1,17 +1,20 @@
-# KI-Bereich: Hub und Bereichs-Kopf (doc/ki_bereich_navigation_plan.md S2).
-# Eigene Datei statt Streuung in views.de.yml — der Bereich wächst noch um
-# „Verbrauch" (S6) und „Protokoll" (S5), und die gehören dann hierher.
-# Liegt unter config/locales/views/, wie CLAUDE.md es für Bereichs-Dateien nennt
-# (tickets, meetings, organisation und die übrigen liegen daneben).
+# AI area: the hub and the pages of the section (doc/ki_bereich_navigation_plan.md S2),
+# reached through the section's tab row since doc/verwaltung_seitennavigation_plan.md S3.
+# Own file rather than scattering into views.de.yml: the pages of the area keep their
+# texts here, "Verbrauch" (S6) and "Protokoll" (S5) included.
+# Lives under config/locales/views/, where CLAUDE.md puts per-area files
+# (tickets, meetings, organisation and the rest sit next to it).
 ---
 de:
   views:
     organisations:
       ai_overview:
-        # Seitennamen im Bereichs-Kopf. Bewusst nicht die alten Tab-Labels:
-        # „AI-Provider" war der einzige englische Ausreißer der Leiste, und
-        # „AI Sync Status" ist Implementierungssprache — der Nutzer will wissen,
-        # ob seine Inhalte durchsuchbar sind, nicht ob ein Sync gelaufen ist.
+        # The names of the section's pages: in its tab row (below), in the crumb of a
+        # page below a tab (shared/_section_crumb: access and personas as the way back,
+        # switch as the page) and in the phone header (MobileNavigationHelper::PAGE_TITLE_KEYS).
+        # Deliberately not the labels of the old management tab row: "AI-Provider" was its
+        # only English word, and "AI Sync Status" is implementation language. The admin
+        # wants to know whether their content is searchable, not whether a sync ran.
         pages:
           # The hub as the first tab of the section (NavigationHelper#ai_section_tabs).
           # access, index and personas name three more tabs, usage.title and
@@ -90,10 +93,10 @@ de:
             Anbieter bleibt stehen: Danach greift wieder der Zugang des Betreibers, sofern
             für diesen Anbieter einer hinterlegt ist.
           remove_button: "Zugang entfernen"
-        # Eigener Block statt eines weiteren Eintrags in `pages:` oben. Entstanden,
-        # weil S4, S5 und S6 gleichzeitig gebaut wurden und drei Zeilen in `pages:`
-        # drei Konflikte gewesen wären; geblieben, weil alles zu einer Unterseite
-        # jetzt an einer Stelle steht. `usage.title` ist der Name im Bereichs-Kopf.
+        # Own block rather than another entry in `pages:` above. Born because S4, S5 and
+        # S6 were built at the same time and three lines in `pages:` would have been three
+        # conflicts; kept because everything about one page now stands in one place.
+        # `usage.title` names the tab (NavigationHelper::AI_SECTION_TABS) and the phone header.
         usage:
           title: "Verbrauch"
           # L8 in einem Satz: Credits sind die Größe, an der der Kunde gemessen wird —
