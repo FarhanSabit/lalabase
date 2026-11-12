@@ -39,7 +39,7 @@
                end %>
             <%= link_to organisation_settings_path(current_organisation),
                   title: t('navigation.management'), aria: { label: t('navigation.management') },
-                  data: { action: 'click->details-autoclose#stop' },
+                  data: { controller: 'management-return', action: 'click->details-autoclose#stop turbo:before-fetch-request@document->management-return#refresh' },
                   class: "flex items-center justify-center w-6 h-6 rounded border shrink-0 transition-all #{gear_classes}" do %>
               <i class="bi bi-gear text-xs"></i>
             <% end %>
@@ -108,6 +108,7 @@
             <% invite_classes += ' border-t border-cream-200' if multi_org %>
             <li>
               <%= link_to new_organisation_invitation_path(organisation_id: current_organisation.id),
+                  data: { controller: 'management-return', action: 'turbo:before-fetch-request@document->management-return#refresh' },
                   class: invite_classes do %>
                 <i class="bi bi-person-plus"></i><span><%= t('navigation.invite_member') %></span>
               <% end %>

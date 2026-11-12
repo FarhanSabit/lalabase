@@ -25,7 +25,8 @@ RSpec.describe 'Global search overlay', type: :system do
   before do
     ActsAsTenant.current_tenant = organisation
     sign_in user
-    visit organisation_appearance_path(organisation)
+    # Search lives in the app sidebar; Appearance has the management sidebar.
+    visit organisation_root_path(organisation)
   end
 
   def overlay
@@ -83,7 +84,7 @@ RSpec.describe 'Global search overlay', type: :system do
   context 'when search is pinned (Stage 2b)' do
     before do
       user.sidebar_pins.pin_global!(organisation, 'search')
-      visit organisation_appearance_path(organisation)
+      visit organisation_root_path(organisation)
     end
 
     it 'renders the persistent inline search bar' do

@@ -19,10 +19,12 @@
                                                      title: t('member_management.invite')) %>
   <% end %>
 <% end %>
-<%= render 'organisations/shared/settings_subnav', active: :members, badge: @member_count,
+<%= render 'organisations/shared/settings_subnav', active: :members, badge: tag.span(@member_count, id: 'members_count'),
                                                    tabs: members_section_tabs(@current_organisation), tab_active: :members,
                                                    right_content: head_tools, title_action: invite.presence %>
 <%= turbo_frame_tag 'members_workspace', data: { controller: 'membership-workspace', action: 'click->membership-workspace#navigate keydown.esc->membership-workspace#closePanel click@document->membership-workspace#closeOutside popstate@window->membership-workspace#restore turbo:frame-load->membership-workspace#restoreFocus' } do %>
+  <%# The head stays outside this frame; mutations still refresh its total. %>
+  <%= turbo_stream.update 'members_count', @member_count if turbo_frame_request? %>
   <%# What stays above the list: the way to the pending invitations and, from twelve
       members on, the search. Neither, no row. %>
   <% show_search = @member_count >= 12 || params[:q].present? %>

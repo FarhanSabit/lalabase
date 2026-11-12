@@ -25,6 +25,7 @@
         <% group.each do |section| %>
           <%= render 'common/navigation_item', name: section[:label], path: section[:path], icon: "bi #{section[:icon]}",
                                                active: section[:key] == active_key,
+                                               aria_current: ('page' if section[:key] == active_key),
                                                trailing_icon: ('bi bi-arrow-up-right' if section[:leaves]) %>
         <% end %>
       </ul>

@@ -197,8 +197,8 @@ module NavigationHelper
   # the dashboard if there is none or it belongs to another organisation.
   def management_return_path(org)
     stored = session[Organisations::ManagementReturn::SESSION_KEY]
-    prefix = "#{organisation_root_path(organisation_id: org.id)}/"
-    stored.is_a?(String) && stored.start_with?(prefix) ? stored : organisation_root_path(organisation_id: org.id)
+    root = organisation_root_path(organisation_id: org.id)
+    stored.is_a?(String) && (stored == root || stored.start_with?("#{root}/", "#{root}?")) ? stored : root
   end
 
   # The tabs of the times area this reader may open (TIMES_TABS, policy applied).

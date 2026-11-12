@@ -51,6 +51,8 @@ RSpec.describe 'Management sidebar', type: :request do
       expect(sidebar(doc).css('[data-management-nav] ul').size).to eq(3)
       active = sidebar(doc).css('[data-management-nav] a.sidebar-row--active').map { |link| link.text.squish }
       expect(active).to eq([I18n.t('settings.members')])
+      expect(sidebar(doc).css('[data-management-nav] a[aria-current="page"]').map { |link| link.text.squish })
+        .to eq(active)
       expect(sidebar(doc).text).not_to include(I18n.t('navigation.org_dashboard'), I18n.t('navigation.projects_label'))
       billing = sidebar(doc).css('[data-management-nav] a').find { |link| link.text.squish == I18n.t('settings.billing') }
       expect(billing.at_css('i.bi-arrow-up-right')).to be_present
@@ -92,6 +94,35 @@ RSpec.describe 'Management sidebar', type: :request do
       doc = doc_for(organisation_roles_path(organisation), referer: organisation_settings_path(organisation))
 
       expect(back_href(doc)).to eq(inbox)
+    end
+
+    ['', '?layout=rows'].each do |query|
+      it "replaces an earlier Inbox destination when entering from the dashboard#{query}" do
+        path = "#{organisation_root_path(organisation_id: organisation.id)}#{query}"
+        doc_for(organisation_settings_path(organisation), referer: inbox)
+
+        expect(back_href(doc_for(organisation_settings_path(organisation), referer: path))).to eq(path)
+      end
+    end
+
+    [1023, 1024].each do |bytes|
+      it "preserves a #{bytes}-byte return address within the session budget" do
+        prefix = "#{inbox}&q="
+        path = prefix + 'a' * (bytes - prefix.bytesize)
+
+        expect(back_href(doc_for(organisation_settings_path(organisation), referer: path))).to eq(path)
+      end
+    end
+
+    [1025, 2800].each do |bytes|
+      it "replaces a #{bytes}-byte return address with the dashboard without overflowing the session cookie" do
+        prefix = "#{inbox}&q="
+        doc_for(organisation_settings_path(organisation), referer: inbox)
+        path = prefix + 'a' * (bytes - prefix.bytesize)
+
+        expect(back_href(doc_for(organisation_settings_path(organisation), referer: path)))
+          .to eq(organisation_root_path(organisation_id: organisation.id))
+      end
     end
 
     it 'leads to the dashboard without such a page, from a foreign host or another organisation' do
@@ -144,16 +175,68 @@ RSpec.describe 'Management sidebar', type: :request do
   end
 
   describe 'switching the organisation' do
-    before do
+    let!(:other_membership) do
       ActsAsTenant.with_tenant(other_organisation) do
         create(:membership, organisation: other_organisation, user: admin, role: create(:admin_role, organisation: other_organisation))
       end
     end
 
-    it 'stays in the open section where the reader may manage the other organisation' do
-      post set_organisation_path, params: { organisation_id: other_organisation.id, section: 'members' }
+    {
+      general: :organisation_settings_path,
+      members: :organisation_memberships_path,
+      roles: :organisation_roles_path,
+      archive: :organisation_archives_path,
+      appearance: :organisation_appearance_path,
+      ai: :organisation_ai_overview_path,
+      import: :organisation_codebase_import_files_path,
+      billing: :organisation_billing_path
+    }.each do |section, path_helper|
+      it "stays in #{section} where the reader may manage the other organisation" do
+        other_organisation.update!(data_import_enabled: true, account: create(:account))
+        post set_organisation_path, params: { organisation_id: other_organisation.id, section: section }
 
-      expect(response).to redirect_to(organisation_memberships_path(other_organisation))
+        expect(response).to redirect_to(public_send(path_helper, other_organisation))
+      end
+    end
+
+    context 'with member-management permission but no admin role in the other organisation' do
+      before do
+        other_organisation.update!(data_import_enabled: true, account: create(:account))
+        ActsAsTenant.with_tenant(other_organisation) do
+          role = create(:role, organisation: other_organisation)
+          create(:permission, role: role, category: 'accounts', action: 'manage_users', allowed: true)
+          other_membership.update!(role: role)
+        end
+      end
+
+      %w[general roles archive ai import billing].each do |section|
+        it "falls back to the destination dashboard when #{section} is forbidden there" do
+          post set_organisation_path, params: { organisation_id: other_organisation.id, section: section },
+                                      headers: { 'Referer' => "http://www.example.com#{organisation_settings_path(organisation)}" }
+
+          expect(response).to redirect_to(organisation_root_path(organisation_id: other_organisation.id))
+        end
+      end
+
+      { members: :organisation_memberships_path, appearance: :organisation_appearance_path }.each do |section, path_helper|
+        it "preserves #{section}, which the reader can still open" do
+          post set_organisation_path, params: { organisation_id: other_organisation.id, section: section }
+
+          expect(response).to redirect_to(public_send(path_helper, other_organisation))
+          follow_redirect!
+          expect(response).to have_http_status(:ok)
+        end
+      end
+
+      it 'also preserves roles when the destination role grants role management' do
+        ActsAsTenant.with_tenant(other_organisation) do
+          create(:permission, role: other_membership.role, category: 'accounts', action: 'add_edit_delete_roles', allowed: true)
+        end
+
+        post set_organisation_path, params: { organisation_id: other_organisation.id, section: 'roles' }
+
+        expect(response).to redirect_to(organisation_roles_path(other_organisation))
+      end
     end
 
     it 'lands on the root for a section that is no section, or one the organisation does not offer' do
